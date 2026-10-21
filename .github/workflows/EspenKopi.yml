@@ -26,26 +26,21 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       - name: Restore dependencies
-        run: dotnet restore ./Heimevernet.slnx
+        run: dotnet restore ./HeimevernetInnlevering1.csproj
 
       - name: Build solution
-        run: dotnet build ./Heimevernet.slnx --configuration Release --no-restore
+        run: dotnet build ./HeimevernetInnlevering1.csproj --configuration Release --no-restore
 
       - name: Run tests with coverage
         run: >
-          dotnet test ./Heimevernet.slnx
+          dotnet test ./HeimevernetInnlevering1.csproj
           --configuration Release
           --no-build
           --no-restore
           --verbosity normal
-          --output Detailed
-          --report-xunit-trx
-          --coverlet
-          --coverlet-output-format cobertura
-          --results-directory ./TestResults
       - name: Generate coverage report
         if: always() && hashFiles('TestResults/**/coverage.cobertura*.xml') != ''
         continue-on-error: true
