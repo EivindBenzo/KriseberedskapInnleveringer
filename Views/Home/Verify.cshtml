@@ -1,6 +1,9 @@
 @model HeimevernetInnlevering1.ViewModels.DataPageViewModel
+@inject Microsoft.AspNetCore.Mvc.ViewFeatures.IFileVersionProvider FileVersionProvider
 @{
     ViewData["Title"] = "Verifiser";
+    var resourceIconUrls = new[] { "car", "excavator", "drone", "generator", "personnel", "toolbox", "unknown" }
+        .ToDictionary(file => file, file => FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content($"~/images/resources/{file}.svg")));
 }
 
 <div class="data-container">
@@ -62,7 +65,7 @@
                 <article class="result-item">
                     <div class="result-label">Ressurs</div>
                     <div class="result-value">
-                        <img data-resource-icon="@r.ResourceType" alt="@r.ResourceType" width="32" height="32" />
+                        <img data-resource-icon="@r.ResourceType" alt="" width="32" height="32" />
                         @r.ResourceName (@r.ResourceType)
                     </div>
                     <div class="result-label">Lokasjon</div>
@@ -80,4 +83,4 @@
         }
     </section>
 </div>
-<script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")"></script>
+<script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")" data-icon-urls="@System.Text.Json.JsonSerializer.Serialize(resourceIconUrls)"></script>

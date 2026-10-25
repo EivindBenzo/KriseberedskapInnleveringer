@@ -90,6 +90,7 @@ header::after {
 
 .nav-brand {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     gap: 1rem;
     font-size: 1.5rem;
@@ -105,7 +106,7 @@ header::after {
 
 .nav-brand img {
     display: block;
-    height: 96px;
+    height: 80px;
     width: auto;
     object-fit: contain;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
@@ -710,7 +711,24 @@ th {
 }
 
 .resource-marker {
-    filter: drop-shadow(0 0 1px white) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+    filter: drop-shadow(0 0 0.75px #fff) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
+.map-legend img,
+img[data-resource-icon] {
+    filter: drop-shadow(0 0 0.5px #fff);
+}
+
+img[data-resource-icon] {
+    display: inline-block;
+    vertical-align: middle;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .map-legend img,
+:root[data-theme="dark"] img[data-resource-icon] {
+    filter: brightness(0) invert(1);
 }
 
 .resource-marker-preview {
@@ -757,7 +775,7 @@ th {
     }
 
     .nav-brand img {
-        height: 64px;
+        height: 56px;
         width: auto;
     }
 

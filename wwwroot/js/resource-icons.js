@@ -1,6 +1,9 @@
 (function () {
     'use strict';
     const base = document.currentScript.dataset.iconBase;
+    const versionedUrls = JSON.parse(document.currentScript.dataset.iconUrls || '{}');
+    // Bump with glyph changes; the versioned script refreshes every consumer's asset URLs.
+    const assetVersion = 'solid-20261025';
     const icons = new Map([
         ['Kjøretøy', 'car'],
         ['Maskin', 'excavator'],
@@ -14,14 +17,16 @@
 
     function get(type) {
         const known = icons.has(type);
+        const file = known ? icons.get(type) : 'unknown';
         return {
             label: known ? type : 'Ukjent / ikke valgt ressurstype',
-            url: base + (known ? icons.get(type) : 'unknown') + '.svg'
+            url: versionedUrls[file] || base + file + '.svg?v=' + assetVersion
         };
     }
 
     function sizeForZoom(zoom = 12) {
-        return Math.max(20, Math.min(44, 32 + (zoom - 12) * 2));
+        const level = Number.isFinite(zoom) ? zoom : 12;
+        return Math.max(28, Math.min(36, 32 + (level - 12)));
     }
 
     function markerOptions(type, preview = false, zoom = 12) {

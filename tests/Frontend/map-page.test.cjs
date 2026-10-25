@@ -9,7 +9,11 @@ const read = path => readFileSync(resolve(root, path), 'utf8');
 function element(value = '') {
     const classes = new Set();
     return {
-        value, textContent: '', handlers: {}, children: [], dataset: {},
+        value, textContent: '', handlers: {}, children: [], dataset: {}, attributes: {},
+        setAttribute(name, value) { this.attributes[name] = value; },
+        removeAttribute(name) { delete this.attributes[name]; },
+        get firstChild() { return this.children[0]; },
+        focus() {},
         classList: { add: c => classes.add(c), remove: c => classes.delete(c) },
         addEventListener(name, callback) { this.handlers[name] = callback; },
         appendChild(child) { this.children.push(child); },
@@ -80,6 +84,8 @@ function page({ selected = false, editId = null, focus = '' } = {}) {
         }
     };
     vm.runInNewContext(read('wwwroot/js/resource-icons.js'), context);
+    vm.runInNewContext(read('wwwroot/js/place-search.js'), context);
+    context.PlaceSearch = context.window.PlaceSearch;
     context.resourceMarkerOptions = context.window.resourceMarkerOptions;
     const view = read('Views/Home/Map.cshtml');
     const script = view.slice(view.lastIndexOf('<script>') + 8, view.lastIndexOf('</script>'))
@@ -89,7 +95,8 @@ function page({ selected = false, editId = null, focus = '' } = {}) {
         .replace(/const hasSelectedPoint = .*;/, `const hasSelectedPoint = ${selected};`)
         .replace(/const editId = .*;/, `const editId = ${editId};`)
         .replace(/const placeUrl = .*;/, 'const placeUrl = "/Home/Place";')
-        .replace(/const searchUrl = .*;/, 'const searchUrl = "/Home/SearchPlaces";');
+        .replace(/const searchUrl = .*;/, 'const searchUrl = "/Home/SearchPlaces";')
+        .replace(/localitiesUrl: @Json.Serialize.*,$/m, 'localitiesUrl: "/data/norway-localities.json",');
     vm.runInNewContext(script, context);
     return { map, markers, elements, layers, controls, visibility, requests, api: context.window.ResourceIcons };
 }
@@ -165,7 +172,7 @@ test('preview never binds or opens a popup after placement, lookup, type, search
     p.elements.citySearchButton.handlers.click();
     p.requests[1].resolve({ ok: true, json: async () => [{ lat: 60.39, lng: 5.32, label: 'Bergen' }] });
     await settle();
-    p.elements.citySuggestions.children[0].children[0].handlers.click();
+    p.elements.citySuggestions.children[0].children[0].handlers.click({ stopPropagation() {} });
     assert.equal(p.elements.selectedPlace.textContent, 'Bergen');
     assert.equal(p.markers.length, 2, 'selection reuses one preview');
     const previews = [p.markers[1], page({ selected: true, editId: 42 }).markers[0],
@@ -197,7 +204,7 @@ test('new point clears old label immediately; late reverse responses cannot chan
     assert.equal(p.elements.latitude.value, 0);
 });
 
-test('city search requires explicit button/Enter, ignores outdated results and uses selection without stale labels', async () => {
+test('full city search requires explicit button/Enter, ignores outdated results and uses selection without stale labels', async () => {
     const p = page();
     p.elements.citySearch.value = 'Bergen';
     p.elements.citySearch.handlers.input();
@@ -208,7 +215,7 @@ test('city search requires explicit button/Enter, ignores outdated results and u
     assert.equal(p.requests.length, 1);
     p.requests[0].resolve({ ok: true, json: async () => [{ lat: 60.39, lng: 5.32, label: 'Bergen' }] });
     await settle();
-    p.elements.citySuggestions.children[0].children[0].handlers.click();
+    p.elements.citySuggestions.children[0].children[0].handlers.click({ stopPropagation() {} });
     assert.equal(p.elements.selectedPlace.textContent, 'Bergen');
     p.map.events.click({ latlng: { lat: 58, lng: 8 } });
     assert.equal(p.elements.selectedPlace.textContent, '58.00000, 8.00000');
