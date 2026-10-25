@@ -10,19 +10,51 @@
         ['Utstyr', 'toolbox']
     ]);
 
-    window.resourceMarkerOptions = function (type, preview = false) {
+    const entries = Object.freeze(Array.from(icons, ([type, file]) => Object.freeze({ type, file })));
+
+    function get(type) {
         const known = icons.has(type);
-        const label = known ? type : 'Ukjent / ikke valgt ressurstype';
+        return {
+            label: known ? type : 'Ukjent / ikke valgt ressurstype',
+            url: base + (known ? icons.get(type) : 'unknown') + '.svg'
+        };
+    }
+
+    function sizeForZoom(zoom = 12) {
+        return Math.max(24, Math.min(64, 48 + (zoom - 12) * 4));
+    }
+
+    function markerOptions(type, preview = false, zoom = 12) {
+        const resource = get(type);
+        const size = sizeForZoom(zoom);
         return {
             icon: L.icon({
-                iconUrl: base + (known ? icons.get(type) : 'unknown') + '.svg',
-                iconSize: [48, 48],
-                iconAnchor: [24, 24],
-                popupAnchor: [0, -24],
+                iconUrl: resource.url,
+                iconSize: [size, size],
+                iconAnchor: [size / 2, size / 2],
+                popupAnchor: [0, -size / 2],
                 className: preview ? 'resource-marker resource-marker-preview' : 'resource-marker'
             }),
-            title: (preview ? 'Ny ressurs: ' : '') + label,
-            alt: label
+            title: (preview ? 'Ny ressurs: ' : '') + resource.label,
+            alt: resource.label
         };
-    };
+    }
+
+    window.ResourceIcons = Object.freeze({ entries, get, sizeForZoom, markerOptions });
+    window.resourceMarkerOptions = markerOptions;
+    window.resourceIconUrl = type => get(type).url;
+
+    function initializeImages() {
+        document.querySelectorAll('img[data-resource-icon]').forEach(image => {
+            const resource = get(image.dataset.resourceIcon);
+            image.src = resource.url;
+            if (!image.hasAttribute('alt')) image.alt = resource.label;
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeImages, { once: true });
+    } else {
+        initializeImages();
+    }
 }());

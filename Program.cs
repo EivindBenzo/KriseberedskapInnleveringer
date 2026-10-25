@@ -1,17 +1,37 @@
 using System.Data.Common;
 using HeimevernetInnlevering1.Data;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
-builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession(options =>
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
-    options.IdleTimeout = TimeSpan.FromHours(8);
+    options.User.RequireUniqueEmail = true;
+    options.Password.RequiredLength = 12;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+}).AddEntityFrameworkStores<AppDbContext>().AddDefaultTokenProviders();
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.Cookie.Name = "Heimevernet.Identity";
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
 });
+// Validate role changes and revoked sessions on the very next authenticated request.
+builder.Services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);
+var keyPath = builder.Configuration["DataProtection:KeyPath"]
+    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".aspnet", "DataProtection-Keys");
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(keyPath))
+    .SetApplicationName("HeimevernetInnlevering");
 
 var connectionString = DatabaseProviderConfiguration.GetRequiredConnectionString(builder.Configuration);
 
@@ -60,6 +80,7 @@ using (var scope = app.Services.CreateScope())
     }
 
     await db.Database.MigrateAsync();
+    await IdentitySeeder.SeedAsync(scope.ServiceProvider, builder.Configuration);
 }
 
 if (!app.Environment.IsDevelopment())
@@ -71,25 +92,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
-app.UseSession();
-
-// New browser sessions must complete the form before using the rest of the site.
-app.Use(async (context, next) =>
-{
-    var path = context.Request.Path;
-    var isFormPage = path.StartsWithSegments("/Home/Form");
-    var isErrorPage = path.StartsWithSegments("/Home/Error");
-    var isRegistered = context.Session.GetInt32("RegistrationId").HasValue;
-
-    if (path.StartsWithSegments("/Home") && !isFormPage && !isErrorPage && !isRegistered)
-    {
-        context.Response.Redirect("/Home/Form");
-        return;
-    }
-
-    await next();
-});
-
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(

@@ -63,7 +63,7 @@ test('blocked storage does not break the default or toggle', () => {
 
 test('six types use distinct local SVGs; unknown types use a safe fallback', () => {
     const context = {
-        document: { currentScript: { dataset: { iconBase: '/images/resources/' } } },
+        document: { currentScript: { dataset: { iconBase: '/images/resources/' } }, querySelectorAll: () => [] },
         window: {},
         L: { icon: options => options }
     };
@@ -85,5 +85,39 @@ test('six types use distinct local SVGs; unknown types use a safe fallback', () 
     for (const type of ['', null, '__proto__', '<svg onload=alert(1)>', '../../other']) {
         assert.equal(options(type).icon.iconUrl, '/images/resources/unknown.svg');
         assert.equal(options(type).alt, 'Ukjent / ikke valgt ressurstype');
+    }
+});
+
+test('overview icon URLs and image initialization share the mapping without requiring Leaflet', () => {
+    for (const readyState of ['loading', 'complete']) {
+        const events = {};
+        const images = [
+            { dataset: { resourceIcon: 'Drone' }, hasAttribute: () => false },
+            { dataset: { resourceIcon: 'Utstyr' }, alt: '', hasAttribute: () => true },
+            { dataset: { resourceIcon: '../../invalid' }, hasAttribute: () => false }
+        ];
+        const context = {
+            document: {
+                readyState,
+                currentScript: { dataset: { iconBase: '/app/images/resources/' } },
+                querySelectorAll(selector) {
+                    assert.equal(selector, 'img[data-resource-icon]');
+                    return images;
+                },
+                addEventListener(name, callback) { events[name] = callback; }
+            },
+            window: {}
+        };
+        vm.runInNewContext(source('resource-icons.js'), context);
+        if (readyState === 'loading') {
+            assert.equal(images[0].src, undefined);
+            events.DOMContentLoaded();
+        }
+        assert.equal(context.window.resourceIconUrl('Drone'), '/app/images/resources/drone.svg');
+        assert.equal(images[0].src, context.window.ResourceIcons.get('Drone').url);
+        assert.equal(images[0].alt, 'Drone');
+        assert.equal(images[1].alt, '', 'explicit decorative alt is preserved');
+        assert.equal(images[2].src, '/app/images/resources/unknown.svg');
+        assert.equal(images[2].alt, 'Ukjent / ikke valgt ressurstype');
     }
 });

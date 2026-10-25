@@ -2,9 +2,11 @@
 @using System.Globalization
 @{
     ViewData["Title"] = "Kart";
+    var isEditing = ViewBag.EditId != null;
     var resources = (ViewBag.Resources as List<HeimevernetInnlevering1.Models.MapSubmission>) ?? new();
     var resourcesJson = System.Text.Json.JsonSerializer.Serialize(resources.Select(r => new
     {
+        id = r.Id,
         name = r.ResourceName,
         type = r.ResourceType,
         location = r.LocationName,
@@ -25,7 +27,7 @@
         <p class="info">✅ @success</p>
     }
 
-    <form method="post" asp-action="Map" class="form">
+    <form method="post" asp-controller="Home" asp-action="@(isEditing ? "Edit" : "Map")" asp-route-id="@ViewBag.EditId" class="form">
         <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
 
         <div class="form-row">
@@ -66,7 +68,7 @@
 
         <p class="info">Standardlokasjon: Kristiansand. Klikk i kartet for å velge nøyaktig plassering.</p>
         <div id="map" aria-label="Interaktivt kart"></div>
-        <button type="submit" class="btn-submit">Send inn</button>
+        <button type="submit" class="btn-submit">@(isEditing ? "Lagre endringer" : "Send inn")</button>
     </form>
 
     <h2>Registrerte ressurser (@resources.Count)</h2>
@@ -97,8 +99,10 @@
 </style>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="~/css/map-controls.css" asp-append-version="true" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")"></script>
+<script src="~/js/map-controls.js" asp-append-version="true"></script>
 <script>
     const startLat = @startLat;
     const startLng = @startLng;
@@ -108,6 +112,7 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
+    MapControls.add(map);
 
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -116,38 +121,54 @@
     }
 
     // Markers for all stored resources, each with a small info box.
-    savedResources.forEach(function (r) {
-        L.marker([r.lat, r.lng], resourceMarkerOptions(r.type)).addTo(map).bindPopup(
+    const savedMarkers = savedResources.map(function (r) {
+        const savedMarker = L.marker([r.lat, r.lng], resourceMarkerOptions(r.type, false, map.getZoom())).addTo(map).bindPopup(
             '<div class="resource-popup"><strong>' + escapeHtml(r.name) + '</strong>' +
             'Type: ' + escapeHtml(r.type) + '<br>' +
             'Sted: ' + escapeHtml(r.location) + '<br>' +
             r.lat.toFixed(5) + ', ' + r.lng.toFixed(5) + '</div>'
         );
+        return { resource: r, marker: savedMarker };
     });
 
     // Marker for the location currently being chosen.
     const resourceType = document.getElementById('resourceType');
-    const marker = L.marker([startLat, startLng], resourceMarkerOptions(resourceType.value, true)).addTo(map);
-    marker.bindPopup('Ny ressurs plasseres her').openPopup();
+    const marker = L.marker([startLat, startLng], resourceMarkerOptions(resourceType.value, true, map.getZoom())).addTo(map);
+    const previewLabel = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(isEditing ? "Ressursen plasseres her" : "Ny ressurs plasseres her"));
+    marker.bindPopup(previewLabel).openPopup();
 
     resourceType.addEventListener('change', function () {
-        const options = resourceMarkerOptions(resourceType.value, true);
+        const options = resourceMarkerOptions(resourceType.value, true, map.getZoom());
         marker.options.title = options.title;
         marker.options.alt = options.alt;
         marker.setIcon(options.icon);
     });
 
+    map.on('zoomend', function () {
+        savedMarkers.forEach(function (item) {
+            item.marker.setIcon(resourceMarkerOptions(item.resource.type, false, map.getZoom()).icon);
+        });
+        marker.setIcon(resourceMarkerOptions(resourceType.value, true, map.getZoom()).icon);
+    });
+
+    const focusId = new URLSearchParams(window.location.search).get('focus');
+    const focused = savedMarkers.find(item => String(item.resource.id) === focusId);
+    if (focused) {
+        map.setView(focused.marker.getLatLng(), 15);
+        focused.marker.openPopup();
+    }
+
     function setLocation(lat, lng, label) {
         map.setView([lat, lng], map.getZoom());
         marker.setLatLng([lat, lng]);
-        marker.bindPopup(label || 'Ny ressurs plasseres her').openPopup();
+        marker.bindPopup(label || previewLabel).openPopup();
         document.getElementById('latitude').value = lat;
         document.getElementById('longitude').value = lng;
     }
 
     map.on('click', function (e) {
         setLocation(e.latlng.lat, e.latlng.lng,
-            'Ny ressurs plasseres her<br>' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5));
+            previewLabel + '<br>' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5));
     });
 
     document.querySelectorAll('.resource-card').forEach(function (card) {

@@ -31,6 +31,11 @@ services:
       MARIADB_DATABASE: heimevernet
       MARIADB_USER: heimevernet_app
       MARIADB_APP_PASSWORD: ${MARIADB_APP_PASSWORD:?Set MARIADB_APP_PASSWORD in .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      DataProtection__KeyPath: /app/keys
+    volumes:
+      - identity-keys:/app/keys
 
   mariadb-integration-tests:
     profiles: ["integration"]
@@ -49,3 +54,4 @@ services:
 
 volumes:
   mariadb-data:
+  identity-keys:

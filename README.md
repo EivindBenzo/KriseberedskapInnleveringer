@@ -1,6 +1,28 @@
 # HeimevernetInnlevering1
 
-ASP.NET Core MVC application for form submissions and map resources. The form and map routes continue to use the existing `FormSubmission` and `MapSubmission` data model; this repository change migrates their persistence from SQLite to MariaDB. It does not add user accounts, authentication, authorization, or new resource-management UI.
+ASP.NET Core MVC-applikasjon (`net10.0`) med ASP.NET Core Identity, roller, behovsinnmelding og kartressurser lagret i MariaDB. EF Core og Identity bruker 9.0.22 sammen med Pomelo 9.0.0.
+
+## Innlogging og tilgang
+
+Forsiden er offentlig. Velg «Registrer» for å opprette en konto; nye kontoer får alltid rollen `Bruker`. På innloggingssiden velges «Bruker» eller «Administrator (full tilgang)». Begge krever gyldige innloggingsopplysninger. Administratorvalget kontrollerer rollen i databasen og gir aldri i seg selv ekstra rettigheter.
+
+| Funksjon | Bruker | Admin |
+| --- | --- | --- |
+| Se kart og ressursoversikt, filtrere på type | Ja | Ja |
+| Registrere ressurser | Ja | Ja |
+| Redigere/flytte/slette egne ressurser | Ja | Ja |
+| Redigere/slette andres eller eldre eierløse ressurser | Nei | Ja |
+| Melde behov og se egne innmeldinger | Ja | Ja |
+| Se alle behov og databaseverifisering | Nei | Ja |
+| Liste brukere og tildele/fjerne Admin | Nei | Ja |
+
+«Skjema» er nå «Meld behov», krever innlogging og knyttes til brukeren. Gamle innmeldinger og ressurser beholdes; eierløse behov er kun synlige for administratorer. Alle ressursendringer kontrolleres på serveren. Sletting krever bekreftelse og en POST med antiforgery-token.
+
+### Første administrator
+
+Valgfritt: sett `ADMIN_EMAIL` og `ADMIN_PASSWORD` i din lokale `.env` før oppstart. Bruk et unikt passord på minst 12 tegn med stor/liten bokstav, tall og spesialtegn. Begge verdier må være satt for at oppstart skal opprette administratoren. Uten dem opprettes bare rollene. Bruk aldri ekte verdier i Git eller skjermbilder. En administrator kan deretter administrere roller på «Brukere»-siden.
+
+Passord lagres som Identity-hasher i databasen. Gjentatte mislykkede innlogginger utløser midlertidig låsing. Informasjonskapsler er HttpOnly/SameSite; HTTPS gir Secure-cookie, mens HTTP fungerer i lokal Docker-utvikling. Bruk HTTPS i produksjon.
 
 ## Prerequisites
 
@@ -11,16 +33,22 @@ ASP.NET Core MVC application for form submissions and map resources. The form an
 
 Kartet viser egne, lokalt lagrede SVG-symboler for Kjøretøy (bil), Maskin (gravemaskin), Drone, Generator, Personell og Utstyr (verktøykasse). Forhåndsvisningen har stiplet omriss og oppdateres når du velger ressurstype; symbolet beholdes når plasseringen flyttes. Lagrede ressurser bruker sin registrerte type, uten databaseendringer. Ukjent eller ikke valgt type vises med spørsmålstegn.
 
+Symbolene skaleres ved zoomendring, med mindre ikoner på oversiktsnivå og begrenset minimum/maksimum. Tegnforklaringen nederst til venstre bruker nøyaktig samme ikonoppslag som markører og oversikten, og kan foldes sammen på mobil. Fullskjermknappen nederst til høyre bruker nettleserens Fullscreen API, med CSS-reserve på nettlesere som ikke støtter det. Trykk knappen igjen eller Esc for å avslutte. Begge kontrollene følger temaet og blir på kartet i fullskjerm.
+
+«Rediger» åpner samme kart med ressursens felt utfylt. Klikk i kartet for å flytte punktet, og lagre. «Vis på kart» i oversikten fokuserer den valgte ressursen.
+
 Nettstedet starter med lyst tema, uavhengig av operativsystemets innstilling. Knappen ved menyen bytter mellom «Mørk modus» og «Lys modus», også med tastaturet. Valget lagres i nettleseren på tvers av sider og omlasting. Hvis nettleserlagring er blokkert, virker byttet på den åpne siden; uten JavaScript brukes lyst tema. Kartfliser og søkeleverandør er uendret.
 
 Focused frontend checks use Node.js's built-in test runner (no npm packages):
 
 ```sh
-node --test tests/Frontend/theme-and-icons.test.cjs
+node --test tests/Frontend/*.test.cjs
 dotnet build
 ```
 
 Before updating an existing checkout, preserve any uncommitted CSS/logo edits (for example with a local commit or backup). Those local changes are not included here; no logo replacement is part of this update.
+
+**Lokalt CSS-stash:** Brukeren har tidligere stashet endringer i `wwwroot/css/site.css`. Kontroller eventuelle konflikter nøye når stashet hentes tilbake. Denne oppdateringen legger nye stiler i separate CSS-filer og endrer ikke `site.css`.
 
 ## Run with Docker Compose
 
@@ -53,6 +81,10 @@ docker compose down
 ```
 
 The named `mariadb-data` volume persists database files across container restarts and ordinary `docker compose down` / `up` cycles. Do not remove volumes as part of normal startup or shutdown. To verify persistence manually, submit a form and a map resource, run `docker compose restart mariadb`, wait for the database to become healthy, then check the application's data and map pages.
+
+Etter oppdatering må appen bygges på nytt: `docker compose up --build -d`. Identity-tabeller og nullable eierkoblinger legges til med en ny migrering; eksisterende tabeller/data slettes ikke. Ikke bruk `docker compose down -v`, volumfjerning eller databaseresett.
+
+Volumet `identity-keys` lagrer ASP.NET Core Data Protection-nøkler i appcontainerens `/app/keys`, slik at innloggings- og antiforgery-cookies tåler gjenoppretting av containeren. Bevar og beskytt både dette volumet og `mariadb-data` ved sikkerhetskopiering. Nøkkelfilene er ikke kryptert i hvile; begrens tilgang til Docker-verten/volumet. Eksisterende cookies fra før denne endringen kan kreve én ny innlogging. Lokal kjøring bruker en vedvarende nøkkelmappe utenfor kildekoden; `DataProtection__KeyPath` kan overstyre plasseringen.
 
 ## Local app with MariaDB
 
@@ -113,7 +145,7 @@ Review and commit the generated migration and model snapshot. The app applies co
 
 ## Integration smoke tests
 
-The opt-in test project exercises migrations and real MariaDB persistence, including Norwegian characters, nullable form locations, map coordinates and timestamps, and map-resource create/read/update/delete. Its source is excluded from the web project's compile glob.
+The opt-in test project exercises migrations and real MariaDB persistence, including Identity users/roles, resource ownership, Norwegian characters, nullable form locations, map coordinates and timestamps, and map-resource create/read/update/delete. Its source is excluded from the web project's compile glob. Authorization and login-choice unit tests can run without MariaDB using `dotnet test tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj --filter 'FullyQualifiedName!~MariaDbPersistenceTests'`.
 
 Run against a new, isolated Compose project name to exercise an empty database and fresh schema without touching the normal application volume. If `heimevernet-smoke` was used before, choose a different project name; Compose keeps named volumes after `down`.
 
@@ -122,7 +154,7 @@ docker compose -p heimevernet-smoke --profile integration run --build --rm maria
 docker compose -p heimevernet-smoke down
 ```
 
-The test container connects to MariaDB over the internal Compose network; the database port is not exposed. The test removes the rows it creates. Restart persistence can also be checked manually using the steps above. These checks cover this persistence migration only; they are not a substitute for the project's separate authentication, security, usability, or full system testing requirements.
+The test container connects to MariaDB over the internal Compose network; the database port is not exposed. The test removes the rows it creates. Restart persistence can also be checked manually using the steps above. These persistence and focused authorization checks do not replace browser or full system testing.
 
 ## Existing SQLite data
 
@@ -143,6 +175,8 @@ docker cp <old-app-container>:/app/Data/heimevernet.db ./heimevernet.sqlite.back
 Confirm the backup exists and can be opened before proceeding. Keep the old named volume until its data has been reviewed and any separately planned transfer has been verified. Moving SQLite records to MariaDB requires an explicit, separately tested transfer; it is not part of normal application startup.
 
 ## AI assistance
+
+GitHub Copilot hjalp med Identity/roller, eierkontroll og CRUD, additive migreringer, kartkontroller, tester og denne dokumentasjonen. Faktisk utførte valideringer og begrensninger rapporteres i PR-en; AI-generert kode må fortsatt gjennomgås av prosjektgruppen.
 
 GitHub Copilot also assisted with the local resource SVGs, allowlisted marker mapping, light/dark theme controls and styling, and focused frontend checks in this update. Validation results and any browser-testing limitations are recorded in the pull request.
 

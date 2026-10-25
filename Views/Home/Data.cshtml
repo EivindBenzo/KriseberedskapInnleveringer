@@ -1,15 +1,33 @@
 @model HeimevernetInnlevering1.ViewModels.DataPageViewModel
 @{
-    ViewData["Title"] = "Data";
+    ViewData["Title"] = "Ressursoversikt";
 }
 
 <div class="data-container">
     <span class="eyebrow">LAGRET INFORMASJON</span>
-    <h1>Data og innlevering</h1>
-    <p>Informasjon som er sendt inn gjennom skjemaet og kartet.</p>
+    <h1>Ressursoversikt</h1>
+    <p>Se alle ressurser, eller rediger dine egne. Administratorer kan administrere alle ressurser.</p>
+    @if (TempData["MapSuccess"] is string success)
+    {
+        <p class="info" role="status">@success</p>
+    }
+    <form asp-action="Data" method="get" class="form">
+        <div class="form-group">
+            <label for="type">Filtrer etter ressurstype</label>
+            <select id="type" name="type" class="form-control">
+                <option value="">Alle typer</option>
+                @foreach (var type in MapSubmissionViewModel.ResourceTypes)
+                {
+                    <option value="@type" selected="@(type == (string?)ViewBag.SelectedType)">@type</option>
+                }
+            </select>
+        </div>
+        <button type="submit" class="btn-submit">Filtrer</button>
+        <a asp-action="Map" class="btn-secondary">Registrer ressurs</a>
+    </form>
 
     <section class="current-features">
-        <h2>Skjema-innleveringer</h2>
+        <h2>@(User.IsInRole("Admin") ? "Alle innmeldte behov" : "Mine innmeldte behov")</h2>
         @if (Model.FormSubmissions.Count == 0)
         {
             <p>Det finnes ingen skjema-innleveringer ennå.</p>
@@ -43,12 +61,23 @@
             {
                 <article class="result-item">
                     <div class="result-label">Ressurs</div>
-                    <div class="result-value">@r.ResourceName (@r.ResourceType)</div>
+                    <div class="result-value">
+                        <img data-resource-icon="@r.ResourceType" alt="@r.ResourceType" width="32" height="32" />
+                        @r.ResourceName (@r.ResourceType)
+                    </div>
                     <div class="result-label">Lokasjon</div>
                     <div class="result-value">@r.LocationName — @r.Latitude.ToString("F6"), @r.Longitude.ToString("F6")</div>
                     <div class="info">Sendt inn @r.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                    <div class="info">Registrert av: @(r.Owner?.UserName ?? "Eldre registrering (uten eier)")</div>
+                    <a asp-action="Map" asp-route-focus="@r.Id" class="btn-secondary">Vis på kart</a>
+                    @if (HeimevernetInnlevering1.Models.ResourcePermissions.CanManage(User, r.OwnerId))
+                    {
+                        <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">Rediger</a>
+                        <a asp-action="Delete" asp-route-id="@r.Id" class="btn-secondary">Slett</a>
+                    }
                 </article>
             }
         }
     </section>
 </div>
+<script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")"></script>

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Identity;
 
 namespace HeimevernetInnlevering1.Models;
 
@@ -23,6 +24,8 @@ public class FormSubmission
     public double? Longitude { get; set; }
 
     public DateTime CreatedAtUtc { get; set; }
+    public string? OwnerId { get; set; }
+    public IdentityUser? Owner { get; set; }
 }
 
 /// <summary>
@@ -44,4 +47,7 @@ public class MapSubmission
     public double Latitude { get; set; }
     public double Longitude { get; set; }
     public DateTime CreatedAtUtc { get; set; }
+    public DateTime? UpdatedAtUtc { get; set; }
+    public string? OwnerId { get; set; }
+    public IdentityUser? Owner { get; set; }
 }

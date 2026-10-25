@@ -1,0 +1,34 @@
+@model IReadOnlyList<HeimevernetInnlevering1.Models.AdminUserViewModel>
+@{
+    ViewData["Title"] = "Administrer brukere";
+}
+<section class="account-card admin-card" aria-labelledby="admin-heading">
+    <h1 id="admin-heading">Administrer brukere</h1>
+    <p>Administratorer har full tilgang. Rolleendringer avslutter brukerens eksisterende innlogging.</p>
+    @if (TempData["AdminMessage"] is string message)
+    {
+        <p class="account-notice" role="status">@message</p>
+    }
+    @if (TempData["AdminError"] is string error)
+    {
+        <p class="account-error" role="alert">@error</p>
+    }
+    <div class="admin-users">
+        @foreach (var user in Model)
+        {
+            <article class="admin-user">
+                <div>
+                    <h2>@user.Email</h2>
+                    <p>@(user.IsAdmin ? "Administrator (full tilgang)" : "Bruker")</p>
+                </div>
+                <form asp-action="SetAdmin" method="post">
+                    <input type="hidden" name="id" value="@user.Id" />
+                    <input type="hidden" name="grant" value="@(!user.IsAdmin ? "true" : "false")" />
+                    <button type="submit" class="account-button" aria-label="@(user.IsAdmin ? $"Fjern administratortilgang for {user.Email}" : $"Gi administratortilgang til {user.Email}")">
+                        @(user.IsAdmin ? "Fjern administrator" : "Gjør til administrator")
+                    </button>
+                </form>
+            </article>
+        }
+    </div>
+</section>
