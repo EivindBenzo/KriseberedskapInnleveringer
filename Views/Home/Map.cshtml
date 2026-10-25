@@ -93,12 +93,12 @@
 </div>
 
 <style>
-    select.form-control option { background: #0f172a; color: #f1f5f9; }
     .resource-popup strong { display: block; font-size: 1rem; }
 </style>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")"></script>
 <script>
     const startLat = @startLat;
     const startLng = @startLng;
@@ -117,7 +117,7 @@
 
     // Markers for all stored resources, each with a small info box.
     savedResources.forEach(function (r) {
-        L.marker([r.lat, r.lng]).addTo(map).bindPopup(
+        L.marker([r.lat, r.lng], resourceMarkerOptions(r.type)).addTo(map).bindPopup(
             '<div class="resource-popup"><strong>' + escapeHtml(r.name) + '</strong>' +
             'Type: ' + escapeHtml(r.type) + '<br>' +
             'Sted: ' + escapeHtml(r.location) + '<br>' +
@@ -126,13 +126,20 @@
     });
 
     // Marker for the location currently being chosen.
-    let marker = L.marker([startLat, startLng], { opacity: 0.6 }).addTo(map);
+    const resourceType = document.getElementById('resourceType');
+    const marker = L.marker([startLat, startLng], resourceMarkerOptions(resourceType.value, true)).addTo(map);
     marker.bindPopup('Ny ressurs plasseres her').openPopup();
+
+    resourceType.addEventListener('change', function () {
+        const options = resourceMarkerOptions(resourceType.value, true);
+        marker.options.title = options.title;
+        marker.options.alt = options.alt;
+        marker.setIcon(options.icon);
+    });
 
     function setLocation(lat, lng, label) {
         map.setView([lat, lng], map.getZoom());
-        map.removeLayer(marker);
-        marker = L.marker([lat, lng], { opacity: 0.6 }).addTo(map);
+        marker.setLatLng([lat, lng]);
         marker.bindPopup(label || 'Ny ressurs plasseres her').openPopup();
         document.getElementById('latitude').value = lat;
         document.getElementById('longitude').value = lng;

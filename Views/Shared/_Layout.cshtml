@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Heimevernet</title>
-    <link rel="stylesheet" href="~/css/site.css" />
+    <script src="~/js/theme.js" asp-append-version="true"></script>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
     <header>
@@ -14,11 +15,17 @@
                     <img src="~/images/forsvaret-logo.png" alt="Forsvaret logo" />
                 </a>
 
+                <div class="nav-actions">
+                <button type="button" class="theme-toggle" id="themeToggle" aria-label="Mørk modus" aria-pressed="false" hidden>
+                    <span id="themeIcon" aria-hidden="true">☾</span>
+                    <span id="themeLabel">Mørk modus</span>
+                </button>
                 <button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="navMenu" aria-label="Åpne meny">
                     <span></span>
                     <span></span>
                     <span></span>
                 </button>
+                </div>
 
                 <ul class="nav-menu" id="navMenu">
                     <li><a asp-controller="Home" asp-action="Index" class="nav-link">Hjem</a></li>

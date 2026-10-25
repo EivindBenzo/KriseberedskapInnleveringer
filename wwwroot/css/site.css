@@ -1,3 +1,37 @@
+:root {
+    color-scheme: light;
+    --page: #f8fafc;
+    --surface: #ffffff;
+    --surface-end: #f1f5f9;
+    --text: #1e293b;
+    --heading: #0f172a;
+    --muted: #475569;
+    --accent: #1d4ed8;
+    --accent-end: #2563eb;
+    --border: #cbd5e1;
+    --hover: #e2edff;
+    --error: #b91c1c;
+    --shadow: rgba(15, 23, 42, 0.12);
+    --wave: #f8fafc;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #1e293b;
+    --surface: #1e293b;
+    --surface-end: #334155;
+    --text: #cbd5e1;
+    --heading: #f1f5f9;
+    --muted: #b0bfd2;
+    --accent: #60a5fa;
+    --accent-end: #93c5fd;
+    --border: #475569;
+    --hover: #2a3a52;
+    --error: #fca5a5;
+    --shadow: rgba(0, 0, 0, 0.4);
+    --wave: #1e293b;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -10,8 +44,8 @@ html {
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    color: #e2e8f0;
+    background: var(--page);
+    color: var(--text);
     line-height: 1.6;
     min-height: 100vh;
 }
@@ -31,8 +65,9 @@ header::after {
     left: 0;
     width: 100%;
     height: 60px;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 60"><path d="M0,20 Q300,0 600,20 T1200,20 L1200,60 L0,60 Z" fill="%231e293b"/></svg>') repeat-x;
-    background-size: 600px 60px;
+    background: var(--wave);
+    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 60"><path d="M0,20 Q300,0 600,20 T1200,20 L1200,60 L0,60 Z" fill="white"/></svg>') repeat-x;
+    mask-size: 600px 60px;
     pointer-events: none;
     z-index: 0;
 }
@@ -93,6 +128,42 @@ header::after {
     z-index: 3;
 }
 
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.theme-toggle {
+    min-height: 48px;
+    min-width: 140px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+    background: #1e3a8a;
+    color: white;
+    font: inherit;
+    cursor: pointer;
+}
+
+.theme-toggle[hidden] {
+    display: none;
+}
+
+.theme-toggle:hover {
+    background: #1e40af;
+}
+
+:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+}
+
+.theme-toggle:focus-visible,
+.menu-toggle:focus-visible {
+    outline-color: white;
+}
+
 .menu-toggle:hover,
 .menu-toggle.open {
     background: rgba(255, 255, 255, 0.2);
@@ -130,8 +201,8 @@ header::after {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    background: rgba(10, 22, 42, 0.98);
-    border: 1px solid rgba(96, 165, 250, 0.25);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 14px;
     box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(14px);
@@ -150,7 +221,7 @@ header::after {
 
 .nav-link {
     display: block;
-    color: #e2e8f0;
+    color: var(--heading);
     text-decoration: none;
     font-weight: 600;
     transition: all 0.2s ease;
@@ -159,7 +230,7 @@ header::after {
 }
 
 .nav-link:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: var(--hover);
     padding-left: 1.25rem;
 }
 
@@ -175,11 +246,11 @@ header::after {
 .map-container,
 .data-container,
 .result-content {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-end) 100%);
     padding: 3rem;
     border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(71, 85, 105, 0.3);
+    box-shadow: 0 20px 60px var(--shadow);
+    border: 1px solid var(--border);
     backdrop-filter: blur(10px);
 }
 
@@ -194,8 +265,8 @@ header::after {
     display: block;
     color: inherit;
     text-decoration: none;
-    background: rgba(30, 41, 59, 0.6);
-    border: 1px solid rgba(71, 85, 105, 0.4);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 14px;
     padding: 1.75rem;
     transition: all 0.3s ease;
@@ -204,14 +275,14 @@ header::after {
 .feature-card:hover {
     transform: translateY(-6px);
     border-color: rgba(96, 165, 250, 0.6);
-    background: rgba(42, 58, 82, 0.75);
+    background: var(--hover);
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35);
 }
 
 .feature-card h3 {
     margin-top: 0.6rem;
     margin-bottom: 0.4rem;
-    color: #f1f5f9;
+    color: var(--heading);
 }
 
 .feature-card p {
@@ -222,7 +293,7 @@ header::after {
 .feature-icon {
     display: inline-block;
     font-size: 1.8rem;
-    color: #60a5fa;
+    color: var(--accent);
 }
 
 .form {
@@ -243,35 +314,35 @@ label {
     display: block;
     margin-bottom: 0.75rem;
     font-weight: 600;
-    color: #f1f5f9;
+    color: var(--heading);
     font-size: 1.05rem;
 }
 
 .required {
-    color: #f87171;
+    color: var(--error);
 }
 
 .form-control {
     width: 100%;
     padding: 0.875rem 1.25rem;
-    border: 2px solid rgba(71, 85, 105, 0.5);
+    border: 2px solid var(--border);
     border-radius: 10px;
     font-size: 1rem;
     transition: all 0.3s ease;
-    background: rgba(15, 23, 42, 0.6);
-    color: #f1f5f9;
+    background: var(--surface);
+    color: var(--heading);
     backdrop-filter: blur(10px);
 }
 
 .form-control::placeholder {
-    color: #94a3b8;
+    color: var(--muted);
 }
 
 .form-control:focus {
     outline: none;
     border-color: #3b82f6;
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2), inset 0 0 0 1px rgba(59, 130, 246, 0.3);
-    background: rgba(15, 23, 42, 0.8);
+    background: var(--surface);
 }
 
 textarea.form-control {
@@ -284,13 +355,13 @@ textarea.form-control {
     background: linear-gradient(135deg, rgba(248, 113, 113, 0.15), rgba(244, 63, 94, 0.15));
     border-left: 4px solid #f87171;
     border-radius: 10px;
-    color: #fca5a5;
+    color: var(--error);
     padding: 1.5rem;
     margin-bottom: 2rem;
 }
 
 .text-danger {
-    color: #fca5a5;
+    color: var(--error);
     font-size: 0.875rem;
     display: block;
     margin-top: 0.5rem;
@@ -298,7 +369,7 @@ textarea.form-control {
 }
 
 .btn-submit {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
     color: white;
     border: none;
     padding: 1rem 2.5rem;
@@ -323,8 +394,8 @@ textarea.form-control {
 h1 {
     font-size: 2.5rem;
     margin-bottom: 1.5rem;
-    color: #f1f5f9;
-    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    color: var(--heading);
+    background: linear-gradient(135deg, var(--accent), var(--accent-end));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -334,25 +405,25 @@ h2 {
     font-size: 1.75rem;
     margin-top: 2rem;
     margin-bottom: 1.25rem;
-    color: #e0e7ff;
+    color: var(--heading);
 }
 
 h3 {
     font-size: 1.35rem;
     margin-top: 1.5rem;
     margin-bottom: 1rem;
-    color: #cbd5e1;
+    color: var(--heading);
 }
 
 p {
-    color: #cbd5e1;
+    color: var(--text);
     margin-bottom: 1rem;
     font-size: 1.05rem;
 }
 
 .eyebrow {
     display: inline-block;
-    color: #60a5fa;
+    color: var(--accent);
     font-size: 0.8rem;
     font-weight: 800;
     letter-spacing: 0.14em;
@@ -361,7 +432,7 @@ p {
 
 .info {
     font-size: 0.95rem;
-    color: #94a3b8;
+    color: var(--muted);
     margin-top: 0.75rem;
     font-style: italic;
     padding: 0.75rem 1.25rem;
@@ -377,16 +448,16 @@ ul, ol {
 
 li {
     margin-bottom: 0.75rem;
-    color: #cbd5e1;
+    color: var(--text);
 }
 
 footer {
-    background: rgba(15, 23, 42, 0.8);
-    border-top: 1px solid rgba(71, 85, 105, 0.3);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
     text-align: center;
     padding: 2rem;
     margin-top: 4rem;
-    color: #94a3b8;
+    color: var(--muted);
     font-size: 0.95rem;
 }
 
@@ -423,19 +494,19 @@ footer {
 
 .result-label {
     font-weight: 700;
-    color: #60a5fa;
+    color: var(--accent);
     margin-bottom: 0.75rem;
     font-size: 1.05rem;
 }
 
 .result-value {
-    color: #cbd5e1;
+    color: var(--text);
     word-break: break-word;
     font-size: 1.1rem;
 }
 
 .result-value a {
-    color: #60a5fa;
+    color: var(--accent);
     text-decoration: none;
 }
 
@@ -517,7 +588,7 @@ footer {
     margin: 0;
     padding: 0.4rem;
     list-style: none;
-    background: rgba(15, 23, 42, 0.98);
+    background: var(--surface);
     border: 1px solid rgba(96, 165, 250, 0.45);
     border-radius: 0 0 12px 12px;
     box-shadow: 0 18px 35px rgba(0, 0, 0, 0.45);
@@ -533,7 +604,7 @@ footer {
 .city-suggestion-item {
     margin: 0;
     padding: 0.85rem 1rem;
-    color: #e2e8f0;
+    color: var(--heading);
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
@@ -550,6 +621,72 @@ footer {
 .leaflet-container {
     font-family: inherit;
     background: #cbd5e1;
+}
+
+select.form-control option {
+    background: var(--surface);
+    color: var(--heading);
+}
+
+a {
+    color: var(--accent);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--text);
+}
+
+th, td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    overflow-wrap: anywhere;
+}
+
+th {
+    background: var(--hover);
+    color: var(--heading);
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip,
+.leaflet-bar a,
+.leaflet-control-attribution {
+    background: var(--surface);
+    color: var(--text);
+}
+
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+    background: var(--hover);
+    color: var(--heading);
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+    color: var(--muted);
+}
+
+.leaflet-control-attribution a {
+    color: var(--accent);
+}
+
+.resource-marker {
+    border-radius: 50%;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+
+.resource-marker-preview {
+    outline: 3px dashed #172554;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 6px white;
+}
+
+.feature-card,
+.result-content,
+.map-container {
+    overflow-wrap: anywhere;
+    min-width: 0;
 }
 
 @media (max-width: 768px) {
@@ -606,7 +743,7 @@ footer {
 @media (max-width: 480px) {
     header::after {
         height: 40px;
-        background-size: 400px 40px;
+        mask-size: 400px 40px;
     }
 
     h1 {

@@ -7,6 +7,21 @@ ASP.NET Core MVC application for form submissions and map resources. The form an
 - .NET SDK 10 for running the app locally
 - Docker Engine and Docker Compose v2 for the containerized app and database
 
+## Kartikoner og tema
+
+Kartet viser egne, lokalt lagrede SVG-symboler for Kjøretøy (bil), Maskin (gravemaskin), Drone, Generator, Personell og Utstyr (verktøykasse). Forhåndsvisningen har stiplet omriss og oppdateres når du velger ressurstype; symbolet beholdes når plasseringen flyttes. Lagrede ressurser bruker sin registrerte type, uten databaseendringer. Ukjent eller ikke valgt type vises med spørsmålstegn.
+
+Nettstedet starter med lyst tema, uavhengig av operativsystemets innstilling. Knappen ved menyen bytter mellom «Mørk modus» og «Lys modus», også med tastaturet. Valget lagres i nettleseren på tvers av sider og omlasting. Hvis nettleserlagring er blokkert, virker byttet på den åpne siden; uten JavaScript brukes lyst tema. Kartfliser og søkeleverandør er uendret.
+
+Focused frontend checks use Node.js's built-in test runner (no npm packages):
+
+```sh
+node --test tests/Frontend/theme-and-icons.test.cjs
+dotnet build
+```
+
+Before updating an existing checkout, preserve any uncommitted CSS/logo edits (for example with a local commit or backup). Those local changes are not included here; no logo replacement is part of this update.
+
 ## Run with Docker Compose
 
 Create a local environment file and replace both placeholder values with different, strong random passwords. Hexadecimal values avoid connection-string delimiter issues:
@@ -128,5 +143,7 @@ docker cp <old-app-container>:/app/Data/heimevernet.db ./heimevernet.sqlite.back
 Confirm the backup exists and can be opened before proceeding. Keep the old named volume until its data has been reviewed and any separately planned transfer has been verified. Moving SQLite records to MariaDB requires an explicit, separately tested transfer; it is not part of normal application startup.
 
 ## AI assistance
+
+GitHub Copilot also assisted with the local resource SVGs, allowlisted marker mapping, light/dark theme controls and styling, and focused frontend checks in this update. Validation results and any browser-testing limitations are recorded in the pull request.
 
 GitHub Copilot was used for this MariaDB migration to inspect the existing persistence and Docker configuration, check provider compatibility, draft the provider configuration and EF migration, and prepare integration coverage and operations documentation. Prompts in this work asked for the SQLite-to-MariaDB change, EF/provider version verification, Docker readiness and persistence, and focused migration tests. The resulting changes were reviewed and validated with restore/build and MariaDB-backed checks where available. This note describes AI assistance for this migration only; it does not make claims about earlier work by the group.
