@@ -21,8 +21,8 @@ test('zoom scaling is bounded with centered anchors and proportional popup offse
     const api = icons();
     assert.equal(api.entries.length, 6);
     assert.equal(api.sizeForZoom(12), 32);
-    assert.equal(api.sizeForZoom(0), 20);
-    assert.equal(api.sizeForZoom(22), 44);
+    assert.equal(api.sizeForZoom(0), 28);
+    assert.equal(api.sizeForZoom(22), 36);
     assert.ok(api.sizeForZoom(10) < api.sizeForZoom(14));
     for (const { type } of api.entries) {
         for (const preview of [true, false]) {

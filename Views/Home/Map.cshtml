@@ -1,5 +1,6 @@
 @model MapSubmissionViewModel
 @using System.Globalization
+@inject Microsoft.AspNetCore.Mvc.ViewFeatures.IFileVersionProvider FileVersionProvider
 @{
     ViewData["Title"] = "Kart";
     var isEditing = ViewBag.EditId != null;
@@ -17,6 +18,8 @@
         && double.IsFinite(lat) && double.IsFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
     var startLat = (selectedPoint ? Model!.Latitude!.Value : 58.1467).ToString(CultureInfo.InvariantCulture);
     var startLng = (selectedPoint ? Model!.Longitude!.Value : 7.9956).ToString(CultureInfo.InvariantCulture);
+    var resourceIconUrls = new[] { "car", "excavator", "drone", "generator", "personnel", "toolbox", "unknown" }
+        .ToDictionary(file => file, file => FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content($"~/images/resources/{file}.svg")));
 }
 
 <div class="map-container">
@@ -53,11 +56,17 @@
         </div>
 
         <div class="form-group city-search-group">
-            <label for="citySearch">Søk etter by</label>
-            <input type="text" id="citySearch" class="form-control" placeholder="Skriv navnet på en by, f.eks. Bergen" autocomplete="off" />
+            <label for="citySearch">Søk etter sted</label>
+            <div class="city-search-input">
+            <input type="text" id="citySearch" class="form-control" placeholder="Skriv et stedsnavn, f.eks. Bergen" autocomplete="off"
+                   maxlength="120" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                   aria-controls="citySuggestions" aria-describedby="citySearchHelp citySearchStatus" />
+            <ul id="citySuggestions" class="city-suggestions" role="listbox" aria-label="Stedsforslag"></ul>
+            </div>
             <button type="button" id="citySearchButton" class="btn-secondary">Søk</button>
-            <ul id="citySuggestions" class="city-suggestions"></ul>
-            <span class="info" id="citySearchStatus" role="status"></span>
+            <span class="info" id="citySearchStatus" role="status" aria-live="polite" aria-atomic="true"></span>
+            <small id="citySearchHelp">Lokale forslag dekker norske byer og tettsteder, ikke adresser. Trykk Søk for fullt søk hos OpenStreetMap.
+                Stedsdata: <a href="https://www.geonames.org/">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> (utvalg og bearbeiding).</small>
         </div>
 
         <div class="form-group">
@@ -70,7 +79,7 @@
         <span asp-validation-for="Latitude" class="text-danger"></span>
         <span asp-validation-for="Longitude" class="text-danger"></span>
 
-        <p class="info">Kartet starter ved Kristiansand, men ingen plassering velges automatisk. Stedsoppslag sender valgte koordinater eller søketekst til OpenStreetMap. Ved manglende treff brukes koordinater.</p>
+        <p class="info">Kartet starter ved Kristiansand, men ingen plassering velges automatisk. Lokale forslag søkes i nettleseren. Søk-knappen sender søketekst, og punktvalg sender koordinater, til OpenStreetMap. Ikke send personlige eller fortrolige opplysninger. Ved manglende treff brukes koordinater.</p>
         <div id="map" aria-label="Interaktivt kart"></div>
         <button type="submit" class="btn-submit">@(isEditing ? "Lagre endringer" : "Send inn")</button>
     </form>
@@ -89,7 +98,7 @@
                      data-resource-id="@r.Id"
                      data-lat="@r.Latitude.ToString(CultureInfo.InvariantCulture)"
                      data-lng="@r.Longitude.ToString(CultureInfo.InvariantCulture)">
-                    <span class="eyebrow">@r.ResourceType</span>
+                    <span class="eyebrow"><img data-resource-icon="@r.ResourceType" alt="" width="32" height="32" /> @r.ResourceType</span>
                     <h3>@r.ResourceName</h3>
                     <p>📍 @r.LocationName<br />@r.Latitude.ToString("F5", CultureInfo.InvariantCulture), @r.Longitude.ToString("F5", CultureInfo.InvariantCulture)</p>
                     <button type="button" class="btn-secondary resource-focus">Vis på kart</button>
@@ -106,15 +115,14 @@
 
 <style>
     .resource-popup strong { display: block; font-size: 1rem; }
-    button.city-suggestion-item { width: 100%; border: 0; background: transparent; text-align: left; font: inherit; }
-    button.city-suggestion-item:hover, button.city-suggestion-item:focus { background: var(--accent); }
 </style>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="~/css/map-controls.css" asp-append-version="true" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")"></script>
+<script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")" data-icon-urls="@System.Text.Json.JsonSerializer.Serialize(resourceIconUrls)"></script>
 <script src="~/js/map-controls.js" asp-append-version="true"></script>
+<script src="~/js/place-search.js" asp-append-version="true"></script>
 <script>
     const startLat = @startLat;
     const startLng = @startLng;
@@ -239,86 +247,16 @@
         });
     });
 
-    // Nominatim permits explicit searches, not autocomplete.
-    const citySearchInput = document.getElementById('citySearch');
-    const citySuggestionsList = document.getElementById('citySuggestions');
-    const citySearchStatus = document.getElementById('citySearchStatus');
-    let currentController = null;
-    let searchVersion = 0;
-
-    function clearSuggestions() {
-        citySuggestionsList.innerHTML = '';
-        citySuggestionsList.classList.remove('open');
-    }
-
-    function renderSuggestions(results) {
-        clearSuggestions();
-        if (!results || results.length === 0) return;
-
-        results.forEach(function (place) {
-            const item = document.createElement('li');
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'city-suggestion-item';
-            button.textContent = place.label;
-            button.addEventListener('click', function () {
-                citySearchInput.value = place.label;
-                setLocation(place.lat, place.lng, place.label);
-                map.setZoom(12);
-                clearSuggestions();
-            });
-            item.appendChild(button);
-            citySuggestionsList.appendChild(item);
-        });
-        citySuggestionsList.classList.add('open');
-    }
-
-    citySearchInput.addEventListener('input', function () {
-        searchVersion++;
-        if (currentController) currentController.abort();
-        clearSuggestions();
-        citySearchStatus.textContent = '';
-    });
-
-    function searchCity() {
-        const query = citySearchInput.value.trim();
-        if (query.length < 2 || query.length > 120) {
-            citySearchStatus.textContent = 'Skriv mellom 2 og 120 tegn.';
-            return;
-        }
-        const version = ++searchVersion;
-        if (currentController) currentController.abort();
-        currentController = new AbortController();
-        const controller = currentController;
-        clearSuggestions();
-        citySearchStatus.textContent = 'Søker...';
-        const timeout = setTimeout(() => controller.abort(), 6000);
-        fetch(searchUrl + '?query=' + encodeURIComponent(query), { signal: controller.signal })
-            .then(response => {
-                if (!response.ok) throw new Error('Search unavailable');
-                return response.json();
-            })
-            .then(data => {
-                if (version !== searchVersion || controller.signal.aborted) return;
-                citySearchStatus.textContent = data.length === 0 ? 'Ingen treff' : '';
-                renderSuggestions(data);
-            })
-            .catch(() => {
-                if (version === searchVersion) citySearchStatus.textContent = 'Kunne ikke hente steder. Velg et punkt i kartet eller prøv igjen.';
-            })
-            .finally(() => clearTimeout(timeout));
-    }
-    document.getElementById('citySearchButton').addEventListener('click', searchCity);
-    citySearchInput.addEventListener('keydown', function (event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            searchCity();
-        }
-    });
-
-    document.addEventListener('click', function (event) {
-        if (!citySuggestionsList.contains(event.target) && event.target !== citySearchInput) {
-            clearSuggestions();
+    PlaceSearch.attach({
+        input: document.getElementById('citySearch'),
+        list: document.getElementById('citySuggestions'),
+        status: document.getElementById('citySearchStatus'),
+        button: document.getElementById('citySearchButton'),
+        searchUrl,
+        localitiesUrl: @Json.Serialize(FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content("~/data/norway-localities.json"))),
+        onSelect(place) {
+            setLocation(place.lat, place.lng, place.label);
+            map.setZoom(12);
         }
     });
 </script>
