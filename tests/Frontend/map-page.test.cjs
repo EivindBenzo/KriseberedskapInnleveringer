@@ -89,8 +89,7 @@ function page({ selected = false, editId = null, focus = '' } = {}) {
         .replace(/const hasSelectedPoint = .*;/, `const hasSelectedPoint = ${selected};`)
         .replace(/const editId = .*;/, `const editId = ${editId};`)
         .replace(/const placeUrl = .*;/, 'const placeUrl = "/Home/Place";')
-        .replace(/const searchUrl = .*;/, 'const searchUrl = "/Home/SearchPlaces";')
-        .replace(/const previewLabel = .*;/, 'const previewLabel = "Ny ressurs plasseres her";');
+        .replace(/const searchUrl = .*;/, 'const searchUrl = "/Home/SearchPlaces";');
     vm.runInNewContext(script, context);
     return { map, markers, elements, layers, controls, visibility, requests, api: context.window.ResourceIcons };
 }
@@ -153,6 +152,32 @@ test('focusing a saved resource explicitly restores its type and never selects f
 });
 
 const settle = () => new Promise(resolve => setImmediate(resolve));
+test('preview never binds or opens a popup after placement, lookup, type, search, edit or validation', async () => {
+    const p = page();
+    assert.ok(p.markers[0].popup.includes('Bil'), 'saved resources retain their meaningful popups');
+    p.map.events.click({ latlng: { lat: 59, lng: 9 } });
+    p.requests[0].resolve({ ok: true, json: async () => ({ label: 'Valgt sted' }) });
+    await settle();
+    assert.equal(p.elements.selectedPlace.textContent, 'Valgt sted');
+    p.elements.resourceType.value = 'Utstyr';
+    p.elements.resourceType.handlers.change();
+    p.elements.citySearch.value = 'Bergen';
+    p.elements.citySearchButton.handlers.click();
+    p.requests[1].resolve({ ok: true, json: async () => [{ lat: 60.39, lng: 5.32, label: 'Bergen' }] });
+    await settle();
+    p.elements.citySuggestions.children[0].children[0].handlers.click();
+    assert.equal(p.elements.selectedPlace.textContent, 'Bergen');
+    assert.equal(p.markers.length, 2, 'selection reuses one preview');
+    const previews = [p.markers[1], page({ selected: true, editId: 42 }).markers[0],
+        page({ selected: true }).markers[1]];
+    for (const marker of previews) {
+        assert.equal(marker.popup, undefined);
+        assert.equal(marker.opened, undefined);
+        assert.ok(marker.options.title.startsWith('Ny ressurs: '));
+        assert.ok(marker.options.alt);
+    }
+});
+
 test('new point clears old label immediately; late reverse responses cannot change latest selection', async () => {
     const p = page();
     p.map.events.click({ latlng: { lat: 59, lng: 9 } });
@@ -207,5 +232,5 @@ test('map provides owner-gated management links and readonly place summary; prim
     for (const path of ['Views/Home/Index.cshtml', 'Views/Shared/_Layout.cshtml']) {
         assert.doesNotMatch(read(path), /asp-action="(?:Form|Data)"/);
     }
-    assert.match(read('Views/Shared/_Layout.cshtml'), /images\/forsvaret-logo\.jpg/);
+    assert.match(read('Views/Shared/_Layout.cshtml'), /images\/forsvaret-logo\.png/);
 });

@@ -21,7 +21,7 @@
     }
 
     function sizeForZoom(zoom = 12) {
-        return Math.max(24, Math.min(64, 48 + (zoom - 12) * 4));
+        return Math.max(20, Math.min(44, 32 + (zoom - 12) * 2));
     }
 
     function markerOptions(type, preview = false, zoom = 12) {

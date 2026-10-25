@@ -45,12 +45,12 @@ test('toggle updates state and Norwegian label and persists across page loads', 
     page.events.click();
     assert.equal(page.document.documentElement.dataset.theme, 'dark');
     assert.equal(page.button.attributes['aria-pressed'], 'true');
-    assert.equal(page.elements.themeLabel.textContent, 'Lys modus');
+    assert.equal(page.elements.themeLabel.textContent, 'Mørk modus');
     const next = loadTheme(page.storage.value);
     assert.equal(next.document.documentElement.dataset.theme, 'dark');
     page.events.click();
     assert.equal(page.storage.value, 'light');
-    assert.equal(page.elements.themeLabel.textContent, 'Mørk modus');
+    assert.equal(page.elements.themeLabel.textContent, 'Lys modus');
 });
 
 test('blocked storage does not break the default or toggle', () => {
@@ -59,6 +59,57 @@ test('blocked storage does not break the default or toggle', () => {
     page.events.DOMContentLoaded();
     page.events.click();
     assert.equal(page.document.documentElement.dataset.theme, 'dark');
+});
+
+test('current-mode label and icon agree while accessible action and persisted reload follow each toggle', () => {
+    for (const saved of ['light', 'dark']) {
+        const page = loadTheme(saved);
+        page.events.DOMContentLoaded();
+        for (let i = 0; i < 3; i++) {
+            const dark = page.document.documentElement.dataset.theme === 'dark';
+            const action = dark ? 'Bytt til lys modus' : 'Bytt til mørk modus';
+            assert.equal(page.elements.themeLabel.textContent, dark ? 'Mørk modus' : 'Lys modus');
+            assert.equal(page.elements.themeIcon.textContent, dark ? '☾' : '☀');
+            assert.equal(page.button.attributes['aria-pressed'], String(dark));
+            assert.equal(page.button.attributes['aria-label'], action);
+            assert.equal(page.button.attributes.title, action);
+            const reload = loadTheme(page.storage.value);
+            reload.events.DOMContentLoaded();
+            assert.equal(reload.elements.themeLabel.textContent, page.elements.themeLabel.textContent);
+            page.events.click();
+            assert.equal(page.storage.value, dark ? 'light' : 'dark');
+        }
+    }
+});
+
+test('compact icons clamp and scale with zoom while marker, legend and overview mapping stay identical', () => {
+    const context = {
+        document: { currentScript: { dataset: { iconBase: '/images/resources/' } }, querySelectorAll: () => [] },
+        window: {},
+        L: { icon: options => options }
+    };
+    vm.runInNewContext(source('resource-icons.js'), context);
+    const api = context.window.ResourceIcons;
+    const mapping = [
+        ['Kjøretøy', 'car'], ['Maskin', 'excavator'], ['Drone', 'drone'],
+        ['Generator', 'generator'], ['Personell', 'personnel'], ['Utstyr', 'toolbox']
+    ];
+    assert.deepEqual(Array.from(api.entries, entry => [entry.type, entry.file]), mapping);
+    assert.equal(api.sizeForZoom(), 32);
+    for (const [zoom, size] of [[-10, 20], [0, 20], [8, 24], [12, 32], [16, 40], [30, 44]]) {
+        assert.equal(api.sizeForZoom(zoom), size);
+        for (const [type, file] of [...mapping, ['not-a-type', 'unknown']]) {
+            for (const preview of [false, true]) {
+                const marker = api.markerOptions(type, preview, zoom);
+                assert.equal(marker.icon.iconUrl, `/images/resources/${file}.svg`);
+                assert.equal(marker.icon.iconUrl, context.window.resourceIconUrl(type));
+                assert.equal(marker.icon.iconSize[0], size);
+                assert.equal(marker.icon.iconAnchor[0], size / 2);
+                assert.equal(marker.icon.iconAnchor[1], size / 2);
+                assert.equal(marker.icon.popupAnchor[1], -size / 2);
+            }
+        }
+    }
 });
 
 test('six types use distinct local SVGs; unknown types use a safe fallback', () => {

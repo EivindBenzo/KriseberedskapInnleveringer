@@ -13,14 +13,20 @@ Forsiden er offentlig. Velg «Registrer» for å opprette en konto; nye kontoer 
 | Redigere/flytte/slette egne ressurser | Ja | Ja |
 | Redigere/slette andres eller eldre eierløse ressurser | Nei | Ja |
 | Melde behov og se egne innmeldinger | Ja | Ja |
-| Se alle behov og databaseverifisering | Nei | Ja |
+| Se alle behov | Nei | Ja |
 | Liste brukere og tildele/fjerne Admin | Nei | Ja |
 
-Primærmenyen viser Hjem, Kart og Verifiser (sistnevnte krever Admin), samt konto og eventuell brukeradministrasjon. Skjema/Data-lenkene er fjernet fra meny og forside, ikke fra databasen eller backend: `/Home/Form` og `/Home/Data` er fortsatt tilgjengelige for innloggede brukere. Gamle innmeldinger og ressurser beholdes; eierløse behov er kun synlige for administratorer. Alle ressursendringer kontrolleres på serveren. Kartets ressurskort har «Rediger»/«Slett» for eier og Admin. Sletting krever bekreftelse og en POST med antiforgery-token.
+Primærmenyen viser Hjem, Kart og Verifiser, samt konto og eventuell brukeradministrasjon. `/Home/Verify` er nå den samlede ressursoversikten for innloggede brukere, med typefilter, kartlenker og eierstyrt redigering/sletting. Gamle `/Home/Data?type=...` videresendes dit med filteret beholdt. Ingen ny verifiseringsstatus innføres. `/Home/Form` finnes fortsatt uten egen menylenke. Gamle innmeldinger og ressurser beholdes; behov vises bare til eier eller Admin, og eierløse behov kun til Admin. Alle ressursendringer kontrolleres på serveren. Sletting krever bekreftelse og en POST med antiforgery-token.
 
 ### Første administrator
 
-Valgfritt: sett `ADMIN_EMAIL` og `ADMIN_PASSWORD` i din lokale `.env` før oppstart. Bruk et unikt passord på minst 12 tegn med stor/liten bokstav, tall og spesialtegn. Begge verdier må være satt for at oppstart skal opprette administratoren. Uten dem opprettes bare rollene. Bruk aldri ekte verdier i Git eller skjermbilder. En administrator kan deretter administrere roller på «Brukere»-siden.
+Valgfritt, utført av operatøren lokalt:
+
+1. Bevar eksisterende `.env` og databasevolum. Sett både `ADMIN_EMAIL` og `ADMIN_PASSWORD` i lokal `.env` for en adresse som **ikke allerede har konto**. Velg en ny, unik hemmelighet utenfor chat, minst 12 tegn med stor/liten bokstav, tall og spesialtegn. Ikke gjenbruk passord delt i chat.
+2. Kjør `docker compose up --build -d --force-recreate heimevernet`. Konto og roller opprettes i **din lokale MariaDB når appen starter**, ikke av cloud-agenten. Uten begge innstillinger opprettes ingen administrator; én manglende verdi stopper oppstart.
+3. Logg inn som Administrator. Fjern deretter begge bootstrap-verdier fra `.env` og gjenskap appcontaineren med samme kommando. Kontoen beholdes i databasen.
+
+En eksisterende vanlig konto blir **aldri** automatisk oppgradert: bootstrap stopper med feil. En eksisterende Admin beholdes uten passordendring. For å oppgradere en eksisterende konto må en innlogget administrator bruke «Administrer brukere». Hvis ingen Admin finnes, bootstrap først en separat, operatørkontrollert ny konto og bruk den til rolletildelingen. Ingen passord nullstilles, og registreringsskjemaet kan ikke tildele Admin. Cloud-agenten har ikke opprettet noen konto i brukerens lokale database eller hatt tilgang til den. Ikke legg ekte verdier i Git, logger eller skjermbilder.
 
 Passord lagres som Identity-hasher i databasen. Gjentatte mislykkede innlogginger utløser midlertidig låsing. Informasjonskapsler er HttpOnly/SameSite; HTTPS gir Secure-cookie, mens HTTP fungerer i lokal Docker-utvikling. Bruk HTTPS i produksjon.
 
@@ -31,7 +37,7 @@ Passord lagres som Identity-hasher i databasen. Gjentatte mislykkede innlogginge
 
 ## Kartikoner og tema
 
-Kartet viser egne, lokalt lagrede SVG-symboler for Kjøretøy (bil), Maskin (gravemaskin), Drone, Generator, Personell og Utstyr (verktøykasse). Ingen nye koordinater eller forhåndsvisning velges ved oppstart eller etter innsending. Klikk i kartet eller velg et søkeresultat først. Forhåndsvisningen har stiplet omriss og oppdateres når du velger ressurstype; typevalg alene lager aldri en markør. Ukjent/ikke valgt type kan vises med spørsmålstegn etter eksplisitt plassering. Lagrede ressurser bruker sin registrerte type, uten databaseendringer.
+Kartet viser egne, lokalt lagrede, ensfargede SVG-silhuetter uten sirkelmerker for Kjøretøy (bil), Maskin (gravemaskin), Drone, Generator, Personell og Utstyr (verktøykasse). Symbolene er normalt 32px (zoom 12), begrenset til 20–44px, med sentrert anker og diskret kontrastskygge. Ingen nye koordinater eller forhåndsvisning velges ved oppstart eller etter innsending. Klikk i kartet eller velg et søkeresultat først. Forhåndsvisningen oppdateres når du velger ressurstype, uten popup eller tekst over markøren; valgt sted vises i eksisterende oppsummering. Typevalg alene lager aldri en markør. Ukjent/ikke valgt type kan vises med spørsmålstegn etter eksplisitt plassering. Lagrede ressurser beholder informative popuper ved klikk.
 
 Symbolene skaleres ved zoomendring, med mindre ikoner på oversiktsnivå og begrenset minimum/maksimum. Tegnforklaringen nederst til venstre bruker samme ikoner, med seks avkrysningsbokser som kun skjuler/viser lagrede markører. Alle kan slås av; verken databasen eller valgt forhåndsvisning endres. Valget beholdes ved zoom/fullskjerm. «Vis på kart» gjenaktiverer ressursens type ved behov. Tegnforklaringen er større kun i fullskjerm og kan foldes sammen på mobil. Firehjørnesymbolet nederst til høyre bruker nettleserens Fullscreen API, med CSS-reserve. Trykk knappen igjen eller Esc for å avslutte. Kontrollene følger temaet og støtter tastatur.
 
@@ -45,16 +51,19 @@ Bysøk utføres kun ved «Søk»/Enter, aldri mens du skriver. Reverse-oppslag s
 
 **Personvern:** Valgte koordinater og søketekst sendes til OpenStreetMaps Nominatim via serveren, ikke kontoopplysninger eller ressursnavn. Kartfliser lastes fortsatt direkte fra OpenStreetMap. Ikke søk etter konfidensielle/personlige opplysninger. For sensitive plasseringer kan eksterne stedsoppslag deaktiveres med `Geocoding__Enabled=false`; koordinatetiketter og manuell kartplassering fungerer fortsatt. `Geocoding__BaseUrl` (HTTPS) og `Geocoding__UserAgent` kan overstyres av operatøren uten kodeendring. Offentlig Nominatim skal kun brukes fra én appinstans; bruk egen/annen egnet tjeneste eller felles global begrensning før skalering til flere instanser. Dette er ikke en generell URL-proxy.
 
-Nettstedet starter med lyst tema, uavhengig av operativsystemets innstilling. Knappen ved menyen bytter mellom «Mørk modus» og «Lys modus», også med tastaturet. Valget lagres i nettleseren på tvers av sider og omlasting. Hvis nettleserlagring er blokkert, virker byttet på den åpne siden; uten JavaScript brukes lyst tema.
+Nettstedet starter med lyst tema, uavhengig av operativsystemets innstilling. Knappen ved menyen viser **gjeldende** modus: «Mørk modus» med måne på mørk side, «Lys modus» med sol på lys side. Tilgjengelig navn og verktøytips beskriver byttehandlingen, mens `aria-pressed` følger mørkt tema. Valget lagres i nettleseren på tvers av sider og omlasting. Hvis nettleserlagring er blokkert, virker byttet på den åpne siden; uten JavaScript brukes lyst tema. «Søk» har blå bakgrunn, hvit tekst og minst 44px høyde i begge temaer.
 
 Focused frontend checks use Node.js's built-in test runner (no npm packages):
 
 ```sh
 node --test tests/Frontend/*.test.cjs
 dotnet build
+dotnet test tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj --filter 'FullyQualifiedName!~MariaDbPersistenceTests'
 ```
 
-Headeren bruker den allerede versjonerte `wwwroot/images/forsvaret-logo.jpg`, ikke en lokal/usporet PNG. JPG-en har emblem helt ut mot bildekantene, så eksisterende 80px høyde på desktop / 56px på mobil viser hele merket uten strekk eller beskjæring. Ingen eksterne logoer er lastet ned.
+Tre nye enhetstester dekker gjeldende tematekst/ikon/ARIA og lagret valg, kompakt zoomskalering med felles ikonmapping, og forhåndsvisning uten popup etter klikk/oppslag/typevalg/søk/redigering. Eksisterende tester beholdes; faktiske resultater oppgis i PR-en.
+
+Headeren bruker versjonerte `wwwroot/images/forsvaret-logo.png`, avledet fra prosjektets eksisterende JPG med transparent bakgrunn og bevart hvit øksedetalj. Hele emblemet vises uten strekk, 96px høyt på desktop / 64px på mobil. Bildet ligger ubetinget i delt layout og leveres som offentlig statisk fil: også anonyme besøkende på Hjem, Logg inn og Registrer ser det, uten at kart/data gjøres offentlige. En ren Docker-build inkluderer filen; ingen lokal stash eller usporet bildefil kreves. Dette publiserer ikke localhost på internett.
 
 ### Oppdater lokalt etter gjennomgått og fullført PR
 
@@ -72,7 +81,7 @@ docker compose ps
 docker compose logs --tail=100 heimevernet
 ```
 
-Bevar eksisterende CSS-stash og eventuelle lokale bilder; ikke bruk reset/clean eller overskriv dem. Ikke kjør `git stash pop` blindt: inspiser riktig stash og kombiner ønskede endringer manuelt ved konflikter. Denne oppdateringen endrer ikke `site.css`. Etter rebuild: Ctrl+F5, test kart og tema. Bevar både database- og nøkkelvolum; **aldri `docker compose down -v`**.
+Bevar eksisterende CSS-stash og eventuelle lokale bilder; ikke bruk reset/clean eller overskriv dem. Ikke kjør `git stash pop` blindt: inspiser riktig stash og kombiner ønskede endringer manuelt ved konflikter. Denne oppdateringen endrer `site.css`; en gammel stylesheet-stash kan overskrive rettingene. Etter rebuild: Ctrl+F5, test kart og tema. Bevar både database- og nøkkelvolum; **aldri `docker compose down -v`**.
 
 ## Run with Docker Compose
 
@@ -199,6 +208,8 @@ docker cp <old-app-container>:/app/Data/heimevernet.db ./heimevernet.sqlite.back
 Confirm the backup exists and can be opened before proceeding. Keep the old named volume until its data has been reviewed and any separately planned transfer has been verified. Moving SQLite records to MariaDB requires an explicit, separately tested transfer; it is not part of normal application startup.
 
 ## AI assistance
+
+GitHub Copilot hjalp med transparent lokal logo, originale enklere ressursikoner, tema-/søkekontrast, popupfri forhåndsvisning, samlet Verifiser-side, tre nye tester og trygg lokal administratorveiledning. Ingen brukerpassord er brukt, og ingen konto er opprettet i brukerens lokale database. Faktisk utførte sjekker og begrensninger rapporteres i PR-en.
 
 GitHub Copilot hjalp også med denne kart-/navigasjonsoppryddingen: eksplisitt punktvalg, skrivebeskyttet stedsoppslag med koordinatfallback, Nominatim-policy, filter-/fullskjermkontroller, logo-/menyretting og fokuserte tester. Faktisk kjørte tester og nettlesersjekker, inkludert eventuelle nettverksbegrensninger, oppgis i PR-en; dokumentasjonen er ikke en påstand om fullført testing.
 
