@@ -15,4 +15,9 @@ public class AppDbContext : DbContext
 
     public DbSet<FormSubmission> FormSubmissions => Set<FormSubmission>();
     public DbSet<MapSubmission> MapSubmissions => Set<MapSubmission>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.HasCharSet("utf8mb4");
+    }
 }

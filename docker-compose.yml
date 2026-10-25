@@ -1,15 +1,51 @@
 services:
+  mariadb:
+    image: mariadb:10.11.19
+    environment:
+      MARIADB_DATABASE: heimevernet
+      MARIADB_USER: heimevernet_app
+      MARIADB_PASSWORD: ${MARIADB_APP_PASSWORD:?Set MARIADB_APP_PASSWORD in .env}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Set MARIADB_ROOT_PASSWORD in .env}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
   heimevernet:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      mariadb:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
       ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__DefaultConnection: "Data Source=/app/Data/heimevernet.db"
-    volumes:
-      - heimevernet-data:/app/Data
+      MARIADB_HOST: mariadb
+      MARIADB_PORT: "3306"
+      MARIADB_DATABASE: heimevernet
+      MARIADB_USER: heimevernet_app
+      MARIADB_APP_PASSWORD: ${MARIADB_APP_PASSWORD:?Set MARIADB_APP_PASSWORD in .env}
+
+  mariadb-integration-tests:
+    profiles: ["integration"]
+    build:
+      context: .
+      dockerfile: tests/MariaDbIntegrationTests/Dockerfile
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      MARIADB_HOST: mariadb
+      MARIADB_PORT: "3306"
+      MARIADB_DATABASE: heimevernet
+      MARIADB_USER: heimevernet_app
+      MARIADB_APP_PASSWORD: ${MARIADB_APP_PASSWORD:?Set MARIADB_APP_PASSWORD in .env}
 
 volumes:
-  heimevernet-data:
+  mariadb-data:
