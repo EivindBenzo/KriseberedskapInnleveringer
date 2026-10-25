@@ -43,15 +43,13 @@ public class MapSubmissionViewModel
     [Required(ErrorMessage = "Velg en ressurstype")]
     public string ResourceType { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Lokasjonsnavn er påkrevd")]
-    [StringLength(200, MinimumLength = 2, ErrorMessage = "Lokasjonsnavn må være mellom 2 og 200 tegn")]
     public string LocationName { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Breddegrad er påkrevd")]
     [Range(-90, 90, ErrorMessage = "Breddegrad må være mellom -90 og 90")]
-    public double Latitude { get; set; }
+    public double? Latitude { get; set; }
 
     [Required(ErrorMessage = "Lengdegrad er påkrevd")]
     [Range(-180, 180, ErrorMessage = "Lengdegrad må være mellom -180 og 180")]
-    public double Longitude { get; set; }
+    public double? Longitude { get; set; }
 }

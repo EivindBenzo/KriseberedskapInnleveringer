@@ -1,5 +1,6 @@
 using System.Data.Common;
 using HeimevernetInnlevering1.Data;
+using HeimevernetInnlevering1.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,10 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
+builder.Services.Configure<GeocodingOptions>(builder.Configuration.GetSection("Geocoding"));
+builder.Services.AddSingleton<IPlaceGeocoder>(services => new PlaceGeocoder(
+    new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }),
+    services.GetRequiredService<Microsoft.Extensions.Options.IOptions<GeocodingOptions>>()));
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
     options.User.RequireUniqueEmail = true;

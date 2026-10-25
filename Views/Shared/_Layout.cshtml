@@ -13,7 +13,7 @@
         <nav class="navbar">
             <div class="nav-container">
                 <a asp-controller="Home" asp-action="Index" class="nav-brand" aria-label="Hjem">
-                    <img src="~/images/forsvaret-logo.png" alt="Forsvaret logo" />
+                    <img src="~/images/forsvaret-logo.jpg" asp-append-version="true" alt="Forsvaret logo" />
                 </a>
 
                 <div class="nav-actions">
@@ -32,9 +32,7 @@
                     <li><a asp-controller="Home" asp-action="Index" class="nav-link">Hjem</a></li>
                     @if (User.Identity?.IsAuthenticated == true)
                     {
-                        <li><a asp-controller="Home" asp-action="Form" class="nav-link">Skjema</a></li>
                         <li><a asp-controller="Home" asp-action="Map" class="nav-link">Kart</a></li>
-                        <li><a asp-controller="Home" asp-action="Data" class="nav-link">Data</a></li>
                         <li><a asp-controller="Home" asp-action="Verify" class="nav-link">Verifiser</a></li>
                         @if (User.IsInRole("Admin"))
                         {
