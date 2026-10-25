@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HeimevernetInnlevering1.Data;
 using HeimevernetInnlevering1.Models;
+using HeimevernetInnlevering1.Services;
 using HeimevernetInnlevering1.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
@@ -12,10 +13,12 @@ namespace HeimevernetInnlevering1.Controllers;
 public class HomeController : Controller
 {
     private readonly AppDbContext _db;
+    private readonly IPlaceGeocoder _geocoder;
 
-    public HomeController(AppDbContext db)
+    public HomeController(AppDbContext db, IPlaceGeocoder geocoder)
     {
         _db = db;
+        _geocoder = geocoder;
     }
 
     [HttpGet]
@@ -70,19 +73,30 @@ public class HomeController : Controller
     public async Task<IActionResult> Map()
     {
         await LoadResourcesAsync();
-        return View(new MapSubmissionViewModel
-        {
-            LocationName = "Kristiansand",
-            Latitude = 58.1467,
-            Longitude = 7.9956
-        });
+        return View(new MapSubmissionViewModel());
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Place(double? latitude, double? longitude)
+    {
+        if (!ModelState.IsValid || !PlaceGeocoder.ValidPoint(latitude, longitude))
+            return BadRequest();
+        return Json(new { label = await _geocoder.ReverseAsync(latitude!.Value, longitude!.Value,
+            HttpContext?.RequestAborted ?? default) });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> SearchPlaces(string? query)
+    {
+        if (!ModelState.IsValid || !PlaceGeocoder.ValidQuery(query)) return BadRequest();
+        return Json(await _geocoder.SearchAsync(query!, HttpContext?.RequestAborted ?? default));
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Map(MapSubmissionViewModel model)
     {
-        ValidateResource(model);
+        await ValidateResourceAsync(model);
 
         if (!ModelState.IsValid)
         {
@@ -95,8 +109,8 @@ public class HomeController : Controller
             ResourceName = model.ResourceName,
             ResourceType = model.ResourceType,
             LocationName = model.LocationName,
-            Latitude = model.Latitude,
-            Longitude = model.Longitude,
+            Latitude = model.Latitude!.Value,
+            Longitude = model.Longitude!.Value,
             CreatedAtUtc = DateTime.UtcNow,
             OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
         });
@@ -142,7 +156,7 @@ public class HomeController : Controller
         var resource = await _db.MapSubmissions.FindAsync(id);
         if (resource is null) return NotFound();
         if (!ResourcePermissions.CanManage(User, resource.OwnerId)) return Forbid();
-        ValidateResource(model);
+        await ValidateResourceAsync(model);
         if (!ModelState.IsValid)
         {
             ViewBag.EditId = id;
@@ -152,12 +166,12 @@ public class HomeController : Controller
         resource.ResourceName = model.ResourceName;
         resource.ResourceType = model.ResourceType;
         resource.LocationName = model.LocationName;
-        resource.Latitude = model.Latitude;
-        resource.Longitude = model.Longitude;
+        resource.Latitude = model.Latitude!.Value;
+        resource.Longitude = model.Longitude!.Value;
         resource.UpdatedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         TempData["MapSuccess"] = "Ressursen er oppdatert.";
-        return RedirectToAction(nameof(Data));
+        return RedirectToAction(nameof(Map));
     }
 
     [HttpGet]
@@ -179,7 +193,7 @@ public class HomeController : Controller
         _db.MapSubmissions.Remove(resource);
         await _db.SaveChangesAsync();
         TempData["MapSuccess"] = "Ressursen er slettet.";
-        return RedirectToAction(nameof(Data));
+        return RedirectToAction(nameof(Map));
     }
 
     [HttpGet]
@@ -193,7 +207,7 @@ public class HomeController : Controller
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Verify() => View(await BuildDataModelAsync());
 
-    private async Task LoadResourcesAsync()
+    protected virtual async Task LoadResourcesAsync()
     {
         ViewBag.Resources = await _db.MapSubmissions
             .AsNoTracking()
@@ -201,12 +215,19 @@ public class HomeController : Controller
             .ToListAsync();
     }
 
-    private void ValidateResource(MapSubmissionViewModel model)
+    private async Task ValidateResourceAsync(MapSubmissionViewModel model)
     {
+        ModelState.Remove(nameof(model.LocationName));
+        model.LocationName = string.Empty;
         if (!MapSubmissionViewModel.ResourceTypes.Contains(model.ResourceType))
             ModelState.AddModelError(nameof(model.ResourceType), "Velg en gyldig ressurstype");
-        if (!double.IsFinite(model.Latitude) || !double.IsFinite(model.Longitude))
-            ModelState.AddModelError(string.Empty, "Velg gyldige koordinater.");
+        if (model.Latitude is not double lat || !double.IsFinite(lat) || lat is < -90 or > 90)
+            ModelState.AddModelError(nameof(model.Latitude), "Velg en gyldig breddegrad.");
+        if (model.Longitude is not double lng || !double.IsFinite(lng) || lng is < -180 or > 180)
+            ModelState.AddModelError(nameof(model.Longitude), "Velg en gyldig lengdegrad.");
+        if (PlaceGeocoder.ValidPoint(model.Latitude, model.Longitude))
+            model.LocationName = await _geocoder.ReverseAsync(model.Latitude!.Value, model.Longitude!.Value,
+                HttpContext?.RequestAborted ?? default);
     }
 
     private async Task<DataPageViewModel> BuildDataModelAsync(string? type = null)

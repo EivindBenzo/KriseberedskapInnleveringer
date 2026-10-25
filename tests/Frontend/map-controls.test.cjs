@@ -41,11 +41,11 @@ test('zoom scaling is bounded with centered anchors and proportional popup offse
     }
 });
 
-function node() {
+function node(tagName) {
     const handlers = {};
     const classes = new Set();
     return {
-        handlers, listenerOptions: {}, children: [], attributes: {}, style: {},
+        tagName, handlers, listenerOptions: {}, children: [], attributes: {}, style: {},
         classList: { add: value => classes.add(value), remove: value => classes.delete(value), contains: value => classes.has(value) },
         appendChild(child) { this.children.push(child); },
         setAttribute(key, value) { this.attributes[key] = value; },
@@ -55,11 +55,12 @@ function node() {
     };
 }
 
-function controls({ mobile = false, native = false, rejected = false } = {}) {
+function controls({ mobile = false, native = false, rejected = false, onTypeChange } = {}) {
     const document = node();
     document.body = node();
     document.body.style.overflow = 'auto';
-    document.createElement = () => node();
+    document.createElement = tagName => node(tagName);
+    document.createElementNS = (namespace, tagName) => Object.assign(node(tagName), { namespace });
     document.createTextNode = text => ({ textContent: text });
     const container = node();
     container.id = 'map';
@@ -91,12 +92,21 @@ function controls({ mobile = false, native = false, rejected = false } = {}) {
             control(options) {
                 return { addTo(map) { added.push({ options, element: this.onAdd(map) }); } };
             },
-            DomEvent: { disableClickPropagation() {}, disableScrollPropagation() {} }
+            DomEvent: {
+                disableClickPropagation(element) {
+                    for (const name of ['click', 'dblclick', 'mousedown', 'touchstart']) {
+                        element.addEventListener(name, event => event.stopPropagation());
+                    }
+                },
+                disableScrollPropagation(element) {
+                    element.addEventListener('wheel', event => event.stopPropagation());
+                }
+            }
         }
     };
     vm.runInNewContext(read('wwwroot/js/map-controls.js'), context);
-    context.window.MapControls.add(map);
-    return { document, container, map, added, media, api, button: added[0].element.children[0], legend: added[1].element };
+    const controller = context.window.MapControls.add(map, { onTypeChange });
+    return { document, container, map, added, media, api, controller, button: added[0].element.children[0], legend: added[1].element };
 }
 
 test('legend uses all six shared icons, is bottom-left and collapses on mobile', () => {
@@ -106,11 +116,116 @@ test('legend uses all six shared icons, is bottom-left and collapses on mobile',
     const items = page.legend.children[1].children;
     assert.equal(items.length, 6);
     page.api.entries.forEach((entry, index) => {
-        assert.equal(items[index].children[0].src, page.api.get(entry.type).url);
-        assert.equal(items[index].children[1].textContent, entry.type);
+        const label = items[index].children[0];
+        assert.equal(label.tagName, 'label');
+        assert.equal(label.children[0].tagName, 'input');
+        assert.equal(label.children[0].type, 'checkbox');
+        assert.equal(label.children[0].checked, true);
+        assert.equal(label.children[0].handlers.keydown, undefined, 'native checkbox keyboard handling is retained');
+        assert.equal(label.children[1].src, page.api.get(entry.type).url);
+        assert.equal(label.children[1].alt, '');
+        assert.equal(label.children[2].textContent, page.api.get(entry.type).label);
     });
     page.media.handlers.change({ matches: false });
     assert.equal(page.legend.open, true);
+});
+
+test('legend changes and public API synchronize six checkboxes and callbacks without duplicate changes', () => {
+    const changes = [];
+    const page = controls({ onTypeChange: (...args) => changes.push(args) });
+    assert.deepEqual(changes, [], 'all types start visible without emitting changes');
+    page.api.entries.forEach(({ type }, index) => {
+        const checkbox = page.legend.children[1].children[index].children[0].children[0];
+        checkbox.checked = false;
+        checkbox.handlers.change();
+        assert.deepEqual(changes.at(-1), [type, false]);
+        page.controller.setTypeVisible(type, true);
+        assert.equal(checkbox.checked, true);
+        assert.deepEqual(changes.at(-1), [type, true]);
+        page.controller.setTypeVisible(type, true);
+    });
+    assert.equal(changes.length, 12);
+    page.controller.setTypeVisible('unknown', false);
+    assert.equal(changes.length, 12);
+    const noCallback = controls();
+    noCallback.controller.setTypeVisible(noCallback.api.entries[0].type, false);
+});
+
+test('legend and fullscreen controls suppress map click, double-click and scroll without cancelling native defaults', () => {
+    const page = controls();
+    for (const control of [page.legend, page.added[0].element]) {
+        for (const name of ['click', 'dblclick', 'wheel']) {
+            let stopped = false;
+            control.handlers[name]({ stopPropagation() { stopped = true; } });
+            assert.equal(stopped, true, name);
+        }
+    }
+});
+
+test('fullscreen button has a local decorative four-corner SVG and accurate Norwegian accessible state', async () => {
+    const page = controls();
+    const svg = page.button.children[0];
+    assert.equal(svg.tagName, 'svg');
+    assert.equal(svg.namespace, 'http://www.w3.org/2000/svg');
+    assert.equal(svg.attributes.viewBox, '0 0 24 24');
+    assert.equal(svg.attributes['aria-hidden'], 'true');
+    assert.equal(svg.attributes.focusable, 'false');
+    assert.equal(svg.attributes.stroke, 'currentColor');
+    assert.equal(svg.children[0].tagName, 'path');
+    const expand = svg.children[0].attributes.d;
+    assert.equal((expand.match(/M/g) || []).length, 4);
+    assert.equal(page.button.attributes['aria-label'], 'Vis kart i fullskjerm');
+    assert.equal(page.button.title, 'Vis kart i fullskjerm');
+    await page.button.handlers.click();
+    assert.notEqual(svg.children[0].attributes.d, expand);
+    assert.equal((svg.children[0].attributes.d.match(/M/g) || []).length, 4);
+    assert.equal(page.button.attributes['aria-label'], 'Avslutt fullskjerm');
+    assert.equal(page.button.title, 'Avslutt fullskjerm (Esc)');
+    await page.button.handlers.click();
+    assert.equal(svg.children[0].attributes.d, expand);
+    assert.equal(page.button.attributes['aria-label'], 'Vis kart i fullskjerm');
+});
+
+test('filter state persists through native and fallback fullscreen transitions, zoom and mobile collapse', async () => {
+    for (const native of [false, true]) {
+        const changes = [];
+        const page = controls({ native, onTypeChange: (...args) => changes.push(args) });
+        const type = page.api.entries[0].type;
+        const checkbox = page.legend.children[1].children[0].children[0].children[0];
+        page.controller.setTypeVisible(type, false);
+        await page.button.handlers.click();
+        assert.equal(checkbox.checked, false);
+        page.map.events.zoomend?.();
+        page.media.handlers.change({ matches: true });
+        assert.equal(page.legend.open, false);
+        if (native) await page.document.exitFullscreen();
+        else page.document.handlers.keydown({ key: 'Escape', preventDefault() {} });
+        page.media.handlers.change({ matches: false });
+        assert.equal(checkbox.checked, false);
+        assert.equal(page.legend.open, true);
+        assert.deepEqual(changes, [[type, false]]);
+        await page.button.handlers.click();
+        page.controller.setTypeVisible(type, true);
+        await page.button.handlers.click();
+        assert.equal(checkbox.checked, true);
+        assert.deepEqual(changes, [[type, false], [type, true]]);
+    }
+});
+
+test('larger fullscreen controls are scoped to native and fallback selectors with bounded mobile legend', () => {
+    const css = read('wwwroot/css/map-controls.css');
+    for (const selector of [
+        '.map-fullscreen-button', '.map-fullscreen-button svg', '.map-legend',
+        '.map-legend summary', '.map-legend ul', '.map-legend label', '.map-legend img', '.map-legend input'
+    ]) {
+        assert.ok(css.includes(`#map:fullscreen ${selector},\n#map.map-fullscreen-fallback ${selector} {`), selector);
+    }
+    assert.match(css, /\.map-fullscreen-button svg\s*\{[^}]*width: 24px;[^}]*height: 24px;/);
+    assert.match(css, /#map:fullscreen \.map-fullscreen-button svg,[^}]*width: 32px;[^}]*height: 32px;/);
+    assert.match(css, /#map:fullscreen \.map-legend,[^}]*font-size: 1\.125rem;/);
+    assert.match(css, /\.map-legend ul\s*\{[^}]*max-height: min\(240px, 45dvh\);[^}]*overflow-y: auto;/);
+    assert.match(css, /#map:fullscreen \.map-legend ul,[^}]*max-height: min\(360px, 45dvh\);/);
+    assert.match(css, /@media \(max-width: 600px\)[\s\S]*#map:fullscreen \.map-legend,[\s\S]*max-width: min\(280px, calc\(100vw - 110px\)\);/);
 });
 
 test('fullscreen fallback restores page scrolling, focus, aria and map dimensions on Escape', async () => {
@@ -151,64 +266,4 @@ test('native fullscreen changes and browser Escape update controls; denied nativ
     denied.map.events.unload();
     assert.equal(denied.document.body.style.overflow, 'auto');
     assert.equal(denied.document.handlers.keydown, undefined);
-});
-
-test('Map view rescales saved and preview markers and focuses by resource id without changing form coordinates', () => {
-    const map = {
-        events: {}, zoom: 12,
-        setView(position, zoom) { this.position = position; this.zoom = zoom; this.events.zoomend?.(); return this; },
-        getZoom() { return this.zoom; },
-        on(name, callback) { this.events[name] = callback; }
-    };
-    const markers = [];
-    const elements = {};
-    const document = {
-        createElement: () => ({ textContent: '', get innerHTML() { return this.textContent; } }),
-        getElementById(id) { return elements[id] ??= Object.assign(node(), { value: id === 'resourceType' ? 'Drone' : 'original' }); },
-        querySelectorAll: () => [],
-        addEventListener() {}
-    };
-    const api = icons();
-    const context = {
-        document,
-        window: { location: { search: '?focus=42' } },
-        URLSearchParams,
-        MapControls: { add() {} },
-        resourceMarkerOptions: api.markerOptions,
-        L: {
-            map: () => map,
-            tileLayer: () => ({ addTo() {} }),
-            marker(position, options) {
-                const marker = {
-                    options, position,
-                    addTo() { return this; },
-                    bindPopup() { return this; },
-                    openPopup() { this.opened = true; return this; },
-                    setIcon(icon) { this.options.icon = icon; },
-                    getLatLng() { return this.position; }
-                };
-                markers.push(marker);
-                return marker;
-            }
-        }
-    };
-    const view = read('Views/Home/Map.cshtml');
-    const script = view.slice(view.lastIndexOf('<script>') + 8, view.lastIndexOf('</script>'))
-        .replace('const startLat = @startLat;', 'const startLat = 58;')
-        .replace('const startLng = @startLng;', 'const startLng = 8;')
-        .replace(/const savedResources = .*;/, 'const savedResources = [{id: 42, type: "Maskin", lat: 60, lng: 10}];')
-        .replace(/const previewLabel = .*;/, 'const previewLabel = "Ny ressurs plasseres her";');
-    vm.runInNewContext(script, context);
-    assert.equal(map.zoom, 15);
-    assert.deepEqual(Array.from(map.position), [60, 10]);
-    assert.equal(markers[0].opened, true);
-    assert.equal(document.getElementById('latitude').value, 'original');
-    map.setView([60, 10], 8);
-    for (const marker of markers) assert.equal(marker.options.icon.iconSize[0], api.sizeForZoom(8));
-    elements.resourceType.value = 'Generator';
-    elements.resourceType.handlers.change();
-    assert.equal(markers[1].options.icon.iconUrl, api.get('Generator').url);
-    assert.equal(markers[1].options.icon.iconSize[0], api.sizeForZoom(8));
-    assert.match(view, /asp-action="@\(isEditing \? "Edit" : "Map"\)" asp-route-id="@ViewBag.EditId"/);
-    assert.match(view, /isEditing \? "Lagre endringer" : "Send inn"/);
 });

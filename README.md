@@ -16,7 +16,7 @@ Forsiden er offentlig. Velg «Registrer» for å opprette en konto; nye kontoer 
 | Se alle behov og databaseverifisering | Nei | Ja |
 | Liste brukere og tildele/fjerne Admin | Nei | Ja |
 
-«Skjema» er nå «Meld behov», krever innlogging og knyttes til brukeren. Gamle innmeldinger og ressurser beholdes; eierløse behov er kun synlige for administratorer. Alle ressursendringer kontrolleres på serveren. Sletting krever bekreftelse og en POST med antiforgery-token.
+Primærmenyen viser Hjem, Kart og Verifiser (sistnevnte krever Admin), samt konto og eventuell brukeradministrasjon. Skjema/Data-lenkene er fjernet fra meny og forside, ikke fra databasen eller backend: `/Home/Form` og `/Home/Data` er fortsatt tilgjengelige for innloggede brukere. Gamle innmeldinger og ressurser beholdes; eierløse behov er kun synlige for administratorer. Alle ressursendringer kontrolleres på serveren. Kartets ressurskort har «Rediger»/«Slett» for eier og Admin. Sletting krever bekreftelse og en POST med antiforgery-token.
 
 ### Første administrator
 
@@ -31,13 +31,21 @@ Passord lagres som Identity-hasher i databasen. Gjentatte mislykkede innlogginge
 
 ## Kartikoner og tema
 
-Kartet viser egne, lokalt lagrede SVG-symboler for Kjøretøy (bil), Maskin (gravemaskin), Drone, Generator, Personell og Utstyr (verktøykasse). Forhåndsvisningen har stiplet omriss og oppdateres når du velger ressurstype; symbolet beholdes når plasseringen flyttes. Lagrede ressurser bruker sin registrerte type, uten databaseendringer. Ukjent eller ikke valgt type vises med spørsmålstegn.
+Kartet viser egne, lokalt lagrede SVG-symboler for Kjøretøy (bil), Maskin (gravemaskin), Drone, Generator, Personell og Utstyr (verktøykasse). Ingen nye koordinater eller forhåndsvisning velges ved oppstart eller etter innsending. Klikk i kartet eller velg et søkeresultat først. Forhåndsvisningen har stiplet omriss og oppdateres når du velger ressurstype; typevalg alene lager aldri en markør. Ukjent/ikke valgt type kan vises med spørsmålstegn etter eksplisitt plassering. Lagrede ressurser bruker sin registrerte type, uten databaseendringer.
 
-Symbolene skaleres ved zoomendring, med mindre ikoner på oversiktsnivå og begrenset minimum/maksimum. Tegnforklaringen nederst til venstre bruker nøyaktig samme ikonoppslag som markører og oversikten, og kan foldes sammen på mobil. Fullskjermknappen nederst til høyre bruker nettleserens Fullscreen API, med CSS-reserve på nettlesere som ikke støtter det. Trykk knappen igjen eller Esc for å avslutte. Begge kontrollene følger temaet og blir på kartet i fullskjerm.
+Symbolene skaleres ved zoomendring, med mindre ikoner på oversiktsnivå og begrenset minimum/maksimum. Tegnforklaringen nederst til venstre bruker samme ikoner, med seks avkrysningsbokser som kun skjuler/viser lagrede markører. Alle kan slås av; verken databasen eller valgt forhåndsvisning endres. Valget beholdes ved zoom/fullskjerm. «Vis på kart» gjenaktiverer ressursens type ved behov. Tegnforklaringen er større kun i fullskjerm og kan foldes sammen på mobil. Firehjørnesymbolet nederst til høyre bruker nettleserens Fullscreen API, med CSS-reserve. Trykk knappen igjen eller Esc for å avslutte. Kontrollene følger temaet og støtter tastatur.
 
-«Rediger» åpner samme kart med ressursens felt utfylt. Klikk i kartet for å flytte punktet, og lagre. «Vis på kart» i oversikten fokuserer den valgte ressursen.
+«Rediger» åpner samme kart med eksisterende punkt og felt utfylt, uten dobbel markør. Klikk i kartet for å flytte punktet, og lagre. Servervalidering beholder et gyldig valgt punkt ved feil.
 
-Nettstedet starter med lyst tema, uavhengig av operativsystemets innstilling. Knappen ved menyen bytter mellom «Mørk modus» og «Lys modus», også med tastaturet. Valget lagres i nettleseren på tvers av sider og omlasting. Hvis nettleserlagring er blokkert, virker byttet på den åpne siden; uten JavaScript brukes lyst tema. Kartfliser og søkeleverandør er uendret.
+Ressursnavn er brukerens tittel. Stedsnavn er en skrivebeskyttet oppsummering av valgt punkt og bestemmes på serveren; innsendt stedsnavn stoles ikke på. Reverse-oppslag bruker nærliggende adresse/tettsted (høyst 1 km fra punktet), ellers ærlige koordinater, også til havs eller ved nettverksfeil. Et flyttet punkt får straks koordinatetikett, og sene svar fra et tidligere punkt ignoreres.
+
+### Stedsoppslag og personvern
+
+Bysøk utføres kun ved «Søk»/Enter, aldri mens du skriver. Reverse-oppslag skjer kun etter punktvalg/lagring, aldri ved panorering/zoom. Den autentiserte serveren bruker [Nominatims offisielle bruksvilkår](https://operations.osmfoundation.org/policies/nominatim/): identifiserende User-Agent, maksimalt én ekstern forespørsel per sekund for hele appinstansen, ingen arbeidskø, tids-/svarstørrelsesgrenser og begrenset hurtigbuffer (512 oppføringer, treff i 24 timer, manglende treff i 30 sekunder). Ingen nye API-nøkler kreves. Overbelastning/feil gir koordinatfallback og blokkerer ikke lagring.
+
+**Personvern:** Valgte koordinater og søketekst sendes til OpenStreetMaps Nominatim via serveren, ikke kontoopplysninger eller ressursnavn. Kartfliser lastes fortsatt direkte fra OpenStreetMap. Ikke søk etter konfidensielle/personlige opplysninger. For sensitive plasseringer kan eksterne stedsoppslag deaktiveres med `Geocoding__Enabled=false`; koordinatetiketter og manuell kartplassering fungerer fortsatt. `Geocoding__BaseUrl` (HTTPS) og `Geocoding__UserAgent` kan overstyres av operatøren uten kodeendring. Offentlig Nominatim skal kun brukes fra én appinstans; bruk egen/annen egnet tjeneste eller felles global begrensning før skalering til flere instanser. Dette er ikke en generell URL-proxy.
+
+Nettstedet starter med lyst tema, uavhengig av operativsystemets innstilling. Knappen ved menyen bytter mellom «Mørk modus» og «Lys modus», også med tastaturet. Valget lagres i nettleseren på tvers av sider og omlasting. Hvis nettleserlagring er blokkert, virker byttet på den åpne siden; uten JavaScript brukes lyst tema.
 
 Focused frontend checks use Node.js's built-in test runner (no npm packages):
 
@@ -46,9 +54,25 @@ node --test tests/Frontend/*.test.cjs
 dotnet build
 ```
 
-Before updating an existing checkout, preserve any uncommitted CSS/logo edits (for example with a local commit or backup). Those local changes are not included here; no logo replacement is part of this update.
+Headeren bruker den allerede versjonerte `wwwroot/images/forsvaret-logo.jpg`, ikke en lokal/usporet PNG. JPG-en har emblem helt ut mot bildekantene, så eksisterende 80px høyde på desktop / 56px på mobil viser hele merket uten strekk eller beskjæring. Ingen eksterne logoer er lastet ned.
 
-**Lokalt CSS-stash:** Brukeren har tidligere stashet endringer i `wwwroot/css/site.css`. Kontroller eventuelle konflikter nøye når stashet hentes tilbake. Denne oppdateringen legger nye stiler i separate CSS-filer og endrer ikke `site.css`.
+### Oppdater lokalt etter gjennomgått og fullført PR
+
+PR-en skal ha `oliver-branch` som base og skal ikke flettes automatisk. En åpen PR betyr **ikke** at implementering og testing er ferdig; les sjekklisten og begrensningene først.
+
+```sh
+git status
+git stash list
+# Bare hvis du har nye, ulagrede CSS-endringer:
+git stash push -m "Lokal CSS før kartoppdatering" -- wwwroot/css/site.css
+git switch oliver-branch
+git pull --ff-only origin oliver-branch
+docker compose up --build -d --force-recreate heimevernet
+docker compose ps
+docker compose logs --tail=100 heimevernet
+```
+
+Bevar eksisterende CSS-stash og eventuelle lokale bilder; ikke bruk reset/clean eller overskriv dem. Ikke kjør `git stash pop` blindt: inspiser riktig stash og kombiner ønskede endringer manuelt ved konflikter. Denne oppdateringen endrer ikke `site.css`. Etter rebuild: Ctrl+F5, test kart og tema. Bevar både database- og nøkkelvolum; **aldri `docker compose down -v`**.
 
 ## Run with Docker Compose
 
@@ -175,6 +199,8 @@ docker cp <old-app-container>:/app/Data/heimevernet.db ./heimevernet.sqlite.back
 Confirm the backup exists and can be opened before proceeding. Keep the old named volume until its data has been reviewed and any separately planned transfer has been verified. Moving SQLite records to MariaDB requires an explicit, separately tested transfer; it is not part of normal application startup.
 
 ## AI assistance
+
+GitHub Copilot hjalp også med denne kart-/navigasjonsoppryddingen: eksplisitt punktvalg, skrivebeskyttet stedsoppslag med koordinatfallback, Nominatim-policy, filter-/fullskjermkontroller, logo-/menyretting og fokuserte tester. Faktisk kjørte tester og nettlesersjekker, inkludert eventuelle nettverksbegrensninger, oppgis i PR-en; dokumentasjonen er ikke en påstand om fullført testing.
 
 GitHub Copilot hjalp med Identity/roller, eierkontroll og CRUD, additive migreringer, kartkontroller, tester og denne dokumentasjonen. Faktisk utførte valideringer og begrensninger rapporteres i PR-en; AI-generert kode må fortsatt gjennomgås av prosjektgruppen.
 

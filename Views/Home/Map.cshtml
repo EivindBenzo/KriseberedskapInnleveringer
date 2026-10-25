@@ -13,8 +13,10 @@
         lat = r.Latitude,
         lng = r.Longitude
     }));
-    var startLat = (Model?.Latitude ?? 58.1467).ToString(CultureInfo.InvariantCulture);
-    var startLng = (Model?.Longitude ?? 7.9956).ToString(CultureInfo.InvariantCulture);
+    var selectedPoint = Model?.Latitude is double lat && Model.Longitude is double lng
+        && double.IsFinite(lat) && double.IsFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    var startLat = (selectedPoint ? Model!.Latitude!.Value : 58.1467).ToString(CultureInfo.InvariantCulture);
+    var startLng = (selectedPoint ? Model!.Longitude!.Value : 7.9956).ToString(CultureInfo.InvariantCulture);
 }
 
 <div class="map-container">
@@ -53,20 +55,22 @@
         <div class="form-group city-search-group">
             <label for="citySearch">Søk etter by</label>
             <input type="text" id="citySearch" class="form-control" placeholder="Skriv navnet på en by, f.eks. Bergen" autocomplete="off" />
+            <button type="button" id="citySearchButton" class="btn-secondary">Søk</button>
             <ul id="citySuggestions" class="city-suggestions"></ul>
-            <span class="info" id="citySearchStatus"></span>
+            <span class="info" id="citySearchStatus" role="status"></span>
         </div>
 
         <div class="form-group">
-            <label for="locationName">Lokasjonsnavn <span class="required">*</span></label>
-            <input type="text" id="locationName" name="LocationName" value="@(Model?.LocationName ?? "Kristiansand")" class="form-control" required />
-            <span asp-validation-for="LocationName" class="text-danger"></span>
+            <span>Valgt sted</span>
+            <p id="selectedPlace" class="info" role="status">@(selectedPoint ? Model?.LocationName : "Ingen plassering valgt. Klikk i kartet eller velg et søkeresultat.")</p>
         </div>
 
-        <input type="hidden" id="latitude" name="Latitude" value="@startLat" />
-        <input type="hidden" id="longitude" name="Longitude" value="@startLng" />
+        <input type="hidden" id="latitude" name="Latitude" value="@(selectedPoint ? startLat : "")" />
+        <input type="hidden" id="longitude" name="Longitude" value="@(selectedPoint ? startLng : "")" />
+        <span asp-validation-for="Latitude" class="text-danger"></span>
+        <span asp-validation-for="Longitude" class="text-danger"></span>
 
-        <p class="info">Standardlokasjon: Kristiansand. Klikk i kartet for å velge nøyaktig plassering.</p>
+        <p class="info">Kartet starter ved Kristiansand, men ingen plassering velges automatisk. Stedsoppslag sender valgte koordinater eller søketekst til OpenStreetMap. Ved manglende treff brukes koordinater.</p>
         <div id="map" aria-label="Interaktivt kart"></div>
         <button type="submit" class="btn-submit">@(isEditing ? "Lagre endringer" : "Send inn")</button>
     </form>
@@ -82,12 +86,18 @@
             @foreach (var r in resources)
             {
                 <div class="feature-card resource-card"
+                     data-resource-id="@r.Id"
                      data-lat="@r.Latitude.ToString(CultureInfo.InvariantCulture)"
-                     data-lng="@r.Longitude.ToString(CultureInfo.InvariantCulture)"
-                     style="cursor:pointer">
+                     data-lng="@r.Longitude.ToString(CultureInfo.InvariantCulture)">
                     <span class="eyebrow">@r.ResourceType</span>
                     <h3>@r.ResourceName</h3>
                     <p>📍 @r.LocationName<br />@r.Latitude.ToString("F5", CultureInfo.InvariantCulture), @r.Longitude.ToString("F5", CultureInfo.InvariantCulture)</p>
+                    <button type="button" class="btn-secondary resource-focus">Vis på kart</button>
+                    @if (HeimevernetInnlevering1.Models.ResourcePermissions.CanManage(User, r.OwnerId))
+                    {
+                        <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">Rediger</a>
+                        <a asp-action="Delete" asp-route-id="@r.Id" class="btn-secondary">Slett</a>
+                    }
                 </div>
             }
         </div>
@@ -96,6 +106,8 @@
 
 <style>
     .resource-popup strong { display: block; font-size: 1rem; }
+    button.city-suggestion-item { width: 100%; border: 0; background: transparent; text-align: left; font: inherit; }
+    button.city-suggestion-item:hover, button.city-suggestion-item:focus { background: var(--accent); }
 </style>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -107,12 +119,15 @@
     const startLat = @startLat;
     const startLng = @startLng;
     const savedResources = @Html.Raw(resourcesJson);
+    const hasSelectedPoint = @Json.Serialize(selectedPoint);
+    const editId = @Json.Serialize(ViewBag.EditId);
+    const placeUrl = @Json.Serialize(Url.Action("Place", "Home"));
+    const searchUrl = @Json.Serialize(Url.Action("SearchPlaces", "Home"));
 
     const map = L.map('map').setView([startLat, startLng], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
-    MapControls.add(map);
 
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -121,7 +136,7 @@
     }
 
     // Markers for all stored resources, each with a small info box.
-    const savedMarkers = savedResources.map(function (r) {
+    const savedMarkers = savedResources.filter(r => r.id !== editId).map(function (r) {
         const savedMarker = L.marker([r.lat, r.lng], resourceMarkerOptions(r.type, false, map.getZoom())).addTo(map).bindPopup(
             '<div class="resource-popup"><strong>' + escapeHtml(r.name) + '</strong>' +
             'Type: ' + escapeHtml(r.type) + '<br>' +
@@ -130,14 +145,26 @@
         );
         return { resource: r, marker: savedMarker };
     });
+    const controls = MapControls.add(map, {
+        onTypeChange(type, visible) {
+            savedMarkers.filter(item => item.resource.type === type).forEach(function (item) {
+                if (visible) {
+                    item.marker.setIcon(resourceMarkerOptions(type, false, map.getZoom()).icon);
+                    item.marker.addTo(map);
+                } else {
+                    map.removeLayer(item.marker);
+                }
+            });
+        }
+    });
 
     // Marker for the location currently being chosen.
     const resourceType = document.getElementById('resourceType');
-    const marker = L.marker([startLat, startLng], resourceMarkerOptions(resourceType.value, true, map.getZoom())).addTo(map);
+    let marker = null;
     const previewLabel = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(isEditing ? "Ressursen plasseres her" : "Ny ressurs plasseres her"));
-    marker.bindPopup(previewLabel).openPopup();
 
     resourceType.addEventListener('change', function () {
+        if (!marker) return;
         const options = resourceMarkerOptions(resourceType.value, true, map.getZoom());
         marker.options.title = options.title;
         marker.options.alt = options.alt;
@@ -148,43 +175,80 @@
         savedMarkers.forEach(function (item) {
             item.marker.setIcon(resourceMarkerOptions(item.resource.type, false, map.getZoom()).icon);
         });
-        marker.setIcon(resourceMarkerOptions(resourceType.value, true, map.getZoom()).icon);
+        if (marker) marker.setIcon(resourceMarkerOptions(resourceType.value, true, map.getZoom()).icon);
     });
 
     const focusId = new URLSearchParams(window.location.search).get('focus');
     const focused = savedMarkers.find(item => String(item.resource.id) === focusId);
-    if (focused) {
-        map.setView(focused.marker.getLatLng(), 15);
-        focused.marker.openPopup();
+    function focusResource(item) {
+        controls.setTypeVisible(item.resource.type, true);
+        map.setView(item.marker.getLatLng(), 15);
+        item.marker.openPopup();
+    }
+    if (focused) focusResource(focused);
+
+    const selectedPlace = document.getElementById('selectedPlace');
+    let pointVersion = 0;
+    let pointController = null;
+
+    function showPlace(label) {
+        selectedPlace.textContent = label;
+        marker.bindPopup(escapeHtml(previewLabel) + '<br>' + escapeHtml(label));
     }
 
-    function setLocation(lat, lng, label) {
+    function setLocation(lat, lng, label, resolvePlace = true) {
+        const version = ++pointVersion;
+        if (pointController) pointController.abort();
+        const coordinates = lat.toFixed(5) + ', ' + lng.toFixed(5);
         map.setView([lat, lng], map.getZoom());
-        marker.setLatLng([lat, lng]);
-        marker.bindPopup(label || previewLabel).openPopup();
+        if (!marker) {
+            marker = L.marker([lat, lng], resourceMarkerOptions(resourceType.value, true, map.getZoom())).addTo(map);
+        } else {
+            marker.setLatLng([lat, lng]);
+        }
         document.getElementById('latitude').value = lat;
         document.getElementById('longitude').value = lng;
+        showPlace(label || coordinates);
+        marker.openPopup();
+        if (!resolvePlace || label) return;
+
+        pointController = new AbortController();
+        const controller = pointController;
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        fetch(placeUrl + '?latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lng),
+            { signal: controller.signal })
+            .then(response => response.ok ? response.json() : null)
+            .then(result => {
+                if (version === pointVersion && !controller.signal.aborted && result?.label) showPlace(result.label);
+            })
+            .catch(() => { /* Coordinates remain usable when lookup is unavailable. */ })
+            .finally(() => clearTimeout(timeout));
     }
 
+    if (hasSelectedPoint) setLocation(startLat, startLng, selectedPlace.textContent, false);
+
     map.on('click', function (e) {
-        setLocation(e.latlng.lat, e.latlng.lng,
-            previewLabel + '<br>' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5));
+        setLocation(e.latlng.lat, e.latlng.lng);
     });
 
     document.querySelectorAll('.resource-card').forEach(function (card) {
-        card.addEventListener('click', function () {
-            map.setView([parseFloat(card.dataset.lat), parseFloat(card.dataset.lng)], 15);
+        card.querySelector('.resource-focus').addEventListener('click', function () {
+            const item = savedMarkers.find(item => String(item.resource.id) === card.dataset.resourceId);
+            if (item) focusResource(item);
+            else if (marker && editId === Number(card.dataset.resourceId)) {
+                map.setView(marker.getLatLng(), 15);
+                marker.openPopup();
+            }
             document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
         });
     });
 
-    // City search with autocomplete (OpenStreetMap Nominatim)
+    // Nominatim permits explicit searches, not autocomplete.
     const citySearchInput = document.getElementById('citySearch');
     const citySuggestionsList = document.getElementById('citySuggestions');
     const citySearchStatus = document.getElementById('citySearchStatus');
-    const locationNameInput = document.getElementById('locationName');
-    let searchTimeout = null;
     let currentController = null;
+    let searchVersion = 0;
 
     function clearSuggestions() {
         citySuggestionsList.innerHTML = '';
@@ -197,48 +261,63 @@
 
         results.forEach(function (place) {
             const item = document.createElement('li');
-            item.className = 'city-suggestion-item';
-            item.textContent = place.display_name;
-            item.addEventListener('click', function () {
-                locationNameInput.value = place.display_name.split(',')[0];
-                citySearchInput.value = place.display_name;
-                setLocation(parseFloat(place.lat), parseFloat(place.lon), escapeHtml(place.display_name));
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'city-suggestion-item';
+            button.textContent = place.label;
+            button.addEventListener('click', function () {
+                citySearchInput.value = place.label;
+                setLocation(place.lat, place.lng, place.label);
                 map.setZoom(12);
                 clearSuggestions();
             });
+            item.appendChild(button);
             citySuggestionsList.appendChild(item);
         });
         citySuggestionsList.classList.add('open');
     }
 
     citySearchInput.addEventListener('input', function () {
-        const query = citySearchInput.value.trim();
-        if (searchTimeout) clearTimeout(searchTimeout);
+        searchVersion++;
+        if (currentController) currentController.abort();
+        clearSuggestions();
+        citySearchStatus.textContent = '';
+    });
 
-        if (query.length < 2) {
-            clearSuggestions();
-            citySearchStatus.textContent = '';
+    function searchCity() {
+        const query = citySearchInput.value.trim();
+        if (query.length < 2 || query.length > 120) {
+            citySearchStatus.textContent = 'Skriv mellom 2 og 120 tegn.';
             return;
         }
-
+        const version = ++searchVersion;
+        if (currentController) currentController.abort();
+        currentController = new AbortController();
+        const controller = currentController;
+        clearSuggestions();
         citySearchStatus.textContent = 'Søker...';
-        searchTimeout = setTimeout(function () {
-            if (currentController) currentController.abort();
-            currentController = new AbortController();
-            const url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=6&q=' + encodeURIComponent(query);
-
-            fetch(url, { signal: currentController.signal, headers: { 'Accept-Language': 'no,en' } })
-                .then(function (response) { return response.json(); })
-                .then(function (data) {
-                    citySearchStatus.textContent = data.length === 0 ? 'Ingen treff' : '';
-                    renderSuggestions(data);
-                })
-                .catch(function (error) {
-                    if (error.name !== 'AbortError') {
-                        citySearchStatus.textContent = 'Kunne ikke hente forslag akkurat nå.';
-                    }
-                });
-        }, 400);
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        fetch(searchUrl + '?query=' + encodeURIComponent(query), { signal: controller.signal })
+            .then(response => {
+                if (!response.ok) throw new Error('Search unavailable');
+                return response.json();
+            })
+            .then(data => {
+                if (version !== searchVersion || controller.signal.aborted) return;
+                citySearchStatus.textContent = data.length === 0 ? 'Ingen treff' : '';
+                renderSuggestions(data);
+            })
+            .catch(() => {
+                if (version === searchVersion) citySearchStatus.textContent = 'Kunne ikke hente steder. Velg et punkt i kartet eller prøv igjen.';
+            })
+            .finally(() => clearTimeout(timeout));
+    }
+    document.getElementById('citySearchButton').addEventListener('click', searchCity);
+    citySearchInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            searchCity();
+        }
     });
 
     document.addEventListener('click', function (event) {
