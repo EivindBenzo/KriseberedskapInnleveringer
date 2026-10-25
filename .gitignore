@@ -8,3 +8,4 @@ Data/*.db
 Data/*.db-shm
 Data/*.db-wal
 heimevernet.sqlite.backup
+/mariadb-*.sql

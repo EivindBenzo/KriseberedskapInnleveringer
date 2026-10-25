@@ -4,6 +4,7 @@
 @{
     ViewData["Title"] = "Kart";
     var isEditing = ViewBag.EditId != null;
+    var registrationOpen = isEditing || !ViewData.ModelState.IsValid || Context.Request.Query["register"] == "true";
     var resources = (ViewBag.Resources as List<HeimevernetInnlevering1.Models.MapSubmission>) ?? new();
     var resourcesJson = System.Text.Json.JsonSerializer.Serialize(resources.Select(r => new
     {
@@ -12,7 +13,10 @@
         type = r.ResourceType,
         location = r.LocationName,
         lat = r.Latitude,
-        lng = r.Longitude
+        lng = r.Longitude,
+        availability = AvailabilityLabel(r.Availability),
+        verification = VerificationLabel(r),
+        updated = (r.UpdatedAtUtc ?? r.CreatedAtUtc).ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) + " UTC"
     }));
     var selectedPoint = Model?.Latitude is double lat && Model.Longitude is double lng
         && double.IsFinite(lat) && double.IsFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
@@ -21,101 +25,167 @@
     var resourceIconUrls = new[] { "car", "excavator", "drone", "generator", "personnel", "toolbox", "unknown" }
         .ToDictionary(file => file, file => FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content($"~/images/resources/{file}.svg")));
 }
+@functions {
+    private static string AvailabilityLabel(HeimevernetInnlevering1.Models.ResourceAvailability availability) => availability switch
+    {
+        HeimevernetInnlevering1.Models.ResourceAvailability.Available => "Tilgjengelig",
+        HeimevernetInnlevering1.Models.ResourceAvailability.Unavailable => "Utilgjengelig",
+        HeimevernetInnlevering1.Models.ResourceAvailability.Reserved => "Reservert",
+        HeimevernetInnlevering1.Models.ResourceAvailability.Allocated => "Tildelt",
+        _ => "Ukjent"
+    };
+    private static string VerificationLabel(HeimevernetInnlevering1.Models.MapSubmission resource) =>
+        HeimevernetInnlevering1.Models.WorkflowEligibility.HasCurrentApproval(resource, DateTime.UtcNow) ? "Verifisert" :
+        resource.VerificationStatus == HeimevernetInnlevering1.Models.ResourceVerificationStatus.Rejected ? "Avvist" :
+        resource.VerificationStatus == HeimevernetInnlevering1.Models.ResourceVerificationStatus.Approved ? "Verifisering utløpt" : "Venter på verifisering";
+}
 
-<div class="map-container">
-    <span class="eyebrow">RESSURSER</span>
-    <h1>Kart</h1>
-    <p>Velg ressurstype, skriv inn navn og klikk i kartet (eller søk etter en by) for å plassere ressursen.</p>
-
+<link rel="stylesheet" href="~/css/workspace-map.css" asp-append-version="true" />
+<section class="map-workspace" id="mapWorkspace" data-mobile-view="map" aria-labelledby="workspaceTitle">
+    <div class="workspace-heading">
+        <div><span class="eyebrow">RESSURSOVERSIKT</span><h1 id="workspaceTitle">Ressurskart</h1></div>
+        <button type="button" id="registrationToggle" class="btn-secondary" aria-controls="registrationPanel" aria-expanded="@(registrationOpen ? "true" : "false")">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</button>
+    </div>
     @if (TempData["MapSuccess"] is string success)
     {
-        <p class="info">✅ @success</p>
+        <p class="workspace-notice" role="status">@success</p>
     }
-
-    <form method="post" asp-controller="Home" asp-action="@(isEditing ? "Edit" : "Map")" asp-route-id="@ViewBag.EditId" class="form">
-        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="resourceType">Ressurstype <span class="required">*</span></label>
-                <select id="resourceType" name="ResourceType" class="form-control" required>
-                    <option value="">Velg type</option>
+    <div class="workspace-mobile-switch" role="group" aria-label="Kartvisning">
+        <button type="button" id="showMap" aria-pressed="true" aria-controls="mapRegion">Kart</button>
+        <button type="button" id="showList" aria-pressed="false" aria-controls="resourceResults">Liste</button>
+    </div>
+    <div class="workspace-grid">
+        <aside class="workspace-sidebar" aria-label="Søk og ressurser">
+            <div class="workspace-search city-search-group">
+                <label for="citySearch">Finn sted</label>
+                <div class="workspace-search-row">
+                    <div class="city-search-input">
+                        <input type="text" id="citySearch" class="form-control" placeholder="By eller tettsted" autocomplete="off"
+                               maxlength="120" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                               aria-controls="citySuggestions" aria-describedby="citySearchHelp citySearchStatus" />
+                        <ul id="citySuggestions" class="city-suggestions" role="listbox" aria-label="Stedsforslag"></ul>
+                    </div>
+                    <button type="button" id="citySearchButton" class="btn-secondary">Søk</button>
+                </div>
+                <span id="citySearchStatus" role="status" aria-live="polite" aria-atomic="true"></span>
+                <small id="citySearchHelp">Lokale stedsforslag. Søk-knappen gjør et eksternt søk.</small>
+                <details class="workspace-disclosure">
+                    <summary>Søk, personvern og kartdata</summary>
+                    <p>Lokale forslag søkes i nettleseren og dekker norske byer og tettsteder, ikke adresser. Trykk Søk for fullt søk hos OpenStreetMap. Når «Velg plassering» er aktivert, sender punktvalg koordinater til OpenStreetMap. Ikke send personlige eller fortrolige opplysninger. Kartfliser hentes fra OpenStreetMap.</p>
+                    <p>Stedsdata: <a href="https://www.geonames.org/">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> (utvalg og bearbeiding).</p>
+                </details>
+            </div>
+            <section id="registrationPanel" class="registration-panel" hidden="@(!registrationOpen)" aria-labelledby="registrationTitle">
+                <h2 id="registrationTitle">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</h2>
+                <form method="post" asp-controller="Home" asp-action="@(isEditing ? "Edit" : "Map")" asp-route-id="@ViewBag.EditId" class="workspace-form">
+                    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+                    <input type="hidden" asp-for="Version" />
+                    <div class="form-group">
+                        <label for="resourceName">Ressursnavn <span class="required">*</span></label>
+                        <input type="text" id="resourceName" name="ResourceName" value="@Model?.ResourceName" class="form-control" placeholder="f.eks. Lastebil 1" minlength="2" maxlength="100" required />
+                        <span asp-validation-for="ResourceName" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="resourceType">Ressurstype <span class="required">*</span></label>
+                        <select id="resourceType" name="ResourceType" class="form-control" required>
+                            <option value="">Velg type</option>
+                            @foreach (var type in MapSubmissionViewModel.ResourceTypes)
+                            {
+                                <option value="@type" selected="@(Model?.ResourceType == type)">@type</option>
+                            }
+                        </select>
+                        <span asp-validation-for="ResourceType" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="availability">Tilgjengelighet</label>
+                        <select id="availability" asp-for="Availability" class="form-control">
+                            <option value="Available">Tilgjengelig</option>
+                            <option value="Unavailable">Utilgjengelig</option>
+                            @if (Model?.Availability is HeimevernetInnlevering1.Models.ResourceAvailability.Reserved or HeimevernetInnlevering1.Models.ResourceAvailability.Allocated)
+                            {
+                                <option value="@Model.Availability">@AvailabilityLabel(Model.Availability) – styres av forespørsel</option>
+                            }
+                        </select>
+                        <span asp-validation-for="Availability" class="text-danger"></span>
+                    </div>
+                    <details class="workspace-disclosure" open="@(!string.IsNullOrEmpty(Model?.Capability) || !string.IsNullOrEmpty(Model?.TransportRequirements))">
+                        <summary>Kapasitet og transportbehov (valgfritt)</summary>
+                        <div class="form-group">
+                            <label for="capability">Kapasitet / bruksområde</label>
+                            <textarea id="capability" asp-for="Capability" class="form-control" maxlength="500" rows="2" placeholder="f.eks. 5 kW, 8 seter eller løftekapasitet"></textarea>
+                            <span asp-validation-for="Capability" class="text-danger"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="transportRequirements">Transportbehov</label>
+                            <textarea id="transportRequirements" asp-for="TransportRequirements" class="form-control" maxlength="500" rows="2" placeholder="f.eks. tilhenger eller kvalifisert fører"></textarea>
+                            <span asp-validation-for="TransportRequirements" class="text-danger"></span>
+                        </div>
+                    </details>
+                    <button type="button" id="placementToggle" class="btn-secondary" aria-pressed="false" aria-describedby="placementHelp">Velg plassering</button>
+                    <p id="placementHelp">Aktiver for å velge punkt i kartet eller fra stedsøk. Ellers flytter søk bare kartet.</p>
+                    <p id="selectedPlace" class="workspace-location" role="status">@(selectedPoint ? Model?.LocationName : "Ingen plassering valgt.")</p>
+                    <input type="hidden" id="latitude" name="Latitude" value="@(selectedPoint ? startLat : "")" />
+                    <input type="hidden" id="longitude" name="Longitude" value="@(selectedPoint ? startLng : "")" />
+                    <span asp-validation-for="Latitude" class="text-danger"></span>
+                    <span asp-validation-for="Longitude" class="text-danger"></span>
+                    <button type="submit" class="btn-submit">@(isEditing ? "Lagre endringer" : "Registrer ressurs")</button>
+                </form>
+            </section>
+            <section id="resourceResults" class="workspace-results" aria-labelledby="resultsTitle">
+                <h2 id="resultsTitle">Ressurser <span id="resourceCount">@resources.Count</span></h2>
+                <label for="resourceFilter">Filtrer ressurstype</label>
+                <select id="resourceFilter" class="form-control">
+                    <option value="">Alle typer</option>
                     @foreach (var type in MapSubmissionViewModel.ResourceTypes)
                     {
-                        <option value="@type" selected="@(Model?.ResourceType == type)">@type</option>
+                        <option value="@type">@type</option>
                     }
                 </select>
-                <span asp-validation-for="ResourceType" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label for="resourceName">Ressursnavn <span class="required">*</span></label>
-                <input type="text" id="resourceName" name="ResourceName" value="@Model?.ResourceName" class="form-control" placeholder="f.eks. Lastebil 1" required />
-                <span asp-validation-for="ResourceName" class="text-danger"></span>
-            </div>
-        </div>
-
-        <div class="form-group city-search-group">
-            <label for="citySearch">Søk etter sted</label>
-            <div class="city-search-input">
-            <input type="text" id="citySearch" class="form-control" placeholder="Skriv et stedsnavn, f.eks. Bergen" autocomplete="off"
-                   maxlength="120" role="combobox" aria-autocomplete="list" aria-expanded="false"
-                   aria-controls="citySuggestions" aria-describedby="citySearchHelp citySearchStatus" />
-            <ul id="citySuggestions" class="city-suggestions" role="listbox" aria-label="Stedsforslag"></ul>
-            </div>
-            <button type="button" id="citySearchButton" class="btn-secondary">Søk</button>
-            <span class="info" id="citySearchStatus" role="status" aria-live="polite" aria-atomic="true"></span>
-            <small id="citySearchHelp">Lokale forslag dekker norske byer og tettsteder, ikke adresser. Trykk Søk for fullt søk hos OpenStreetMap.
-                Stedsdata: <a href="https://www.geonames.org/">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> (utvalg og bearbeiding).</small>
-        </div>
-
-        <div class="form-group">
-            <span>Valgt sted</span>
-            <p id="selectedPlace" class="info" role="status">@(selectedPoint ? Model?.LocationName : "Ingen plassering valgt. Klikk i kartet eller velg et søkeresultat.")</p>
-        </div>
-
-        <input type="hidden" id="latitude" name="Latitude" value="@(selectedPoint ? startLat : "")" />
-        <input type="hidden" id="longitude" name="Longitude" value="@(selectedPoint ? startLng : "")" />
-        <span asp-validation-for="Latitude" class="text-danger"></span>
-        <span asp-validation-for="Longitude" class="text-danger"></span>
-
-        <p class="info">Kartet starter ved Kristiansand, men ingen plassering velges automatisk. Lokale forslag søkes i nettleseren. Søk-knappen sender søketekst, og punktvalg sender koordinater, til OpenStreetMap. Ikke send personlige eller fortrolige opplysninger. Ved manglende treff brukes koordinater.</p>
-        <div id="map" aria-label="Interaktivt kart"></div>
-        <button type="submit" class="btn-submit">@(isEditing ? "Lagre endringer" : "Send inn")</button>
-    </form>
-
-    <h2>Registrerte ressurser (@resources.Count)</h2>
-    @if (resources.Count == 0)
-    {
-        <p>Ingen ressurser er registrert ennå.</p>
-    }
-    else
-    {
-        <div class="feature-grid">
+                <p id="resourceResultsStatus" class="workspace-muted" role="status">@(resources.Count == 0 ? "Ingen ressurser er registrert ennå." : "Velg en ressurs for detaljer.")</p>
+                <div class="workspace-resource-list">
             @foreach (var r in resources)
             {
-                <div class="feature-card resource-card"
+                <details class="resource-card" id="resource-@r.Id"
                      data-resource-id="@r.Id"
+                     data-resource-type="@r.ResourceType"
                      data-lat="@r.Latitude.ToString(CultureInfo.InvariantCulture)"
                      data-lng="@r.Longitude.ToString(CultureInfo.InvariantCulture)">
-                    <span class="eyebrow"><img data-resource-icon="@r.ResourceType" alt="" width="32" height="32" /> @r.ResourceType</span>
-                    <h3>@r.ResourceName</h3>
-                    <p>📍 @r.LocationName<br />@r.Latitude.ToString("F5", CultureInfo.InvariantCulture), @r.Longitude.ToString("F5", CultureInfo.InvariantCulture)</p>
-                    <button type="button" class="btn-secondary resource-focus">Vis på kart</button>
-                    @if (HeimevernetInnlevering1.Models.ResourcePermissions.CanManage(User, r.OwnerId))
-                    {
-                        <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">Rediger</a>
-                        <a asp-action="Delete" asp-route-id="@r.Id" class="btn-secondary">Slett</a>
-                    }
-                </div>
+                    <summary><img data-resource-icon="@r.ResourceType" alt="" width="32" height="32" /><span><strong>@r.ResourceName</strong><small>@r.ResourceType · @r.LocationName</small></span></summary>
+                    <div class="resource-detail">
+                        <dl>
+                            <div><dt>Tilgjengelighet</dt><dd>@AvailabilityLabel(r.Availability)</dd></div>
+                            <div><dt>Verifisering</dt><dd>@VerificationLabel(r)</dd></div>
+                            <div><dt>Sist oppdatert</dt><dd>@((r.UpdatedAtUtc ?? r.CreatedAtUtc).ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)) UTC</dd></div>
+                            <div><dt>Koordinater</dt><dd>@r.Latitude.ToString("F5", CultureInfo.InvariantCulture), @r.Longitude.ToString("F5", CultureInfo.InvariantCulture)</dd></div>
+                            @if (!string.IsNullOrEmpty(r.Capability))
+                            {
+                                <div><dt>Kapasitet / bruksområde</dt><dd>@r.Capability</dd></div>
+                            }
+                            @if (!string.IsNullOrEmpty(r.TransportRequirements))
+                            {
+                                <div><dt>Transportbehov</dt><dd>@r.TransportRequirements</dd></div>
+                            }
+                        </dl>
+                        <div class="resource-actions">
+                            <button type="button" class="btn-secondary resource-focus">Vis på kart</button>
+                            @if (HeimevernetInnlevering1.Models.ResourcePermissions.CanManage(User, r.OwnerId))
+                            {
+                                <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">Rediger</a>
+                                <a asp-action="Delete" asp-route-id="@r.Id" class="btn-danger">Slett</a>
+                            }
+                        </div>
+                    </div>
+                </details>
             }
+                </div>
+            </section>
+        </aside>
+        <div class="workspace-map-region" id="mapRegion" aria-label="Ressurskart">
+            <p id="mapModeStatus" role="status" class="workspace-map-status">Utforsk kartet · velg en ressurs for detaljer</p>
+            <div id="map" aria-label="Interaktivt kart over ressurser"></div>
         </div>
-    }
-</div>
-
-<style>
-    .resource-popup strong { display: block; font-size: 1rem; }
-</style>
+    </div>
+</section>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="~/css/map-controls.css" asp-append-version="true" />
@@ -128,6 +198,7 @@
     const startLng = @startLng;
     const savedResources = @Html.Raw(resourcesJson);
     const hasSelectedPoint = @Json.Serialize(selectedPoint);
+    const registrationInitiallyOpen = @Json.Serialize(registrationOpen);
     const editId = @Json.Serialize(ViewBag.EditId);
     const placeUrl = @Json.Serialize(Url.Action("Place", "Home"));
     const searchUrl = @Json.Serialize(Url.Action("SearchPlaces", "Home"));
@@ -136,6 +207,49 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
+
+    const workspace = document.getElementById('mapWorkspace');
+    const registrationPanel = document.getElementById('registrationPanel');
+    const registrationToggle = document.getElementById('registrationToggle');
+    const placementToggle = document.getElementById('placementToggle');
+    const resourceFilter = document.getElementById('resourceFilter');
+    const resourceCards = Array.from(document.querySelectorAll('.resource-card'));
+    const visibleTypes = new Map();
+    let placementActive = false;
+    registrationPanel.hidden = !registrationInitiallyOpen;
+
+    function setMobileView(view) {
+        workspace.dataset.mobileView = view;
+        document.getElementById('showMap').setAttribute('aria-pressed', String(view === 'map'));
+        document.getElementById('showList').setAttribute('aria-pressed', String(view === 'list'));
+        if (view === 'map') map.invalidateSize?.({ pan: false });
+    }
+    document.getElementById('showMap').addEventListener('click', () => setMobileView('map'));
+    document.getElementById('showList').addEventListener('click', () => setMobileView('list'));
+
+    function setPlacement(active) {
+        placementActive = active;
+        placementToggle.setAttribute('aria-pressed', String(active));
+        document.getElementById('mapModeStatus').textContent = active
+            ? 'Velg plassering · klikk i kartet eller velg et sted fra søk'
+            : 'Utforsk kartet · velg en ressurs for detaljer';
+        document.getElementById('map').classList[active ? 'add' : 'remove']('placement-active');
+        if (active) setMobileView('map');
+    }
+    registrationToggle.addEventListener('click', function () {
+        registrationPanel.hidden = !registrationPanel.hidden;
+        registrationToggle.setAttribute('aria-expanded', String(!registrationPanel.hidden));
+        if (registrationPanel.hidden) setPlacement(false);
+        else document.getElementById('resourceName').focus();
+    });
+    placementToggle.addEventListener('click', () => setPlacement(!registrationPanel.hidden && !placementActive));
+
+    function selectResource(id) {
+        resourceCards.forEach(function (card) {
+            card.open = String(id) === card.dataset.resourceId;
+            if (card.open) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    }
 
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -149,12 +263,18 @@
             '<div class="resource-popup"><strong>' + escapeHtml(r.name) + '</strong>' +
             'Type: ' + escapeHtml(r.type) + '<br>' +
             'Sted: ' + escapeHtml(r.location) + '<br>' +
+            'Tilgjengelighet: ' + escapeHtml(r.availability) + '<br>' +
+            'Verifisering: ' + escapeHtml(r.verification) + '<br>' +
+            'Sist oppdatert: ' + escapeHtml(r.updated) + '<br>' +
+            '<a href="#resource-' + r.id + '">Vis ressursdetaljer i listen</a><br>' +
             r.lat.toFixed(5) + ', ' + r.lng.toFixed(5) + '</div>'
         );
+        savedMarker.on('click', () => selectResource(r.id));
         return { resource: r, marker: savedMarker };
     });
     const controls = MapControls.add(map, {
         onTypeChange(type, visible) {
+            visibleTypes.set(type, visible);
             savedMarkers.filter(item => item.resource.type === type).forEach(function (item) {
                 if (visible) {
                     item.marker.setIcon(resourceMarkerOptions(type, false, map.getZoom()).icon);
@@ -163,7 +283,16 @@
                     map.removeLayer(item.marker);
                 }
             });
+            resourceCards.forEach(card => { card.hidden = visibleTypes.get(card.dataset.resourceType) === false; });
+            const count = resourceCards.filter(card => !card.hidden).length;
+            document.getElementById('resourceCount').textContent = count;
+            document.getElementById('resourceResultsStatus').textContent = count
+                ? count + ' ressurser vist' : 'Ingen ressurser passer filteret.';
         }
+    });
+    resourceFilter.addEventListener('change', function () {
+        const types = new Set(savedResources.map(resource => resource.type));
+        types.forEach(type => controls.setTypeVisible(type, !resourceFilter.value || resourceFilter.value === type));
     });
 
     // Marker for the location currently being chosen.
@@ -191,6 +320,8 @@
         controls.setTypeVisible(item.resource.type, true);
         map.setView(item.marker.getLatLng(), 15);
         item.marker.openPopup();
+        selectResource(item.resource.id);
+        setMobileView('map');
     }
     if (focused) focusResource(focused);
 
@@ -233,15 +364,19 @@
     if (hasSelectedPoint) setLocation(startLat, startLng, selectedPlace.textContent, false);
 
     map.on('click', function (e) {
-        setLocation(e.latlng.lat, e.latlng.lng);
+        if (placementActive) setLocation(e.latlng.lat, e.latlng.lng);
     });
 
-    document.querySelectorAll('.resource-card').forEach(function (card) {
+    resourceCards.forEach(function (card) {
+        card.addEventListener('toggle', function () {
+            if (card.open) resourceCards.filter(other => other !== card).forEach(other => { other.open = false; });
+        });
         card.querySelector('.resource-focus').addEventListener('click', function () {
             const item = savedMarkers.find(item => String(item.resource.id) === card.dataset.resourceId);
             if (item) focusResource(item);
             else if (marker && editId === Number(card.dataset.resourceId)) {
                 map.setView(marker.getLatLng(), 15);
+                setMobileView('map');
             }
             document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
         });
@@ -255,8 +390,17 @@
         searchUrl,
         localitiesUrl: @Json.Serialize(FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content("~/data/norway-localities.json"))),
         onSelect(place) {
-            setLocation(place.lat, place.lng, place.label);
-            map.setZoom(12);
+            if (placementActive) setLocation(place.lat, place.lng, place.label);
+            map.setView([place.lat, place.lng], 12);
+            setMobileView('map');
+        }
+    });
+    document.getElementById('map').addEventListener('click', function (event) {
+        const link = event.target.closest?.('a[href^="#resource-"]');
+        if (link) {
+            event.preventDefault();
+            setMobileView('list');
+            selectResource(link.getAttribute('href').slice('#resource-'.length));
         }
     });
 </script>

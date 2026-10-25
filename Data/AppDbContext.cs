@@ -16,6 +16,31 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
 
     public DbSet<FormSubmission> FormSubmissions => Set<FormSubmission>();
     public DbSet<MapSubmission> MapSubmissions => Set<MapSubmission>();
+    public DbSet<OperationalNeed> OperationalNeeds => Set<OperationalNeed>();
+    public DbSet<ResourceRequest> ResourceRequests => Set<ResourceRequest>();
+    public DbSet<WorkflowAudit> WorkflowAudits => Set<WorkflowAudit>();
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        RefreshConcurrencyTokens();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        RefreshConcurrencyTokens();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void RefreshConcurrencyTokens()
+    {
+        ChangeTracker.DetectChanges();
+        foreach (var entry in ChangeTracker.Entries().Where(e => e.State == EntityState.Modified &&
+                     (e.Entity is MapSubmission or OperationalNeed or ResourceRequest)))
+        {
+            entry.Property("ConcurrencyToken").CurrentValue = Guid.NewGuid().ToString();
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,5 +65,15 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         modelBuilder.Entity<MapSubmission>().Property(submission => submission.OwnerId).HasMaxLength(127);
         modelBuilder.Entity<MapSubmission>().HasOne(submission => submission.Owner)
             .WithMany().HasForeignKey(submission => submission.OwnerId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<MapSubmission>().Property(r => r.Availability)
+            .HasDefaultValue(ResourceAvailability.Available);
+        modelBuilder.Entity<MapSubmission>().Property(r => r.VerificationStatus)
+            .HasDefaultValue(ResourceVerificationStatus.Pending);
+        modelBuilder.Entity<ResourceRequest>().HasOne(r => r.Resource).WithMany()
+            .HasForeignKey(r => r.ResourceId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ResourceRequest>().HasOne(r => r.Need).WithMany()
+            .HasForeignKey(r => r.NeedId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ResourceRequest>().HasIndex(r => new { r.ResourceId, r.Status });
+        modelBuilder.Entity<WorkflowAudit>().HasIndex(a => new { a.ResourceId, a.OccurredAtUtc });
     }
 }

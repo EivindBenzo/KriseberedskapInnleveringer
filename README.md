@@ -12,11 +12,34 @@ Forsiden er offentlig. Velg «Registrer» for å opprette en konto; nye kontoer 
 | Registrere ressurser | Ja | Ja |
 | Redigere/flytte/slette egne ressurser | Ja | Ja |
 | Redigere/slette andres eller eldre eierløse ressurser | Nei | Ja |
-| Melde behov og se egne innmeldinger | Ja | Ja |
+| Svare på forespørsler / returnere egne tildelte ressurser | Ja | Ja |
+| Opprette operative behov, sende forespørsler og tildele ressurser | Nei | Ja |
+| Godkjenne/avvise ressurser (ikke egne) | Nei | Ja |
 | Se alle behov | Nei | Ja |
 | Liste brukere og tildele/fjerne Admin | Nei | Ja |
 
-Primærmenyen viser Hjem, Kart og Verifiser, samt konto og eventuell brukeradministrasjon. `/Home/Verify` er nå den samlede ressursoversikten for innloggede brukere, med typefilter, kartlenker og eierstyrt redigering/sletting. Gamle `/Home/Data?type=...` videresendes dit med filteret beholdt. Ingen ny verifiseringsstatus innføres. `/Home/Form` finnes fortsatt uten egen menylenke. Gamle innmeldinger og ressurser beholdes; behov vises bare til eier eller Admin, og eierløse behov kun til Admin. Alle ressursendringer kontrolleres på serveren. Sletting krever bekreftelse og en POST med antiforgery-token.
+Primærmenyen viser Hjem, Kart, Ressurser, Mine ressurser og Forespørsler. Admin får også Verifisering, Behov og Brukere. `/Home/Resources` er oversikten; `/Home/Mine` begrenser til egne ressurser. Gamle `/Home/Data?type=...` og `/Home/Verify?type=...` videresendes til Ressurser med typefilteret beholdt. Verifisering er en egen Admin-beskyttet kø, ikke CRUD-oversikten. Eldre meldinger beholdes og vises bare til eier eller Admin; de blir ikke automatisk omgjort til operative behov. Det gamle kontaktskjemaet `/Home/Form` krever nå Admin. Sletting krever bekreftelse, versjonskontroll og POST med antiforgery-token; historikkførte/reserverte/tildelte ressurser må i stedet håndteres i arbeidsflyten.
+
+## Arbeidsflyt og tilstandsmodell
+
+Dette er en studentprototype, ikke en offisiell tjeneste eller et sanntids-/offline-system. Admin er prosjektets betrodde koordinator, behovsmelder og verifikator. Ingen nye privilegerte roller opprettes, og offentlig registrering kan aldri gi slike rettigheter. Admin tilordnes bare gjennom eksisterende betrodd bootstrap eller brukeradministrasjon. To separate kontoer trengs for å registrere og godkjenne samme ressurs: en Admin kan ikke godkjenne sin egen registrering.
+
+| Begrep | Tilstander og regel |
+| --- | --- |
+| Tilgjengelighet | `Available` / `Unavailable` settes av eier eller Admin. `Reserved` og `Allocated` settes bare gjennom forespørselsflyten. |
+| Verifisering | Nye **og eldre** ressurser starter `Pending`, uten oppdiktet historisk godkjenning. Admin godkjenner (`Approved`) eller avviser (`Rejected`) med begrunnelse og serverklokke. |
+| Gyldighet | Godkjenning har faktisk tidspunkt og utløpsdato. Utløpt er en beregnet tilstand, ikke en bakgrunnsjobb. `Workflow__VerificationValidityDays` er 30 som standard (tillatt 1–3650); endring gjelder nye beslutninger. |
+| Behov | Beskrivelse, sted, prioritet (`Low/Normal/High/Critical`) og livsløp (`Open/InProgress/Completed/Cancelled`) er separate felt. Kun Admin oppretter/koordinerer operative behov. |
+| Forespørsel | `Pending` er ikke en tildeling. Bare ressursens eier kan akseptere (`Accepted`, reserverer atomisk) eller avvise (`Rejected`). Admin tildeler deretter (`Allocated`) og kan avbryte ventende/aksepterte forespørsler (`Cancelled`). |
+| Retur | Eier eller Admin returnerer tildelt ressurs (`Returned`). Godkjenning nullstilles til `Pending`; inspeksjon/ny verifisering kreves før ny disponering. |
+
+Bare **tilgjengelige ressurser med eier og gyldig godkjenning** kan forespørres. Vilkårene kontrolleres igjen ved eiers aksept og tildeling. Materielle endringer i navn, type, sted/koordinater, kapasitet eller transportbehov nullstiller godkjenning; en ren tilgjengelighetsendring gjør ikke det. Kapasitet/transport er valgfrie fritekstfelt, ikke oppdiktede standardenheter for alle kategorier.
+
+MariaDB-transaksjoner og applikasjonsstyrte optimistiske versjonstoken beskytter ressurs, behov og forespørsel. Samtidige disponeringer kan ikke begge vinne; konflikter gir melding og krever ny vurdering. Endringer i kritisk arbeidsflyt registreres med aktør-ID, UTC-tid, handling og begrunnelse. Audit-historikken er et prototyperevisjonsspor, ikke et manipulasjonssikkert eksternt loggsystem. Sider viser status ved lasting; last på nytt for oppdatert informasjon. Lastfeil er ikke en tom resultatliste.
+
+### Kartarbeidsflate
+
+Kartet åpnes i **utforskingsmodus**. Søk flytter utsnittet; kartklikk registrerer ikke noe. «Registrer ressurs» åpner skjemaet, og «Velg plassering» aktiverer punktvalg. Redigering og ugyldige innsendinger beholder felt og valgte koordinater. Forhåndsvisning åpner aldri popup automatisk. På mobil velges Kart/Liste; detaljer kan utvides. Lokale forslag og eksplisitt eksternt søk beholder personvern-/attribusjonsreglene nedenfor.
 
 ### Første administrator
 
@@ -64,12 +87,12 @@ Focused frontend checks use Node.js's built-in test runner (no npm packages):
 ```sh
 node --test tests/Frontend/*.test.cjs
 dotnet build
-dotnet test tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj --filter 'FullyQualifiedName!~MariaDbPersistenceTests'
+dotnet test tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj --filter 'FullyQualifiedName!~MariaDbPersistenceTests&FullyQualifiedName!~WorkflowTests'
 ```
 
 Fokuserte tester dekker tema/ARIA, zoom/felles ikonmapping, logoens proporsjoner, popupfri forhåndsvisning, samt lokal debounce/minimumslengde, hurtigbuffer, utdaterte svar, tastaturvalg, tekstescaping og nettverksfeil. Eksisterende tester beholdes; faktiske resultater og nettleser-/Docker-begrensninger oppgis i PR-en.
 
-Headeren bruker versjonerte `wwwroot/images/forsvaret-logo.png`, avledet fra prosjektets eksisterende JPG med transparent bakgrunn og bevart hvit øksedetalj. Det flate originalrasteret er proporsjonskorrigert til 588×721 etter [emblemets dokumenterte 406:498-forhold](https://commons.wikimedia.org/wiki/File:Coat_of_arms_of_the_Norwegian_Armed_Forces.svg), uten å hente eller erstatte selve kunstverket. Hele emblemet vises med automatisk bredde og `object-fit: contain`, 80px høyt på desktop / 56px på mobil. Bildet ligger ubetinget i delt layout og leveres som offentlig statisk fil: også anonyme besøkende på Hjem, Logg inn og Registrer ser det, uten at kart/data gjøres offentlige. En ren Docker-build inkluderer filen; ingen lokal stash eller usporet bildefil kreves. Dette publiserer ikke localhost på internett.
+Headeren bruker versjonerte `wwwroot/images/forsvaret-logo.png`, avledet fra prosjektets eksisterende JPG med transparent bakgrunn og bevart hvit øksedetalj. Det flate originalrasteret er proporsjonskorrigert til 588×721 etter [emblemets dokumenterte 406:498-forhold](https://commons.wikimedia.org/wiki/File:Coat_of_arms_of_the_Norwegian_Armed_Forces.svg), uten å hente eller erstatte selve kunstverket. Hele emblemet vises med automatisk bredde og `object-fit: contain`, 48px høyt på desktop / 40px på mobil, sammen med tydelig prototypebetegnelse. Bildet ligger ubetinget i delt layout og leveres som offentlig statisk fil: også anonyme besøkende på Hjem, Logg inn og Registrer ser det, uten at kart/data gjøres offentlige. En ren Docker-build inkluderer filen; ingen lokal stash eller usporet bildefil kreves. Dette publiserer ikke localhost på internett.
 
 ### Oppdater lokalt etter gjennomgått og fullført PR
 
@@ -87,9 +110,41 @@ docker compose ps
 docker compose logs --tail=100 heimevernet
 ```
 
-Bevar eksisterende CSS-stash og eventuelle lokale bilder; ikke bruk reset/clean eller overskriv dem. Ikke kjør `git stash pop` blindt: inspiser riktig stash og kombiner ønskede endringer manuelt ved konflikter. Denne oppdateringen endrer `site.css`; en gammel stylesheet-stash kan overskrive rettingene. Etter rebuild: Ctrl+F5, test kart og tema. Bevar både database- og nøkkelvolum; **aldri `docker compose down -v`**.
+Bevar eksisterende CSS-stash og eventuelle lokale bilder; ikke bruk reset/clean eller overskriv dem. Ikke kjør `git stash pop` blindt: inspiser riktig stash og kombiner ønskede endringer manuelt ved konflikter. Arbeidsflaten bruker egne stiloverstyringer etter `site.css`; gamle lokale stiler må gjennomgås før de kombineres. Etter rebuild: Ctrl+F5, test kart og tema. Bevar både database- og nøkkelvolum; **aldri `docker compose down -v`**.
 
 ## Run with Docker Compose
+
+**Før oppgradering med migreringer:** Appen kjører `Database.MigrateAsync()` ved oppstart. Stopp appens skriving og ta en separat, operatørstyrt databasebackup **før** du starter den nye appversjonen. Kodegrenen nedenfor er ikke en databasebackup. Ingen backup av din lokale database er opprettet av cloud-agenten.
+
+Fra lokal prosjektmappe, med eksisterende `.env` og databasecontainer:
+
+```sh
+docker compose stop heimevernet
+umask 077
+docker compose exec -T mariadb sh -c 'exec mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --single-transaction --routines --events "$MARIADB_DATABASE"' > mariadb-before-workspace.sql
+test -s mariadb-before-workspace.sql
+```
+
+Backupen inneholder konto-/Identity-data og må lagres privat utenfor Git og kontrolleres med en **prøverestaurering til en separat MariaDB-instans**. Kopier også Identity-nøkkelvolumet sikkert ved behov for full gjenoppretting. Ikke ta med databasedump i PR. Den nye migreringen er additiv: eksisterende rader og eierskap bevares, og gamle ressurser blir uverifiserte. Den tilskriver ikke eldre registreringer en historisk godkjenning.
+
+### Kode- og databaserollback
+
+Den urørte grenen `backup/oliver-before-workspace-redesign-2026-10-25` peker på `915a8cb843d51756251d58c8afc138ebad028d78` og er **bare et kodesnapshot**. Inspiser den uten å endre arbeidsgrenen:
+
+```sh
+git fetch origin backup/oliver-before-workspace-redesign-2026-10-25
+git worktree add --detach ../workspace-before-redesign origin/backup/oliver-before-workspace-redesign-2026-10-25
+```
+
+Vanlig koderollback er en gjennomgått revert-PR til `oliver-branch`, ikke reset/force-push og aldri endring av backupgrenen. Revert av kode endrer ikke databasen. Eldre kode kjenner ikke nye statuser og kan omgå nye arbeidsflytregler; ikke bruk den som skrivende app mot operativt oppgradert datasett uten vurdering.
+
+Ved nødvendig databaserestore: stopp alle skrivende apper, bevar også en kopi av tilstanden etter oppgraderingen, og prøverestaurer før bytte. På en **separat, tom kompatibel MariaDB-instans**, med riktig database/bruker konfigurert, kan dumpen leses inn med:
+
+```sh
+docker compose exec -T mariadb sh -c 'exec mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < mariadb-before-workspace.sql
+```
+
+Dette er en operatørhandling for den valgte restore-instansen, ikke en kommando som skal kjøres blindt mot eksisterende data. En pre-migreringsbackup mister senere forespørsler/beslutninger ved gjenoppretting; avklar disse før tilbakeføring. Automatisk nedmigrering eller sletting av Docker-volumer er ikke normal rollback. Bevar migreringshistorikk og database/kode som et kompatibelt par.
 
 Create a local environment file and replace both placeholder values with different, strong random passwords. Hexadecimal values avoid connection-string delimiter issues:
 
@@ -184,7 +239,7 @@ Review and commit the generated migration and model snapshot. The app applies co
 
 ## Integration smoke tests
 
-The opt-in test project exercises migrations and real MariaDB persistence, including Identity users/roles, resource ownership, Norwegian characters, nullable form locations, map coordinates and timestamps, and map-resource create/read/update/delete. Its source is excluded from the web project's compile glob. Authorization and login-choice unit tests can run without MariaDB using `dotnet test tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj --filter 'FullyQualifiedName!~MariaDbPersistenceTests'`.
+The opt-in test project exercises migrations and real MariaDB persistence, including Identity users/roles, resource ownership, Norwegian characters, nullable form locations, map coordinates and timestamps, and map-resource create/read/update/delete. Workflow tests additionally exercise decisions, expiry, owner access, allocation conflicts and return/reverification. Its source is excluded from the web project's compile glob. Tests without MariaDB can run using the filtered command above; run the complete suite only against an isolated test database with the documented MariaDB environment variables.
 
 Run against a new, isolated Compose project name to exercise an empty database and fresh schema without touching the normal application volume. If `heimevernet-smoke` was used before, choose a different project name; Compose keeps named volumes after `down`.
 
@@ -214,6 +269,21 @@ docker cp <old-app-container>:/app/Data/heimevernet.db ./heimevernet.sqlite.back
 Confirm the backup exists and can be opened before proceeding. Keep the old named volume until its data has been reviewed and any separately planned transfer has been verified. Moving SQLite records to MariaDB requires an explicit, separately tested transfer; it is not part of normal application startup.
 
 ## AI assistance
+
+GitHub Copilot hjalp med arbeidsflateredesign, domenemodell for tilgjengelighet/verifisering/behov/forespørsler, konkurransekontroll, additive migreringer, tester og dokumentasjon i denne endringen. Eksisterende teknologi, lokale originale symboler og stedsoppslag beholdes. Testkommandoer, faktiske resultater, nettleserbilder og begrensninger oppgis i PR-en. Ingen virkelige personlige kontoer/passord fra chat brukes; eventuelle røykprøvekontoer er syntetiske i en isolert testdatabase. Gruppen må gjennomgå AI-generert kode og gjøre egen brukertest før den vurderes for annet enn prototypebruk.
+
+### Kort brukertest for medstudenter
+
+Bruk syntetiske data og en separat testdatabase. Ikke forklar fremgangsmåten på forhånd:
+
+1. Finn en ressurs ved et oppgitt sted; forklar forskjellen mellom registrert, tilgjengelig og disponibel.
+2. Registrer en egen ressurs og velg plassering. Finn tilbake til den.
+3. Endre egen ressurs og tilgjengelighet; forklar eventuell ny verifisering.
+4. Fremprovoser en ugyldig innsending (f.eks. manglende navn) og rett feilen uten å miste valgte data.
+5. Med to autoriserte kontoer: vurder ressurs, send forespørsel, svar som eier, tildel og returner. Forklar hvorfor ny tildeling ikke er mulig før ny godkjenning.
+6. Gjenta kart/liste og søk med tastatur og på smal skjerm.
+
+Registrer per oppgave: fullført/ikke fullført, tidsbruk, hvor deltakeren nølte, feilhandling, behov for hjelp og deltakerens forklaring av status. Ikke samle virkelige kontaktdata. Ingen brukerfunn er påstått; denne protokollen må faktisk gjennomføres før resultater skrives i rapporten.
 
 GitHub Copilot hjalp med transparent lokal logo, originale enklere ressursikoner, tema-/søkekontrast, popupfri forhåndsvisning, samlet Verifiser-side, tre nye tester og trygg lokal administratorveiledning. Ingen brukerpassord er brukt, og ingen konto er opprettet i brukerens lokale database. Faktisk utførte sjekker og begrensninger rapporteres i PR-en.
 

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using HeimevernetInnlevering1.Models;
 
 namespace HeimevernetInnlevering1.Controllers;
 
@@ -30,6 +31,18 @@ public class FormSubmissionViewModel
 
 public class MapSubmissionViewModel
 {
+    [EnumDataType(typeof(ResourceAvailability), ErrorMessage = "Velg gyldig tilgjengelighet.")]
+    public ResourceAvailability Availability { get; set; } = ResourceAvailability.Available;
+
+    [StringLength(500, ErrorMessage = "Kapasitetsbeskrivelsen kan ha høyst 500 tegn.")]
+    public string? Capability { get; set; }
+
+    [StringLength(500, ErrorMessage = "Transportbeskrivelsen kan ha høyst 500 tegn.")]
+    public string? TransportRequirements { get; set; }
+
+    [StringLength(36)]
+    public string? Version { get; set; }
+
     // Resource types taken from the Marius branch.
     public static readonly string[] ResourceTypes =
     {

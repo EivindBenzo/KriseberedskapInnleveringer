@@ -50,4 +50,16 @@ public class MapSubmission
     public DateTime? UpdatedAtUtc { get; set; }
     public string? OwnerId { get; set; }
     public IdentityUser? Owner { get; set; }
+
+    public ResourceAvailability Availability { get; set; } = ResourceAvailability.Available;
+    public ResourceVerificationStatus VerificationStatus { get; set; } = ResourceVerificationStatus.Pending;
+    [MaxLength(1000)]
+    public string? Capability { get; set; }
+    [MaxLength(1000)]
+    public string? TransportRequirements { get; set; }
+    public DateTime? VerifiedAtUtc { get; set; }
+    public DateTime? VerificationExpiresAtUtc { get; set; }
+
+    [ConcurrencyCheck, MaxLength(36)]
+    public string ConcurrencyToken { get; set; } = Guid.NewGuid().ToString();
 }
