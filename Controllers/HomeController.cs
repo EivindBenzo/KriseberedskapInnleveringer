@@ -1,12 +1,14 @@
-using System.Globalization;
+using System.Security.Claims;
 using HeimevernetInnlevering1.Data;
 using HeimevernetInnlevering1.Models;
 using HeimevernetInnlevering1.ViewModels;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeimevernetInnlevering1.Controllers;
 
+[Authorize]
 public class HomeController : Controller
 {
     private readonly AppDbContext _db;
@@ -17,25 +19,14 @@ public class HomeController : Controller
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public IActionResult Index() => View();
 
     [HttpGet]
-    public IActionResult Form()
+    public IActionResult Form() => View(new FormSubmissionViewModel
     {
-        var model = new FormSubmissionViewModel();
-
-        var lat = HttpContext.Session.GetString("PendingLat");
-        var lng = HttpContext.Session.GetString("PendingLng");
-
-        if (!string.IsNullOrEmpty(lat) && !string.IsNullOrEmpty(lng))
-        {
-            model.Latitude = double.Parse(lat, CultureInfo.InvariantCulture);
-            model.Longitude = double.Parse(lng, CultureInfo.InvariantCulture);
-            model.LocationName = HttpContext.Session.GetString("PendingLocationName");
-        }
-
-        return View(model);
-    }
+        Email = User.Identity?.Name ?? string.Empty
+    });
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -55,23 +46,15 @@ public class HomeController : Controller
             LocationName = model.LocationName,
             Latitude = model.Latitude,
             Longitude = model.Longitude,
-            CreatedAtUtc = DateTime.UtcNow
+            CreatedAtUtc = DateTime.UtcNow,
+            OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
         };
 
         _db.FormSubmissions.Add(submission);
         await _db.SaveChangesAsync();
 
-        HttpContext.Session.SetInt32("RegistrationId", submission.Id);
-        HttpContext.Session.Remove("PendingLat");
-        HttpContext.Session.Remove("PendingLng");
-        HttpContext.Session.Remove("PendingLocationName");
-
-        return RedirectToAction(nameof(Result), new
-        {
-            name = $"{model.FirstName} {model.LastName}",
-            email = model.Email,
-            message = model.Message
-        });
+        TempData["MapSuccess"] = "Behovet er meldt inn.";
+        return RedirectToAction(nameof(Data));
     }
 
     [HttpGet]
@@ -99,10 +82,7 @@ public class HomeController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Map(MapSubmissionViewModel model)
     {
-        if (!MapSubmissionViewModel.ResourceTypes.Contains(model.ResourceType))
-        {
-            ModelState.AddModelError(nameof(model.ResourceType), "Velg en gyldig ressurstype");
-        }
+        ValidateResource(model);
 
         if (!ModelState.IsValid)
         {
@@ -117,13 +97,10 @@ public class HomeController : Controller
             LocationName = model.LocationName,
             Latitude = model.Latitude,
             Longitude = model.Longitude,
-            CreatedAtUtc = DateTime.UtcNow
+            CreatedAtUtc = DateTime.UtcNow,
+            OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
         });
         await _db.SaveChangesAsync();
-
-        HttpContext.Session.SetString("PendingLat", model.Latitude.ToString(CultureInfo.InvariantCulture));
-        HttpContext.Session.SetString("PendingLng", model.Longitude.ToString(CultureInfo.InvariantCulture));
-        HttpContext.Session.SetString("PendingLocationName", model.LocationName);
 
         TempData["MapSuccess"] = $"{model.ResourceType} «{model.ResourceName}» ble registrert ved {model.LocationName}.";
 
@@ -141,9 +118,79 @@ public class HomeController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Data() => View(await BuildDataModelAsync());
+    public async Task<IActionResult> Edit(int id)
+    {
+        var resource = await _db.MapSubmissions.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id);
+        if (resource is null) return NotFound();
+        if (!ResourcePermissions.CanManage(User, resource.OwnerId)) return Forbid();
+        ViewBag.EditId = id;
+        await LoadResourcesAsync();
+        return View("Map", new MapSubmissionViewModel
+        {
+            ResourceName = resource.ResourceName,
+            ResourceType = resource.ResourceType,
+            LocationName = resource.LocationName,
+            Latitude = resource.Latitude,
+            Longitude = resource.Longitude
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, MapSubmissionViewModel model)
+    {
+        var resource = await _db.MapSubmissions.FindAsync(id);
+        if (resource is null) return NotFound();
+        if (!ResourcePermissions.CanManage(User, resource.OwnerId)) return Forbid();
+        ValidateResource(model);
+        if (!ModelState.IsValid)
+        {
+            ViewBag.EditId = id;
+            await LoadResourcesAsync();
+            return View("Map", model);
+        }
+        resource.ResourceName = model.ResourceName;
+        resource.ResourceType = model.ResourceType;
+        resource.LocationName = model.LocationName;
+        resource.Latitude = model.Latitude;
+        resource.Longitude = model.Longitude;
+        resource.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        TempData["MapSuccess"] = "Ressursen er oppdatert.";
+        return RedirectToAction(nameof(Data));
+    }
 
     [HttpGet]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var resource = await _db.MapSubmissions.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id);
+        if (resource is null) return NotFound();
+        if (!ResourcePermissions.CanManage(User, resource.OwnerId)) return Forbid();
+        return View(resource);
+    }
+
+    [HttpPost, ActionName("Delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteConfirmed(int id)
+    {
+        var resource = await _db.MapSubmissions.FindAsync(id);
+        if (resource is null) return NotFound();
+        if (!ResourcePermissions.CanManage(User, resource.OwnerId)) return Forbid();
+        _db.MapSubmissions.Remove(resource);
+        await _db.SaveChangesAsync();
+        TempData["MapSuccess"] = "Ressursen er slettet.";
+        return RedirectToAction(nameof(Data));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Data(string? type)
+    {
+        ViewBag.SelectedType = type;
+        return View(await BuildDataModelAsync(type));
+    }
+
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Verify() => View(await BuildDataModelAsync());
 
     private async Task LoadResourcesAsync()
@@ -154,11 +201,26 @@ public class HomeController : Controller
             .ToListAsync();
     }
 
-    private async Task<DataPageViewModel> BuildDataModelAsync() => new()
+    private void ValidateResource(MapSubmissionViewModel model)
     {
-        FormSubmissions = await _db.FormSubmissions.AsNoTracking()
-            .OrderByDescending(x => x.CreatedAtUtc).ToListAsync(),
-        MapSubmissions = await _db.MapSubmissions.AsNoTracking()
-            .OrderByDescending(x => x.CreatedAtUtc).ToListAsync()
-    };
+        if (!MapSubmissionViewModel.ResourceTypes.Contains(model.ResourceType))
+            ModelState.AddModelError(nameof(model.ResourceType), "Velg en gyldig ressurstype");
+        if (!double.IsFinite(model.Latitude) || !double.IsFinite(model.Longitude))
+            ModelState.AddModelError(string.Empty, "Velg gyldige koordinater.");
+    }
+
+    private async Task<DataPageViewModel> BuildDataModelAsync(string? type = null)
+    {
+        var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var reports = _db.FormSubmissions.AsNoTracking()
+            .Where(s => User.IsInRole("Admin") || s.OwnerId == ownerId);
+        var resources = _db.MapSubmissions.AsNoTracking().Include(r => r.Owner).AsQueryable();
+        if (!string.IsNullOrEmpty(type))
+            resources = resources.Where(r => r.ResourceType == type);
+        return new DataPageViewModel
+        {
+            FormSubmissions = await reports.OrderByDescending(x => x.CreatedAtUtc).ToListAsync(),
+            MapSubmissions = await resources.OrderByDescending(x => x.CreatedAtUtc).ToListAsync()
+        };
+    }
 }

@@ -6,6 +6,7 @@
     <title>@ViewData["Title"] - Heimevernet</title>
     <script src="~/js/theme.js" asp-append-version="true"></script>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
 </head>
 <body>
     <header>
@@ -29,10 +30,28 @@
 
                 <ul class="nav-menu" id="navMenu">
                     <li><a asp-controller="Home" asp-action="Index" class="nav-link">Hjem</a></li>
-                    <li><a asp-controller="Home" asp-action="Form" class="nav-link">Skjema</a></li>
-                    <li><a asp-controller="Home" asp-action="Map" class="nav-link">Kart</a></li>
-                    <li><a asp-controller="Home" asp-action="Data" class="nav-link">Data</a></li>
-                    <li><a asp-controller="Home" asp-action="Verify" class="nav-link">Verifiser</a></li>
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <li><a asp-controller="Home" asp-action="Form" class="nav-link">Skjema</a></li>
+                        <li><a asp-controller="Home" asp-action="Map" class="nav-link">Kart</a></li>
+                        <li><a asp-controller="Home" asp-action="Data" class="nav-link">Data</a></li>
+                        <li><a asp-controller="Home" asp-action="Verify" class="nav-link">Verifiser</a></li>
+                        @if (User.IsInRole("Admin"))
+                        {
+                            <li><a asp-controller="Admin" asp-action="Index" class="nav-link">Administrer brukere</a></li>
+                        }
+                        <li class="nav-account">@User.Identity.Name <small>@(User.IsInRole("Admin") ? "Administrator (full tilgang)" : "Bruker")</small></li>
+                        <li>
+                            <form asp-controller="Account" asp-action="Logout" method="post">
+                                <button type="submit" class="nav-link nav-logout">Logg ut</button>
+                            </form>
+                        </li>
+                    }
+                    else
+                    {
+                        <li><a asp-controller="Account" asp-action="Login" class="nav-link">Logg inn</a></li>
+                        <li><a asp-controller="Account" asp-action="Register" class="nav-link">Registrer bruker</a></li>
+                    }
                 </ul>
             </div>
         </nav>

@@ -1,10 +1,10 @@
 @model FormSubmissionViewModel
 @{
-    ViewData["Title"] = "Skjema";
+    ViewData["Title"] = "Meld behov";
 }
 
 <div class="form-container">
-    <h1>Skjema</h1>
+    <h1>Meld behov</h1>
     <p>Fyll ut skjemaet under. Alle felt er påkrevd.</p>
 
     @if (Model?.Latitude.HasValue == true && Model?.Longitude.HasValue == true)
