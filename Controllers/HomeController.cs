@@ -57,7 +57,7 @@ public class HomeController : Controller
         await _db.SaveChangesAsync();
 
         TempData["MapSuccess"] = "Behovet er meldt inn.";
-        return RedirectToAction(nameof(Data));
+        return RedirectToAction(nameof(Verify));
     }
 
     [HttpGet]
@@ -197,15 +197,14 @@ public class HomeController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Data(string? type)
+    public IActionResult Data(string? type) => RedirectToAction(nameof(Verify), new { type });
+
+    [HttpGet]
+    public async Task<IActionResult> Verify(string? type)
     {
         ViewBag.SelectedType = type;
         return View(await BuildDataModelAsync(type));
     }
-
-    [HttpGet]
-    [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> Verify() => View(await BuildDataModelAsync());
 
     protected virtual async Task LoadResourcesAsync()
     {

@@ -14,8 +14,11 @@
         function updateControl() {
             const dark = root.dataset.theme === 'dark';
             button.setAttribute('aria-pressed', String(dark));
-            document.getElementById('themeIcon').textContent = dark ? '☀' : '☾';
-            document.getElementById('themeLabel').textContent = dark ? 'Lys modus' : 'Mørk modus';
+            const action = dark ? 'Bytt til lys modus' : 'Bytt til mørk modus';
+            button.setAttribute('aria-label', action);
+            button.setAttribute('title', action);
+            document.getElementById('themeIcon').textContent = dark ? '☾' : '☀';
+            document.getElementById('themeLabel').textContent = dark ? 'Mørk modus' : 'Lys modus';
         }
         updateControl();
         button.hidden = false;

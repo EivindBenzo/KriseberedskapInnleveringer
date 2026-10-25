@@ -105,7 +105,7 @@ header::after {
 
 .nav-brand img {
     display: block;
-    height: 80px;
+    height: 96px;
     width: auto;
     object-fit: contain;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
@@ -391,6 +391,44 @@ textarea.form-control {
     box-shadow: 0 15px 40px rgba(59, 130, 246, 0.4);
 }
 
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    margin: 0.5rem 0.25rem 0 0;
+    padding: 0.65rem 1rem;
+    border: 1px solid #1d4ed8;
+    border-radius: 8px;
+    background: #1d4ed8;
+    color: #ffffff;
+    font: inherit;
+    font-weight: 600;
+    line-height: 1.4;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: #1e40af;
+    border-color: #1e40af;
+    color: #ffffff;
+}
+
+.btn-secondary:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 2px var(--surface);
+}
+
+.btn-secondary:disabled {
+    background: var(--hover);
+    border-color: var(--border);
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
 h1 {
     font-size: 2.5rem;
     margin-bottom: 1.5rem;
@@ -672,14 +710,11 @@ th {
 }
 
 .resource-marker {
-    border-radius: 50%;
-    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+    filter: drop-shadow(0 0 1px white) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
 
 .resource-marker-preview {
-    outline: 3px dashed #172554;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 6px white;
+    opacity: 0.85;
 }
 
 .feature-card,
@@ -722,7 +757,7 @@ th {
     }
 
     .nav-brand img {
-        height: 56px;
+        height: 64px;
         width: auto;
     }
 

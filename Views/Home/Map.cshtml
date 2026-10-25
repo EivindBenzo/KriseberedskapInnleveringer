@@ -161,7 +161,6 @@
     // Marker for the location currently being chosen.
     const resourceType = document.getElementById('resourceType');
     let marker = null;
-    const previewLabel = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(isEditing ? "Ressursen plasseres her" : "Ny ressurs plasseres her"));
 
     resourceType.addEventListener('change', function () {
         if (!marker) return;
@@ -193,7 +192,6 @@
 
     function showPlace(label) {
         selectedPlace.textContent = label;
-        marker.bindPopup(escapeHtml(previewLabel) + '<br>' + escapeHtml(label));
     }
 
     function setLocation(lat, lng, label, resolvePlace = true) {
@@ -209,7 +207,6 @@
         document.getElementById('latitude').value = lat;
         document.getElementById('longitude').value = lng;
         showPlace(label || coordinates);
-        marker.openPopup();
         if (!resolvePlace || label) return;
 
         pointController = new AbortController();
@@ -237,7 +234,6 @@
             if (item) focusResource(item);
             else if (marker && editId === Number(card.dataset.resourceId)) {
                 map.setView(marker.getLatLng(), 15);
-                marker.openPopup();
             }
             document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
         });
