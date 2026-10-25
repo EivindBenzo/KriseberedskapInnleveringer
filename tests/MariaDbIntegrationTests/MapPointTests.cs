@@ -86,7 +86,7 @@ public class MapPointTests
     }
 
     [Fact]
-    public async Task EditRetainsSelectionOnErrorAndSuccessfulEditAndDeleteReturnMap()
+    public async Task EditRetainsSelectionOnErrorAndSuccessfulEditReturnsMap()
     {
         using var db = new TestContext();
         var resource = new MapSubmission { Id = 7, OwnerId = "owner", ResourceName = "Old", ResourceType = "Utstyr" };
@@ -106,12 +106,63 @@ public class MapPointTests
         Assert.False(controller.ModelState.ContainsKey("LocationName"));
         Assert.Equal(0, db.Saves);
         controller = CreateController(db, new StubGeocoder());
-        var edited = Assert.IsType<RedirectToActionResult>(await controller.Edit(7, Model(58, 9)));
+        var valid = Model(58, 9);
+        valid.Version = resource.ConcurrencyToken;
+        var edited = Assert.IsType<RedirectToActionResult>(await controller.Edit(7, valid));
         Assert.Equal("Map", edited.ActionName);
         Assert.Equal("Authoritative place", resource.LocationName);
         Assert.Equal(58, resource.Latitude);
-        var deleted = Assert.IsType<RedirectToActionResult>(await controller.DeleteConfirmed(7));
-        Assert.Equal("Map", deleted.ActionName);
+        Assert.Equal(ResourceVerificationStatus.Pending, resource.VerificationStatus);
+        Assert.Null(resource.VerifiedAtUtc);
+        Assert.Contains(db.ChangeTracker.Entries<WorkflowAudit>(), a =>
+            a.Entity.Action == "ResourceEditedReverificationRequired");
+    }
+
+    [Fact]
+    public async Task StaleEditPreservesEnteredFieldsAndDoesNotSave()
+    {
+        using var db = new TestContext();
+        var resource = new MapSubmission { Id = 7, OwnerId = "owner", ResourceName = "Current", ResourceType = "Utstyr" };
+        db.MapSubmissions.Add(resource);
+        var controller = CreateController(db, new StubGeocoder());
+        var entered = Model(58, 9);
+        entered.Version = "outdated";
+        var result = Assert.IsType<ViewResult>(await controller.Edit(7, entered));
+        Assert.Same(entered, result.Model);
+        Assert.Equal("Resource", entered.ResourceName);
+        Assert.Equal(resource.ConcurrencyToken, entered.Version);
+        Assert.Equal(0, db.Saves);
+        Assert.Equal("Current", resource.ResourceName);
+    }
+
+    [Theory]
+    [InlineData(ResourceAvailability.Reserved)]
+    [InlineData(ResourceAvailability.Allocated)]
+    public async Task BusyResourcesCannotBeEdited(ResourceAvailability availability)
+    {
+        using var db = new TestContext();
+        var resource = new MapSubmission { Id = 7, OwnerId = "owner", ResourceName = "Current", Availability = availability };
+        db.MapSubmissions.Add(resource);
+        var controller = CreateController(db, new StubGeocoder());
+        var entered = Model(58, 9);
+        entered.Version = resource.ConcurrencyToken;
+        Assert.IsType<ViewResult>(await controller.Edit(7, entered));
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal(0, db.Saves);
+        Assert.Equal(availability, resource.Availability);
+    }
+
+    [Fact]
+    public async Task CreateCannotForgeReservedAvailabilityOrApproval()
+    {
+        using var db = new TestContext();
+        var controller = CreateController(db, new StubGeocoder());
+        var entered = Model(58, 9);
+        entered.Availability = ResourceAvailability.Reserved;
+        Assert.IsType<ViewResult>(await controller.Map(entered));
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Equal(0, db.Saves);
+        Assert.Null(typeof(MapSubmissionViewModel).GetProperty("VerificationStatus"));
     }
 
     [Fact]

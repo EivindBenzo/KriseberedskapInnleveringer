@@ -1,0 +1,312 @@
+.main-content:has(.map-workspace) {
+    max-width: 1680px;
+    margin: 1.25rem auto;
+    padding: 0 1.25rem;
+}
+
+.map-workspace {
+    --workspace-border: var(--border, #cbd5e1);
+    color: var(--text);
+}
+
+.map-workspace .workspace-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.map-workspace h1 {
+    font-size: 1.65rem;
+    margin: 0;
+}
+
+.map-workspace h2 {
+    font-size: 1.05rem;
+    margin: 0 0 .6rem;
+}
+
+.map-workspace .workspace-grid {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.map-workspace .workspace-sidebar {
+    max-height: calc(100dvh - 220px);
+    min-height: 480px;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    border: 1px solid var(--workspace-border);
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.map-workspace .workspace-search,
+.map-workspace .workspace-results,
+.map-workspace .registration-panel {
+    padding: .9rem;
+}
+
+.map-workspace .workspace-search,
+.map-workspace .registration-panel {
+    border-bottom: 1px solid var(--workspace-border);
+}
+
+.map-workspace .workspace-search-row {
+    display: flex;
+    align-items: start;
+    gap: .4rem;
+}
+
+.map-workspace .city-search-input {
+    min-width: 0;
+    flex: 1;
+}
+
+.map-workspace label {
+    font-size: .85rem;
+    margin-bottom: .3rem;
+}
+
+.map-workspace .form-control {
+    padding: .6rem .65rem;
+    font-size: .9rem;
+    border-width: 1px;
+    border-radius: 7px;
+}
+
+.map-workspace .btn-secondary,
+.map-workspace .btn-danger,
+.map-workspace .btn-submit,
+.map-workspace .workspace-mobile-switch button {
+    min-height: 42px;
+    padding: .55rem .8rem;
+    margin: 0;
+    font: inherit;
+    font-size: .85rem;
+    line-height: 1.4;
+    border-radius: 7px;
+}
+
+.map-workspace .btn-submit {
+    width: 100%;
+    margin-top: .75rem;
+}
+
+.map-workspace .form-group {
+    margin-bottom: .75rem;
+}
+
+.map-workspace .workspace-muted,
+.map-workspace #citySearchHelp,
+.map-workspace #citySearchStatus,
+.map-workspace #placementHelp,
+.map-workspace .workspace-disclosure {
+    display: block;
+    font-size: .78rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: .4rem;
+}
+
+.map-workspace .workspace-disclosure p {
+    font-size: inherit;
+    margin: .5rem 0;
+}
+
+.map-workspace summary {
+    cursor: pointer;
+}
+
+.map-workspace .workspace-location {
+    font-size: .85rem;
+    margin: .65rem 0;
+    padding: .5rem;
+    background: var(--page);
+    border-radius: 6px;
+    overflow-wrap: anywhere;
+}
+
+.map-workspace .workspace-resource-list {
+    margin-top: .6rem;
+}
+
+.map-workspace .resource-card {
+    border-top: 1px solid var(--workspace-border);
+}
+
+.map-workspace .resource-card > summary {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .7rem .2rem;
+    list-style: none;
+}
+
+.map-workspace .resource-card > summary::after {
+    content: "+";
+    margin-left: auto;
+    font-weight: 700;
+}
+
+.map-workspace .resource-card[open] > summary::after {
+    content: "−";
+}
+
+.map-workspace .resource-card strong,
+.map-workspace .resource-card small {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.map-workspace .resource-card small {
+    color: var(--muted);
+    font-size: .75rem;
+}
+
+.map-workspace .resource-card img {
+    flex-shrink: 0;
+}
+
+.map-workspace .resource-detail {
+    padding: 0 .2rem .75rem;
+    font-size: .8rem;
+}
+
+.map-workspace .resource-detail dl > div {
+    margin-bottom: .45rem;
+}
+
+.map-workspace .resource-detail dt {
+    color: var(--muted);
+    font-size: .72rem;
+}
+
+.map-workspace .resource-detail dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.map-workspace .resource-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+}
+
+.map-workspace .workspace-map-region {
+    position: sticky;
+    top: 1rem;
+    min-width: 0;
+}
+
+.map-workspace .workspace-map-status {
+    font-size: .8rem;
+    margin: 0 0 .5rem;
+    color: var(--muted);
+}
+
+.map-workspace #map {
+    height: calc(100dvh - 255px);
+    min-height: 480px;
+    margin: 0;
+    box-shadow: none;
+    border: 1px solid var(--workspace-border);
+    border-radius: 12px;
+}
+
+.map-workspace #map.placement-active {
+    outline: 3px solid var(--accent);
+    outline-offset: -3px;
+    cursor: crosshair;
+}
+
+.map-workspace [aria-pressed="true"] {
+    background: var(--hover);
+    color: var(--heading);
+    box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.map-workspace .resource-popup strong {
+    display: block;
+    font-size: 1rem;
+}
+
+.map-workspace .workspace-notice {
+    padding: .6rem .9rem;
+    border: 1px solid var(--workspace-border);
+    border-radius: 8px;
+    margin-bottom: .75rem;
+}
+
+.map-workspace .workspace-mobile-switch {
+    display: none;
+}
+
+.map-workspace [hidden] {
+    display: none !important;
+}
+
+@media (max-width: 760px) {
+    .main-content:has(.map-workspace) {
+        margin: .75rem auto;
+        padding: 0 .65rem;
+    }
+
+    .map-workspace .workspace-heading {
+        gap: .5rem;
+        margin-bottom: .65rem;
+    }
+
+    .map-workspace h1 {
+        font-size: 1.3rem;
+    }
+
+    .map-workspace .workspace-mobile-switch {
+        display: flex;
+        gap: .4rem;
+        margin-bottom: .65rem;
+    }
+
+    .map-workspace .workspace-mobile-switch button {
+        flex: 1;
+        color: var(--text);
+        background: var(--surface);
+        border: 1px solid var(--workspace-border);
+    }
+
+    .map-workspace .workspace-grid {
+        display: flex;
+        flex-direction: column;
+        gap: .65rem;
+    }
+
+    .map-workspace .workspace-sidebar {
+        width: 100%;
+        max-height: none;
+        min-height: 0;
+        overflow: visible;
+    }
+
+    .map-workspace .workspace-search {
+        padding: .65rem;
+        border-bottom: 0;
+    }
+
+    .map-workspace .workspace-map-region {
+        position: static;
+        width: 100%;
+    }
+
+    .map-workspace #map {
+        height: 58dvh;
+        min-height: 330px;
+    }
+
+    .map-workspace[data-mobile-view="map"] .workspace-results,
+    .map-workspace[data-mobile-view="list"] .workspace-map-region {
+        display: none;
+    }
+}

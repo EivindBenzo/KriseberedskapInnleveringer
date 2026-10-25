@@ -1,22 +1,33 @@
 @model HeimevernetInnlevering1.ViewModels.DataPageViewModel
+@using HeimevernetInnlevering1.Models
 @inject Microsoft.AspNetCore.Mvc.ViewFeatures.IFileVersionProvider FileVersionProvider
 @{
-    ViewData["Title"] = "Verifiser";
+    var mine = ViewBag.Mine is true;
+    ViewData["Title"] = mine ? "Mine ressurser" : "Ressurser";
+    var now = DateTime.UtcNow;
     var resourceIconUrls = new[] { "car", "excavator", "drone", "generator", "personnel", "toolbox", "unknown" }
         .ToDictionary(file => file, file => FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content($"~/images/resources/{file}.svg")));
 }
-
-<div class="data-container">
-    <span class="eyebrow">LAGRET INFORMASJON</span>
-    <h1>Verifiser</h1>
-    <p>Se alle ressurser, eller rediger dine egne. Administratorer kan administrere alle ressurser.</p>
+<section class="data-container">
+    <h1>@ViewData["Title"]</h1>
+    <p>Registrering er ikke en godkjenning. Bare tilgjengelige ressurser med gyldig godkjenning kan forespørres og disponeres.</p>
     @if (TempData["MapSuccess"] is string success)
     {
         <p class="info" role="status">@success</p>
     }
-    <form asp-action="Verify" method="get" class="form">
+    <div class="resource-actions">
+        <a asp-action="Map" asp-route-register="true" class="btn-submit">Registrer ressurs</a>
+        <a asp-action="Map" class="btn-secondary">Åpne kart</a>
+        <a asp-action="@(mine ? "Resources" : "Mine")" class="btn-secondary">@(mine ? "Alle ressurser" : "Mine ressurser")</a>
+    </div>
+    <form asp-action="Resources" method="get" class="filter-bar">
+        <input type="hidden" name="mine" value="@mine.ToString().ToLowerInvariant()" />
         <div class="form-group">
-            <label for="type">Filtrer etter ressurstype</label>
+            <label for="query">Navn eller sted</label>
+            <input id="query" name="query" value="@ViewBag.Query" class="form-control" maxlength="200" />
+        </div>
+        <div class="form-group">
+            <label for="type">Ressurstype</label>
             <select id="type" name="type" class="form-control">
                 <option value="">Alle typer</option>
                 @foreach (var type in MapSubmissionViewModel.ResourceTypes)
@@ -25,62 +36,82 @@
                 }
             </select>
         </div>
-        <button type="submit" class="btn-submit">Filtrer</button>
-        <a asp-action="Map" class="btn-secondary">Registrer ressurs</a>
+        <div class="form-group">
+            <label for="eligible">Operativ status</label>
+            <select id="eligible" name="eligible" class="form-control">
+                <option value="false">Alle registrerte</option>
+                <option value="true" selected="@(ViewBag.Eligible is true)">Kan forespørres nå</option>
+            </select>
+        </div>
+        <button type="submit" class="btn-secondary">Vis resultater</button>
     </form>
-
-    <section class="current-features">
-        <h2>@(User.IsInRole("Admin") ? "Alle innmeldte behov" : "Mine innmeldte behov")</h2>
-        @if (Model.FormSubmissions.Count == 0)
+    <p role="status">@Model.MapSubmissions.Count ressurser funnet. Status ved sidelasting @now.ToString("dd.MM.yyyy HH:mm") UTC.</p>
+    @if (Model.MapSubmissions.Count == 0)
+    {
+        <p>Ingen ressurser passer valget. Prøv en annen type eller fjern søket.</p>
+    }
+    <div class="resource-list">
+        @foreach (var r in Model.MapSubmissions)
         {
-            <p>Det finnes ingen skjema-innleveringer ennå.</p>
-        }
-        else
-        {
-            foreach (var s in Model.FormSubmissions)
+            var available = r.Availability switch
             {
-                <article class="result-item">
-                    <div class="result-label">Navn</div>
-                    <div class="result-value">@s.FirstName @s.LastName</div>
-                    <div class="result-label">E-post</div>
-                    <div class="result-value">@s.Email</div>
-                    <div class="result-label">Beskrivelse</div>
-                    <div class="result-value">@s.Description</div>
-                    <div class="info">Sendt inn @s.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
-                </article>
-            }
-        }
-    </section>
-
-    <section class="integration-guide">
-        <h2>Ressurser</h2>
-        @if (Model.MapSubmissions.Count == 0)
-        {
-            <p>Det finnes ingen registrerte ressurser ennå.</p>
-        }
-        else
-        {
-            foreach (var r in Model.MapSubmissions)
+                ResourceAvailability.Available => "Tilgjengelig",
+                ResourceAvailability.Unavailable => "Utilgjengelig",
+                ResourceAvailability.Reserved => "Reservert",
+                _ => "Tildelt"
+            };
+            var verified = r.VerificationStatus switch
             {
-                <article class="result-item">
-                    <div class="result-label">Ressurs</div>
-                    <div class="result-value">
-                        <img data-resource-icon="@r.ResourceType" alt="" width="32" height="32" />
-                        @r.ResourceName (@r.ResourceType)
-                    </div>
-                    <div class="result-label">Lokasjon</div>
-                    <div class="result-value">@r.LocationName — @r.Latitude.ToString("F6"), @r.Longitude.ToString("F6")</div>
-                    <div class="info">Sendt inn @r.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
-                    <div class="info">Registrert av: @(r.Owner?.UserName ?? "Eldre registrering (uten eier)")</div>
+                ResourceVerificationStatus.Rejected => "Avvist",
+                ResourceVerificationStatus.Approved when WorkflowEligibility.HasCurrentApproval(r, now) => "Godkjent",
+                ResourceVerificationStatus.Approved => "Godkjenning utløpt",
+                _ => "Venter på verifisering"
+            };
+            <div class="resource-row">
+                <div>
+                    <h2><img data-resource-icon="@r.ResourceType" alt="" width="32" height="32" /> @r.ResourceName</h2>
+                    <p>@r.ResourceType · @r.LocationName</p>
+                    <p class="resource-meta">Sist oppdatert @((r.UpdatedAtUtc ?? r.CreatedAtUtc).ToString("dd.MM.yyyy HH:mm")) UTC</p>
+                    <details>
+                        <summary>Detaljer om ressursen</summary>
+                        <p>Koordinater: @r.Latitude.ToString("F5"), @r.Longitude.ToString("F5")</p>
+                        @if (!string.IsNullOrWhiteSpace(r.Capability)) { <p>Kapasitet: @r.Capability</p> }
+                        @if (!string.IsNullOrWhiteSpace(r.TransportRequirements)) { <p>Transportbehov: @r.TransportRequirements</p> }
+                        @if (r.VerificationExpiresAtUtc.HasValue) { <p>Godkjenning gjelder til @r.VerificationExpiresAtUtc.Value.ToString("dd.MM.yyyy HH:mm") UTC.</p> }
+                    </details>
+                </div>
+                <div>
+                    <p>@available · @verified</p>
+                    <p class="resource-meta">@(WorkflowEligibility.IsEligible(r, now) && r.OwnerId != null ? "Kan forespørres nå" : "Kan ikke disponeres nå")</p>
+                </div>
+                <div class="resource-actions">
                     <a asp-action="Map" asp-route-focus="@r.Id" class="btn-secondary">Vis på kart</a>
-                    @if (HeimevernetInnlevering1.Models.ResourcePermissions.CanManage(User, r.OwnerId))
+                    @if (ResourcePermissions.CanManage(User, r.OwnerId))
                     {
                         <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">Rediger</a>
-                        <a asp-action="Delete" asp-route-id="@r.Id" class="btn-secondary">Slett</a>
+                        <a asp-action="Delete" asp-route-id="@r.Id" class="btn-danger">Slett</a>
                     }
-                </article>
-            }
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <a asp-controller="Operations" asp-action="Needs" class="btn-secondary">Koordiner</a>
+                    }
+                </div>
+            </div>
         }
-    </section>
-</div>
+    </div>
+    @if (Model.FormSubmissions.Count > 0)
+    {
+        <details>
+            <summary>Eldre meldinger · @(User.IsInRole("Admin") ? "administratortilgang" : "bare dine egne") (@Model.FormSubmissions.Count)</summary>
+            <p>Historiske meldinger er ikke operative behov. Nye behov håndteres av autorisert koordinator under Behov.</p>
+            @foreach (var s in Model.FormSubmissions)
+            {
+                <div class="resource-row">
+                    <div><p>@s.Description</p><p>@s.LocationName</p><small>@s.CreatedAtUtc.ToString("dd.MM.yyyy HH:mm") UTC</small></div>
+                    <div><p>@s.FirstName @s.LastName</p><p>@s.Email</p></div>
+                </div>
+            }
+        </details>
+    }
+</section>
 <script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")" data-icon-urls="@System.Text.Json.JsonSerializer.Serialize(resourceIconUrls)"></script>

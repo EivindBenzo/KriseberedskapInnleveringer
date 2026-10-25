@@ -6,7 +6,9 @@
     <h1>Slett ressurs</h1>
     <p>Vil du slette «@Model.ResourceName» (@Model.ResourceType) ved @Model.LocationName? Dette kan ikke angres.</p>
     <form asp-action="Delete" asp-route-id="@Model.Id" method="post">
-        <button type="submit" class="btn-submit">Ja, slett ressursen</button>
+        <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+        <input type="hidden" name="version" value="@Model.ConcurrencyToken" />
+        <button type="submit" class="btn-danger">Ja, slett ressursen</button>
         <a asp-action="Map" class="btn-secondary">Avbryt</a>
     </form>
 </div>

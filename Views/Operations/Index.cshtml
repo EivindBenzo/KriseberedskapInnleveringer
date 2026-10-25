@@ -1,0 +1,200 @@
+@using HeimevernetInnlevering1.Models
+@using System.Security.Claims
+@model OperationsViewModel
+@{
+    ViewData["Title"] = "Operativ samhandling";
+    var admin = User.IsInRole("Admin");
+    var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+    var now = DateTime.UtcNow;
+    string AvailabilityLabel(ResourceAvailability value) => value switch
+    {
+        ResourceAvailability.Available => "Tilgjengelig", ResourceAvailability.Unavailable => "Utilgjengelig",
+        ResourceAvailability.Reserved => "Reservert", _ => "Tildelt"
+    };
+    string VerificationLabel(MapSubmission resource) => resource.VerificationStatus switch
+    {
+        ResourceVerificationStatus.Pending => "Venter på verifisering",
+        ResourceVerificationStatus.Rejected => "Avvist",
+        _ => WorkflowEligibility.HasCurrentApproval(resource, now) ? "Godkjent" : "Godkjenning utløpt"
+    };
+    string NeedLabel(NeedStatus value) => value switch
+    {
+        NeedStatus.Open => "Åpent", NeedStatus.InProgress => "Under arbeid",
+        NeedStatus.Completed => "Fullført", _ => "Avbrutt"
+    };
+    string RequestLabel(ResourceRequestStatus value) => value switch
+    {
+        ResourceRequestStatus.Pending => "Venter på eier", ResourceRequestStatus.Accepted => "Akseptert / reservert",
+        ResourceRequestStatus.Allocated => "Tildelt av koordinator", ResourceRequestStatus.Rejected => "Avvist av eier",
+        ResourceRequestStatus.Cancelled => "Avbrutt", _ => "Returnert – ny verifisering kreves"
+    };
+}
+<h1>Operativ samhandling</h1>
+<p>Godkjenning og tilgjengelighet er uavhengige. Eier aksepterer og reserverer; administrator tildeler som koordinator. Alle beslutninger loggføres.</p>
+@if (TempData["WorkflowError"] is string error)
+{
+    <p role="alert">@error</p>
+}
+@if (TempData["WorkflowSuccess"] is string success)
+{
+    <p role="status">@success</p>
+}
+<h2>@(admin ? "Ressurser og verifiseringskø" : "Mine ressurser")</h2>
+@foreach (var resource in Model.Resources)
+{
+    <div class="workflow-item">
+        <h3>@resource.ResourceName – @resource.LocationName</h3>
+        <p>Kapasitet: @(resource.Capability ?? "Ikke oppgitt") · Transportbehov: @(resource.TransportRequirements ?? "Ikke oppgitt")</p>
+        <p>@AvailabilityLabel(resource.Availability) · @VerificationLabel(resource)
+            @if (resource.VerificationExpiresAtUtc.HasValue)
+            {
+                <span> · Gyldig til @resource.VerificationExpiresAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC</span>
+            }
+        </p>
+        @if (resource.Availability is ResourceAvailability.Available or ResourceAvailability.Unavailable)
+        {
+            <form asp-action="Availability" method="post">
+                <input type="hidden" name="id" value="@resource.Id" />
+                <input type="hidden" name="token" value="@resource.ConcurrencyToken" />
+                <label>Tilgjengelighet
+                    <select name="availability">
+                        <option value="Available" selected="@(resource.Availability == ResourceAvailability.Available)">Tilgjengelig</option>
+                        <option value="Unavailable" selected="@(resource.Availability == ResourceAvailability.Unavailable)">Utilgjengelig</option>
+                    </select>
+                </label>
+                <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
+                <button type="submit">Lagre tilgjengelighet</button>
+            </form>
+            @if (admin)
+            {
+                <form asp-action="Verify" method="post">
+                    <input type="hidden" name="id" value="@resource.Id" />
+                    <input type="hidden" name="token" value="@resource.ConcurrencyToken" />
+                    <label>Kontroll og begrunnelse <input name="reason" required maxlength="1000" /></label>
+                    @if (resource.OwnerId != actorId)
+                    {
+                        <button name="approve" value="true" type="submit">Godkjenn / forny</button>
+                    }
+                    else
+                    {
+                        <span>En annen administrator må godkjenne din ressurs.</span>
+                    }
+                    <button name="approve" value="false" type="submit">Avvis</button>
+                </form>
+            }
+        }
+    </div>
+}
+@if (admin)
+{
+    <h2>Opprett behov</h2>
+    <form asp-action="CreateNeed" method="post">
+        <label>Beskrivelse <textarea name="description" required maxlength="2000"></textarea></label>
+        <label>Sted <input name="place" required maxlength="200" /></label>
+        <label>Prioritet <select name="priority">
+            <option value="Low">Lav</option><option value="Normal" selected>Normal</option>
+            <option value="High">Høy</option><option value="Critical">Kritisk</option>
+        </select></label>
+        <button type="submit">Opprett behov</button>
+    </form>
+}
+<h2>Behov og fremdrift</h2>
+@foreach (var need in Model.Needs)
+{
+    <div class="workflow-item">
+        <h3>Behov #@need.Id – @need.Place</h3>
+        <p>@need.Description</p>
+        <p>Prioritet: @(need.Priority switch { NeedPriority.Low => "Lav", NeedPriority.Normal => "Normal", NeedPriority.High => "Høy", _ => "Kritisk" }) · @NeedLabel(need.Status)</p>
+        @if (admin && need.Status is NeedStatus.Open or NeedStatus.InProgress)
+        {
+            <form asp-action="NeedStatus" method="post">
+                <input type="hidden" name="id" value="@need.Id" />
+                <input type="hidden" name="token" value="@need.ConcurrencyToken" />
+                <label>Ny status <select name="status">
+                    @if (need.Status == NeedStatus.Open)
+                    {
+                        <option value="InProgress">Under arbeid</option>
+                    }
+                    <option value="Completed">Fullført</option><option value="Cancelled">Avbrutt</option>
+                </select></label>
+                <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
+                <button type="submit">Oppdater fremdrift</button>
+            </form>
+            <details>
+                <summary>Send ressursforespørsel (kun gyldig godkjente og tilgjengelige ressurser)</summary>
+                @foreach (var resource in Model.Resources.Where(r => r.OwnerId != null && WorkflowEligibility.IsEligible(r, now)))
+                {
+                    <form asp-action="CreateRequest" method="post">
+                        <input type="hidden" name="needId" value="@need.Id" />
+                        <input type="hidden" name="resourceId" value="@resource.Id" />
+                        <input type="hidden" name="needToken" value="@need.ConcurrencyToken" />
+                        <input type="hidden" name="resourceToken" value="@resource.ConcurrencyToken" />
+                        <span>@resource.ResourceName – @resource.LocationName</span>
+                        <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
+                        <button type="submit">Send til ressurseier</button>
+                    </form>
+                }
+            </details>
+        }
+    </div>
+}
+<h2>@(admin ? "Forespørsler og koordinering" : "Forespørsler til meg")</h2>
+@foreach (var request in Model.Requests)
+{
+    <div class="workflow-item">
+        <h3>Forespørsel #@request.Id – @request.Resource.ResourceName</h3>
+        <p>Behov #@request.NeedId: @request.Need.Description (@request.Need.Place)</p>
+        <p>@RequestLabel(request.Status) · @request.Reason</p>
+        @if (request.Status == ResourceRequestStatus.Pending && request.Resource.OwnerId == actorId)
+        {
+            <form asp-action="Respond" method="post">
+                <input type="hidden" name="id" value="@request.Id" />
+                <input type="hidden" name="token" value="@request.ConcurrencyToken" />
+                <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
+                <button name="accept" value="true" type="submit">Aksepter og reserver</button>
+                <button name="accept" value="false" type="submit">Avvis</button>
+            </form>
+        }
+        @if (admin && request.Status == ResourceRequestStatus.Accepted)
+        {
+            <form asp-action="Allocate" method="post">
+                <input type="hidden" name="id" value="@request.Id" />
+                <input type="hidden" name="token" value="@request.ConcurrencyToken" />
+                <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
+                <button type="submit">Tildel som koordinator</button>
+            </form>
+        }
+        @if (admin && request.Status is ResourceRequestStatus.Pending or ResourceRequestStatus.Accepted)
+        {
+            <form asp-action="Cancel" method="post">
+                <input type="hidden" name="id" value="@request.Id" />
+                <input type="hidden" name="token" value="@request.ConcurrencyToken" />
+                <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
+                <button type="submit">Avbryt forespørsel / frigjør reservasjon</button>
+            </form>
+        }
+        @if (request.Status == ResourceRequestStatus.Allocated && (admin || request.Resource.OwnerId == actorId))
+        {
+            <form asp-action="Return" method="post">
+                <input type="hidden" name="id" value="@request.Id" />
+                <input type="hidden" name="token" value="@request.ConcurrencyToken" />
+                <label>Retur og tilstand <input name="reason" required maxlength="1000" /></label>
+                <button type="submit">Registrer retur (krever ny verifisering)</button>
+            </form>
+        }
+    </div>
+}
+@if (admin)
+{
+    <h2>Beslutningslogg (siste 100)</h2>
+    <table>
+        <thead><tr><th>Tid (UTC)</th><th>Aktør-ID</th><th>Handling</th><th>Ressurs / behov / forespørsel</th><th>Begrunnelse</th></tr></thead>
+        <tbody>
+        @foreach (var entry in Model.Audit)
+        {
+            <tr><td>@entry.OccurredAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td><td>@entry.ActorId</td><td>@entry.Action</td>
+                <td>@entry.ResourceId / @entry.NeedId / @entry.RequestId</td><td>@entry.Reason</td></tr>
+        }
+        </tbody>
+    </table>
+}

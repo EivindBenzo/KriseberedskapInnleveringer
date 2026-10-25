@@ -1,26 +1,57 @@
 @{
     ViewData["Title"] = "Hjem";
 }
-
-<div class="hero hero-photo">
-    <div class="hero-overlay"></div>
-
-    <div class="hero-content hero-content-centered">
-        <span class="eyebrow">HEIMEVERNET · INNLEVERING 1</span>
-        <h1 class="hero-title-big">Heimevernet</h1>
+<div class="dashboard">
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <div class="home-content">
+        <span class="eyebrow">Arbeidsflate</span>
+        <h1>Hva vil du gjøre?</h1>
+        <p>Finn registrerte ressurser, hold egne opplysninger oppdatert og følg forespørsler.</p>
+        <div class="feature-grid">
+            <a asp-action="Map" class="feature-card">
+                <h2>Finn ressurser</h2>
+                <p>Utforsk kartet og se ressursenes faktiske status.</p>
+            </a>
+            <a asp-action="Map" asp-route-register="true" class="feature-card">
+                <h2>Registrer ressurs</h2>
+                <p>Legg til en ressurs og velg plassering.</p>
+            </a>
+            <a asp-action="Mine" class="feature-card">
+                <h2>Mine ressurser</h2>
+                <p>Oppdater tilgjengelighet og opplysninger du eier.</p>
+            </a>
+            <a asp-controller="Operations" asp-action="Requests" class="feature-card">
+                <h2>Forespørsler</h2>
+                <p>Svar på forespørsler om dine ressurser og følg fremdriften.</p>
+            </a>
+            @if (User.IsInRole("Admin"))
+            {
+                <a asp-controller="Operations" asp-action="Queue" class="feature-card">
+                    <h2>Verifisering</h2>
+                    <p>Vurder registreringer før de kan disponeres.</p>
+                </a>
+                <a asp-controller="Operations" asp-action="Needs" class="feature-card">
+                    <h2>Behov og koordinering</h2>
+                    <p>Registrer behov, send forespørsler og følg tildelinger.</p>
+                </a>
+            }
+        </div>
+        <p class="account-notice">Registrert betyr ikke disponibel: ressursen må være godkjent, innenfor gyldighetstiden og tilgjengelig. Informasjonen oppdateres ved ny sidelasting, ikke i sanntid.</p>
     </div>
+}
+else
+{
+    <div class="public-intro home-content">
+        <div>
+            <span class="eyebrow">Studentprosjekt · prototype</span>
+            <h1>Beredskapsportalen</h1>
+            <p>En felles arbeidsflate for registrering, vurdering og koordinering av ressurser og behov.</p>
+            <p>Dette er ikke en offisiell tjeneste eller en kanal for å melde reelle nødsituasjoner.</p>
+            <a asp-controller="Account" asp-action="Login" class="btn-submit">Logg inn</a>
+            <a asp-controller="Account" asp-action="Register" class="btn-secondary">Opprett brukerkonto</a>
+        </div>
+        <img src="~/images/Heimevernet-background.jpg" alt="" class="intro-photo" />
+    </div>
+}
 </div>
-
-<section class="home-content home-intro">
-    <span class="eyebrow">OVERSIKT</span>
-    <h2>Alt samlet på ett sted</h2>
-    <p>Åpne kartet for å registrere, finne og administrere ressurser.</p>
-
-    <div class="feature-grid">
-        <a asp-controller="Home" asp-action="Map" class="feature-card">
-            <span class="feature-icon">&#8982;</span>
-            <h3>Kart</h3>
-            <p>Klikk i kartet for å velge og registrere koordinater.</p>
-        </a>
-    </div>
-</section>

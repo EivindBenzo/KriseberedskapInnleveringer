@@ -25,13 +25,23 @@ public class HomeController : Controller
     [AllowAnonymous]
     public IActionResult Index() => View();
 
+    [AllowAnonymous]
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    public IActionResult Error()
+    {
+        Response.StatusCode = StatusCodes.Status500InternalServerError;
+        return View();
+    }
+
     [HttpGet]
+    [Authorize(Roles = "Admin")]
     public IActionResult Form() => View(new FormSubmissionViewModel
     {
         Email = User.Identity?.Name ?? string.Empty
     });
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Form(FormSubmissionViewModel model)
     {
@@ -112,7 +122,18 @@ public class HomeController : Controller
             Latitude = model.Latitude!.Value,
             Longitude = model.Longitude!.Value,
             CreatedAtUtc = DateTime.UtcNow,
+            UpdatedAtUtc = DateTime.UtcNow,
+            Availability = model.Availability,
+            Capability = model.Capability?.Trim(),
+            TransportRequirements = model.TransportRequirements?.Trim(),
             OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+        });
+        _db.WorkflowAudits.Add(new WorkflowAudit
+        {
+            ActorId = User.FindFirstValue(ClaimTypes.NameIdentifier)!,
+            Action = "ResourceRegistered",
+            Reason = $"{model.ResourceType}: {model.ResourceName}",
+            OccurredAtUtc = DateTime.UtcNow
         });
         await _db.SaveChangesAsync();
 
@@ -145,7 +166,11 @@ public class HomeController : Controller
             ResourceType = resource.ResourceType,
             LocationName = resource.LocationName,
             Latitude = resource.Latitude,
-            Longitude = resource.Longitude
+            Longitude = resource.Longitude,
+            Availability = resource.Availability,
+            Capability = resource.Capability,
+            TransportRequirements = resource.TransportRequirements,
+            Version = resource.ConcurrencyToken
         });
     }
 
@@ -157,20 +182,66 @@ public class HomeController : Controller
         if (resource is null) return NotFound();
         if (!ResourcePermissions.CanManage(User, resource.OwnerId)) return Forbid();
         await ValidateResourceAsync(model);
+        if (resource.Availability is ResourceAvailability.Reserved or ResourceAvailability.Allocated)
+            ModelState.AddModelError("", "Ressursen er reservert eller tildelt. Avslutt forespørselen før du redigerer.");
+        if (string.IsNullOrEmpty(model.Version) || model.Version != resource.ConcurrencyToken)
+        {
+            ModelState.AddModelError("", "Ressursen er endret av en annen bruker. Dine felt er beholdt. Kontroller gjeldende status før du lagrer på nytt.");
+            model.Version = resource.ConcurrencyToken;
+            ModelState.Remove(nameof(model.Version));
+        }
         if (!ModelState.IsValid)
         {
             ViewBag.EditId = id;
             await LoadResourcesAsync();
             return View("Map", model);
         }
+        var materialChange = resource.ResourceName != model.ResourceName ||
+            resource.ResourceType != model.ResourceType || resource.LocationName != model.LocationName ||
+            resource.Latitude != model.Latitude || resource.Longitude != model.Longitude ||
+            resource.Capability != model.Capability?.Trim() ||
+            resource.TransportRequirements != model.TransportRequirements?.Trim();
         resource.ResourceName = model.ResourceName;
         resource.ResourceType = model.ResourceType;
         resource.LocationName = model.LocationName;
         resource.Latitude = model.Latitude!.Value;
         resource.Longitude = model.Longitude!.Value;
+        resource.Capability = model.Capability?.Trim();
+        resource.TransportRequirements = model.TransportRequirements?.Trim();
+        resource.Availability = model.Availability;
+        if (materialChange)
+        {
+            resource.VerificationStatus = ResourceVerificationStatus.Pending;
+            resource.VerifiedAtUtc = null;
+            resource.VerificationExpiresAtUtc = null;
+        }
         resource.UpdatedAtUtc = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-        TempData["MapSuccess"] = "Ressursen er oppdatert.";
+        _db.WorkflowAudits.Add(new WorkflowAudit
+        {
+            ActorId = User.FindFirstValue(ClaimTypes.NameIdentifier)!,
+            Action = materialChange ? "ResourceEditedReverificationRequired" : "AvailabilityChanged",
+            Reason = "Eier eller administrator oppdaterte ressursopplysningene.",
+            ResourceId = resource.Id,
+            OccurredAtUtc = DateTime.UtcNow
+        });
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _db.ChangeTracker.Clear();
+            var current = await _db.MapSubmissions.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id);
+            model.Version = current?.ConcurrencyToken;
+            ModelState.Remove(nameof(model.Version));
+            ModelState.AddModelError("", "Endringen ble ikke lagret: ressursen ble endret samtidig. Dine felt er beholdt; kontroller gjeldende status før du prøver igjen.");
+            ViewBag.EditId = id;
+            await LoadResourcesAsync();
+            return View("Map", model);
+        }
+        TempData["MapSuccess"] = materialChange
+            ? "Ressursen er oppdatert og venter på ny verifisering."
+            : "Ressursens tilgjengelighet er oppdatert.";
         return RedirectToAction(nameof(Map));
     }
 
@@ -185,25 +256,45 @@ public class HomeController : Controller
 
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteConfirmed(int id)
+    public async Task<IActionResult> DeleteConfirmed(int id, string? version = null)
     {
         var resource = await _db.MapSubmissions.FindAsync(id);
         if (resource is null) return NotFound();
         if (!ResourcePermissions.CanManage(User, resource.OwnerId)) return Forbid();
-        _db.MapSubmissions.Remove(resource);
-        await _db.SaveChangesAsync();
+        try
+        {
+            var workflow = new WorkflowService(_db,
+                Microsoft.Extensions.Options.Options.Create(new WorkflowOptions()));
+            await workflow.DeleteResourceAsync(id, version ?? "", User, "Bekreftet sletting fra ressursoversikten.");
+        }
+        catch (WorkflowException exception)
+        {
+            ModelState.AddModelError("", exception.Message);
+            var current = await _db.MapSubmissions.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id);
+            return current is null ? NotFound() : View("Delete", current);
+        }
         TempData["MapSuccess"] = "Ressursen er slettet.";
         return RedirectToAction(nameof(Map));
     }
 
     [HttpGet]
-    public IActionResult Data(string? type) => RedirectToAction(nameof(Verify), new { type });
+    public IActionResult Data(string? type) => RedirectToAction(nameof(Resources), new { type });
 
     [HttpGet]
-    public async Task<IActionResult> Verify(string? type)
+    public IActionResult Verify(string? type) => RedirectToAction(nameof(Resources), new { type });
+
+    [HttpGet]
+    public Task<IActionResult> Mine(string? type, string? query, bool eligible = false) =>
+        Resources(type, query, true, eligible);
+
+    [HttpGet]
+    public async Task<IActionResult> Resources(string? type, string? query, bool mine = false, bool eligible = false)
     {
         ViewBag.SelectedType = type;
-        return View(await BuildDataModelAsync(type));
+        ViewBag.Query = query;
+        ViewBag.Mine = mine;
+        ViewBag.Eligible = eligible;
+        return View("Verify", await BuildDataModelAsync(type, query, mine, eligible));
     }
 
     protected virtual async Task LoadResourcesAsync()
@@ -220,6 +311,12 @@ public class HomeController : Controller
         model.LocationName = string.Empty;
         if (!MapSubmissionViewModel.ResourceTypes.Contains(model.ResourceType))
             ModelState.AddModelError(nameof(model.ResourceType), "Velg en gyldig ressurstype");
+        if (model.Availability is not (ResourceAvailability.Available or ResourceAvailability.Unavailable))
+            ModelState.AddModelError(nameof(model.Availability), "Velg tilgjengelig eller utilgjengelig. Reservasjon og tildeling håndteres gjennom forespørsler.");
+        if (model.Capability?.Length > 500 || model.TransportRequirements?.Length > 500)
+            ModelState.AddModelError("", "Kapasitet og transportbehov kan ha høyst 500 tegn hver.");
+        if (string.IsNullOrWhiteSpace(model.ResourceName) || model.ResourceName.Length is < 2 or > 100)
+            ModelState.AddModelError(nameof(model.ResourceName), "Ressursnavn må være mellom 2 og 100 tegn.");
         if (model.Latitude is not double lat || !double.IsFinite(lat) || lat is < -90 or > 90)
             ModelState.AddModelError(nameof(model.Latitude), "Velg en gyldig breddegrad.");
         if (model.Longitude is not double lng || !double.IsFinite(lng) || lng is < -180 or > 180)
@@ -229,14 +326,24 @@ public class HomeController : Controller
                 HttpContext?.RequestAborted ?? default);
     }
 
-    private async Task<DataPageViewModel> BuildDataModelAsync(string? type = null)
+    private async Task<DataPageViewModel> BuildDataModelAsync(string? type, string? query, bool mine, bool eligible)
     {
         var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var reports = _db.FormSubmissions.AsNoTracking()
             .Where(s => User.IsInRole("Admin") || s.OwnerId == ownerId);
-        var resources = _db.MapSubmissions.AsNoTracking().Include(r => r.Owner).AsQueryable();
+        var resources = _db.MapSubmissions.AsNoTracking().AsQueryable();
         if (!string.IsNullOrEmpty(type))
             resources = resources.Where(r => r.ResourceType == type);
+        if (mine) resources = resources.Where(r => r.OwnerId == ownerId);
+        if (!string.IsNullOrWhiteSpace(query))
+            resources = resources.Where(r => r.ResourceName.Contains(query) || r.LocationName.Contains(query));
+        if (eligible)
+        {
+            var now = DateTime.UtcNow;
+            resources = resources.Where(r => r.Availability == ResourceAvailability.Available &&
+                r.VerificationStatus == ResourceVerificationStatus.Approved &&
+                r.VerifiedAtUtc <= now && r.VerificationExpiresAtUtc > now);
+        }
         return new DataPageViewModel
         {
             FormSubmissions = await reports.OrderByDescending(x => x.CreatedAtUtc).ToListAsync(),

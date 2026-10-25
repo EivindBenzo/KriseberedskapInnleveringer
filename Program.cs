@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
+builder.Services.Configure<HeimevernetInnlevering1.Models.WorkflowOptions>(builder.Configuration.GetSection("Workflow"));
+builder.Services.AddScoped<WorkflowService>();
 builder.Services.Configure<GeocodingOptions>(builder.Configuration.GetSection("Geocoding"));
 builder.Services.AddSingleton<IPlaceGeocoder>(services => new PlaceGeocoder(
     new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }),
