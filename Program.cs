@@ -1,3 +1,4 @@
+using System.Data.Common;
 using HeimevernetInnlevering1.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,21 +13,53 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Data Source=Data/heimevernet.db";
+var connectionString = DatabaseProviderConfiguration.GetRequiredConnectionString(builder.Configuration);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+    DatabaseProviderConfiguration.Configure(options, connectionString));
 
 var app = builder.Build();
 
-// Create the SQLite directory/database automatically for local and Docker runs.
+// Wait briefly for MariaDB during container startup, then initialize the schema from migrations.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var databaseDirectory = Path.Combine(AppContext.BaseDirectory, "Data");
-    Directory.CreateDirectory(databaseDirectory);
-    db.Database.EnsureCreated();
+    const int maximumAttempts = 10;
+    var connected = false;
+
+    for (var attempt = 1; attempt <= maximumAttempts; attempt++)
+    {
+        try
+        {
+            connected = await db.Database.CanConnectAsync();
+        }
+        catch (DbException)
+        {
+            connected = false;
+        }
+
+        if (connected)
+        {
+            break;
+        }
+
+        if (attempt < maximumAttempts)
+        {
+            app.Logger.LogWarning(
+                "MariaDB is not ready (attempt {Attempt} of {MaximumAttempts}); retrying in 2 seconds.",
+                attempt,
+                maximumAttempts);
+            await Task.Delay(TimeSpan.FromSeconds(2));
+        }
+    }
+
+    if (!connected)
+    {
+        throw new InvalidOperationException(
+            $"Could not connect to MariaDB after {maximumAttempts} attempts. Check the database connection configuration and availability.");
+    }
+
+    await db.Database.MigrateAsync();
 }
 
 if (!app.Environment.IsDevelopment())
