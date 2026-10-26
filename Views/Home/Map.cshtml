@@ -40,12 +40,12 @@
 }
 
 <link rel="stylesheet" href="~/css/workspace-map.css" asp-append-version="true" />
-<section class="map-workspace" id="mapWorkspace" data-mobile-view="map" aria-labelledby="workspaceTitle">
+<section class="map-workspace" id="mapWorkspace" data-mobile-view="map" data-registration-open="@(registrationOpen ? "true" : "false")" aria-labelledby="workspaceTitle">
     <div class="workspace-heading">
         <div><span class="eyebrow">RESSURSOVERSIKT</span><h1 id="workspaceTitle">Ressurskart</h1></div>
-        <button type="button" id="registrationToggle" class="btn-secondary" aria-controls="registrationPanel" aria-expanded="@(registrationOpen ? "true" : "false")">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</button>
     </div>
-    <div class="resource-actions">
+    <div class="workspace-toolbar" role="group" aria-label="Ressursverktøy">
+        <button type="button" id="registrationToggle" class="btn-submit" aria-controls="registrationPanel" aria-expanded="@(registrationOpen ? "true" : "false")">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</button>
         <a asp-action="Resources" class="btn-secondary">Ressurser og mine ressurser</a>
         @if (User.IsInRole("Admin"))
         {
@@ -78,18 +78,16 @@
                     <button type="button" id="citySearchButton" class="btn-secondary">Søk</button>
                 </div>
                 <span id="citySearchStatus" role="status" aria-live="polite" aria-atomic="true"></span>
-                <small id="citySearchHelp">Lokale forslag. Søk henter adresser eksternt.</small>
-                <details class="workspace-disclosure">
-                    <summary>Personvern og kartdata</summary>
-                    <p>Lokale forslag dekker norske byer og tettsteder. Søk og punktvalg bruker OpenStreetMap; unngå fortrolige opplysninger. Kartfliser: OpenStreetMap.</p>
-                    <p>Stedsdata: <a href="https://www.geonames.org/">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> (utvalg og bearbeiding).</p>
-                </details>
+                <small id="citySearchHelp">Søk og punktoppslag bruker OpenStreetMap. Unngå fortrolige opplysninger. Lokale stedsforslag: <a href="https://www.geonames.org/">GeoNames</a> (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, bearbeidet).</small>
             </div>
             <section id="registrationPanel" class="registration-panel" hidden="@(!registrationOpen)" aria-labelledby="registrationTitle">
                 <h2 id="registrationTitle">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</h2>
+                <p class="registration-intro">Beskriv ressursen og marker hvor den finnes. Felt merket * er påkrevd.</p>
                 <form method="post" asp-controller="Home" asp-action="@(isEditing ? "Edit" : "Map")" asp-route-id="@ViewBag.EditId" class="workspace-form">
                     <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
                     <input type="hidden" asp-for="Version" />
+                    <fieldset class="registration-section">
+                        <legend>Ressursdetaljer</legend>
                     <div class="form-group">
                         <label for="resourceName">Ressursnavn <span class="required">*</span></label>
                         <input type="text" id="resourceName" name="ResourceName" value="@Model?.ResourceName" class="form-control" placeholder="f.eks. Lastebil 1" minlength="2" maxlength="100" required />
@@ -118,7 +116,8 @@
                         </select>
                         <span asp-validation-for="Availability" class="text-danger"></span>
                     </div>
-                    <details class="workspace-disclosure" open="@(!string.IsNullOrEmpty(Model?.Capability) || !string.IsNullOrEmpty(Model?.TransportRequirements))">
+                    </fieldset>
+                    <details class="registration-section" open="@(!string.IsNullOrEmpty(Model?.Capability) || !string.IsNullOrEmpty(Model?.TransportRequirements))">
                         <summary>Kapasitet og transportbehov (valgfritt)</summary>
                         <div class="form-group">
                             <label for="capability">Kapasitet / bruksområde</label>
@@ -131,14 +130,19 @@
                             <span asp-validation-for="TransportRequirements" class="text-danger"></span>
                         </div>
                     </details>
-                    <button type="button" id="placementToggle" class="btn-secondary" aria-pressed="@(registrationOpen ? "true" : "false")" aria-describedby="placementHelp">Velg plassering</button>
-                    <p id="placementHelp">Klikk i kartet eller velg et sted. Slå av plassering for å utforske.</p>
-                    <p id="selectedPlace" class="workspace-location" role="status">@(selectedPoint ? Model?.LocationName : "")</p>
+                    <fieldset class="registration-section" aria-describedby="placementHelp">
+                        <legend>Plassering <span class="required">*</span></legend>
+                    <p id="placementHelp">Klikk i kartet eller velg et forslag fra «Finn sted» over. Plasseringen kan endres så lenge skjemaet er åpent.</p>
+                    <a href="#mapRegion" id="locationMapLink">Gå til kartet</a>
+                    <div class="workspace-location"><strong>Valgt plassering</strong><p id="selectedPlace" role="status">@(selectedPoint ? Model?.LocationName : "Ingen plassering valgt ennå.")</p></div>
                     <input type="hidden" id="latitude" name="Latitude" value="@(selectedPoint ? startLat : "")" />
                     <input type="hidden" id="longitude" name="Longitude" value="@(selectedPoint ? startLng : "")" />
                     <span asp-validation-for="Latitude" class="text-danger"></span>
                     <span asp-validation-for="Longitude" class="text-danger"></span>
+                    </fieldset>
                     <button type="submit" class="btn-submit">@(isEditing ? "Lagre endringer" : "Registrer ressurs")</button>
+                    <button type="button" id="registrationCancel" class="btn-secondary">Tilbake til kartvisning</button>
+                    <p class="workspace-muted">Tilbake lukker skjemaet uten å lagre. Feltene beholdes til du forlater siden.</p>
                 </form>
             </section>
             <section id="resourceResults" class="workspace-results" aria-labelledby="resultsTitle">
@@ -180,7 +184,9 @@
                             @if (HeimevernetInnlevering1.Models.ResourcePermissions.CanManage(User, r.OwnerId))
                             {
                                 <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">Rediger</a>
-                                <a asp-action="Delete" asp-route-id="@r.Id" class="btn-danger">Slett</a>
+                                <div class="resource-destructive-actions">
+                                    <a asp-action="Delete" asp-route-id="@r.Id" class="btn-danger">Slett</a>
+                                </div>
                             }
                         </div>
                     </div>
@@ -229,7 +235,6 @@
     const workspace = document.getElementById('mapWorkspace');
     const registrationPanel = document.getElementById('registrationPanel');
     const registrationToggle = document.getElementById('registrationToggle');
-    const placementToggle = document.getElementById('placementToggle');
     const resourceFilter = document.getElementById('resourceFilter');
     const resourceCards = Array.from(document.querySelectorAll('.resource-card'));
     const visibleTypes = new Map();
@@ -250,20 +255,27 @@
     function setPlacement(active) {
         if (!active) cancelPointLookup();
         placementActive = active;
-        placementToggle.setAttribute('aria-pressed', String(active));
         document.getElementById('mapModeStatus').textContent = active
-            ? 'Plassering aktiv · klikk i kartet eller søk'
+            ? 'Registrering · klikk i kartet eller velg et stedsforslag for å plassere ressursen'
             : '';
         document.getElementById('map').classList[active ? 'add' : 'remove']('placement-active');
         if (active) setMobileView('map');
     }
+    function setRegistrationOpen(open) {
+        registrationPanel.hidden = !open;
+        workspace.dataset.registrationOpen = String(open);
+        registrationToggle.setAttribute('aria-expanded', String(open));
+        setPlacement(open);
+        if (open) document.getElementById('resourceName').focus();
+        else registrationToggle.focus();
+    }
     registrationToggle.addEventListener('click', function () {
-        registrationPanel.hidden = !registrationPanel.hidden;
-        registrationToggle.setAttribute('aria-expanded', String(!registrationPanel.hidden));
-        setPlacement(!registrationPanel.hidden);
-        if (!registrationPanel.hidden) document.getElementById('resourceName').focus();
+        setRegistrationOpen(registrationPanel.hidden);
     });
-    placementToggle.addEventListener('click', () => setPlacement(!registrationPanel.hidden && !placementActive));
+    document.getElementById('registrationCancel').addEventListener('click', () => setRegistrationOpen(false));
+    document.getElementById('locationMapLink').addEventListener('click', () => {
+        setMobileView('map');
+    });
 
     function selectResource(id) {
         resourceCards.forEach(function (card) {

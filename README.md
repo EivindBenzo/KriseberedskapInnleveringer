@@ -45,7 +45,7 @@ MariaDB-transaksjoner og applikasjonsstyrte optimistiske versjonstoken beskytter
 
 ### Kartarbeidsflate
 
-Kartet åpnes i **utforskingsmodus**. Søk flytter utsnittet; kartklikk registrerer ikke noe. «Registrer ressurs» åpner skjemaet, og «Velg plassering» aktiverer punktvalg. Redigering og ugyldige innsendinger beholder felt og valgte koordinater. Forhåndsvisning åpner aldri popup automatisk. På mobil velges Kart/Liste; detaljer kan utvides. Lokale forslag og eksplisitt eksternt søk beholder personvern-/attribusjonsreglene nedenfor.
+Kartet åpnes i **utforskingsmodus**. Søk flytter utsnittet; kartklikk registrerer ikke noe. «Registrer ressurs» i verktøylinjen ved ressurslisten åpner skjemaet og aktiverer punktvalg: klikk i kartet eller velg et stedsforslag. «Tilbake til kartvisning» lukker skjemaet og stopper punktvalg uten å lagre; feltene beholdes til du forlater siden. Redigering og ugyldige innsendinger beholder felt og valgte koordinater. Forhåndsvisning åpner aldri popup automatisk. På mobil velges Kart/Liste; «Gå til kartet» viser kartet fra skjemaet, og detaljer kan utvides. Lokale forslag og eksplisitt eksternt søk beholder personvern-/attribusjonsreglene nedenfor.
 
 ### Første administrator
 

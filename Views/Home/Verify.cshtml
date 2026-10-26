@@ -9,7 +9,7 @@
         .SelectMany(file => new[] { file, file + "-available", file + "-unavailable" })
         .ToDictionary(file => file, file => FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content($"~/images/resources/{file}.svg")));
 }
-<section class="data-container">
+<section class="data-container resource-overview">
     <div class="page-heading">
         <div><span class="eyebrow">Oversikt og administrasjon</span><h1>Ressurser</h1></div>
         <a asp-action="Map" asp-route-register="true" class="btn-submit">+ Registrer ressurs</a>
@@ -71,21 +71,24 @@
             <div class="resource-row">
                 <div>
                     <h2><img data-resource-icon="@r.ResourceType" alt="" width="32" height="32" data-resource-status="@System.Text.Json.JsonSerializer.Serialize(status)" /> @r.ResourceName</h2>
-                    <p>@r.ResourceType · @r.LocationName</p>
-                    <details>
+                    <p class="resource-meta">@r.ResourceType · @r.LocationName</p>
+                    <details class="resource-facts">
                         <summary>Detaljer om ressursen</summary>
-                        <p class="resource-meta">Sist oppdatert @((r.UpdatedAtUtc ?? r.CreatedAtUtc).ToString("dd.MM.yyyy HH:mm")) UTC</p>
-                        <p>Koordinater: @r.Latitude.ToString("F5"), @r.Longitude.ToString("F5")</p>
-                        @if (!string.IsNullOrWhiteSpace(r.Capability)) { <p>Kapasitet: @r.Capability</p> }
-                        @if (!string.IsNullOrWhiteSpace(r.TransportRequirements)) { <p>Transportbehov: @r.TransportRequirements</p> }
-                        @if (r.VerificationExpiresAtUtc.HasValue) { <p>Godkjenning gjelder til @r.VerificationExpiresAtUtc.Value.ToString("dd.MM.yyyy HH:mm") UTC.</p> }
+                        <dl>
+                            <div><dt>Sist oppdatert</dt><dd>@((r.UpdatedAtUtc ?? r.CreatedAtUtc).ToString("dd.MM.yyyy HH:mm")) UTC</dd></div>
+                            <div><dt>Koordinater</dt><dd>@r.Latitude.ToString("F5"), @r.Longitude.ToString("F5")</dd></div>
+                            @if (!string.IsNullOrWhiteSpace(r.Capability)) { <div><dt>Kapasitet</dt><dd>@r.Capability</dd></div> }
+                            @if (!string.IsNullOrWhiteSpace(r.TransportRequirements)) { <div><dt>Transportbehov</dt><dd>@r.TransportRequirements</dd></div> }
+                            @if (r.VerificationExpiresAtUtc.HasValue) { <div><dt>Godkjenning gjelder til</dt><dd>@r.VerificationExpiresAtUtc.Value.ToString("dd.MM.yyyy HH:mm") UTC</dd></div> }
+                        </dl>
                     </details>
                 </div>
-                <div>
+                <div class="resource-status">
+                    <h3>Status</h3>
                     <span class="status-badge @(r.Availability == ResourceAvailability.Available ? "status-positive" : "status-warning")">@status.Availability</span>
-                    <p class="resource-meta">@status.Verification</p>
+                    <p class="resource-meta">Godkjenning: @status.Verification</p>
                     @if (!r.IsOnMap) { <span class="status-badge">Ikke på kartet</span> }
-                    <details>
+                    <details open>
                         <summary>Operativ vurdering</summary>
                         <p data-resource-status-text="@r.Id">@status.StatusText</p>
                     </details>
@@ -98,11 +101,16 @@
                     @if (ResourcePermissions.CanManage(User, r.OwnerId))
                     {
                         <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">@(r.IsOnMap ? "Rediger / tilgjengelighet" : "Rediger / plasser på kart")</a>
-                        <a asp-action="Delete" asp-route-id="@r.Id" class="btn-danger">Slett</a>
                     }
                     @if (User.IsInRole("Admin"))
                     {
                         <a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="btn-secondary">Koordiner</a>
+                    }
+                    @if (ResourcePermissions.CanManage(User, r.OwnerId))
+                    {
+                        <div class="resource-destructive-actions">
+                            <a asp-action="Delete" asp-route-id="@r.Id" class="btn-danger">Slett</a>
+                        </div>
                     }
                 </div>
             </div>
