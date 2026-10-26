@@ -28,6 +28,22 @@ p { font-size: 1rem; }
 .eyebrow { text-transform: none; letter-spacing: .04em; }
 .form { margin-top: 1.25rem; }
 .form-group { margin-bottom: 1rem; }
+.map-workspace {
+    --workspace-surface: var(--surface);
+    --workspace-section-surface: var(--surface-end);
+    --workspace-input-surface: var(--surface);
+    --workspace-section-border: var(--border);
+    --workspace-surface-border: var(--border-strong);
+    --workspace-hover: var(--hover);
+}
+:root[data-theme="dark"] .map-workspace {
+    --workspace-surface: #101f35;
+    --workspace-section-surface: #152942;
+    --workspace-input-surface: #0d1b2e;
+    --workspace-section-border: #617b9c;
+    --workspace-surface-border: #56708f;
+    --workspace-hover: #203b5b;
+}
 .form-row { gap: 1rem; }
 label { font-size: 1rem; margin-bottom: .35rem; }
 .form-control { padding: .6rem .7rem; min-height: 44px; border-width: 1px; border-radius: .3rem; font: inherit; }

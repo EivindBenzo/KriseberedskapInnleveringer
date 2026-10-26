@@ -3,7 +3,7 @@
     const base = document.currentScript.dataset.iconBase;
     const versionedUrls = JSON.parse(document.currentScript.dataset.iconUrls || '{}');
     // Bump with glyph changes; the versioned script refreshes every consumer's asset URLs.
-    const assetVersion = 'availability-20261026';
+    const assetVersion = 'outline-emerald-20261026';
     const icons = new Map([
         ['Kjøretøy', 'car'],
         ['Maskin', 'excavator'],
@@ -78,17 +78,17 @@
             const now = Date.now();
             const next = Math.min(...expiries.filter(expiry => expiry > now));
             if (Number.isFinite(next))
-                window.setTimeout(() => { callback(); schedule(); }, Math.min(next - now + 1, 2147483647));
+                window.setTimeout(() => { if (callback() !== false) schedule(); }, Math.min(next - now + 1, 2147483647));
         }
         schedule();
     }
 
-    window.ResourceIcons = Object.freeze({ entries, get, stateFor, statusText, summaryText, sizeForZoom, markerOptions, watchAvailability });
+    window.ResourceIcons = Object.freeze({ entries, get, stateFor, statusText, summaryText, sizeForZoom, markerOptions, watchAvailability, initializeImages });
     window.resourceMarkerOptions = markerOptions;
     window.resourceIconUrl = (type, status) => get(type, status).url;
 
-    function initializeImages() {
-        const images = Array.from(document.querySelectorAll('img[data-resource-icon]'));
+    function initializeImages(root = document) {
+        const images = Array.from(root.querySelectorAll('img[data-resource-icon]'));
         const automaticAlt = images.map(image => !image.hasAttribute('alt'));
         const statuses = images.map(image => {
             try { return JSON.parse(image.dataset.resourceStatus || '{}') || {}; }
@@ -96,6 +96,7 @@
         });
         function refresh() {
             images.forEach((image, index) => {
+                if (image.isConnected === false) return;
                 const status = statuses[index];
                 const resource = get(image.dataset.resourceIcon, status);
                 image.src = resource.url;
@@ -106,13 +107,13 @@
                 const text = row?.querySelector('[data-resource-status-text]');
                 if (text && status) text.textContent = summaryText(status);
             });
+            return images.some(image => image.isConnected !== false);
         }
-        refresh();
-        watchAvailability(refresh, statuses);
+        if (refresh()) watchAvailability(refresh, statuses);
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeImages, { once: true });
+        document.addEventListener('DOMContentLoaded', () => initializeImages(), { once: true });
     } else {
         initializeImages();
     }

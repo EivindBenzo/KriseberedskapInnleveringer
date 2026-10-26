@@ -27,6 +27,44 @@ namespace MariaDbIntegrationTests;
 
 public class OperationsTests(OperationsTests.Site site) : IClassFixture<OperationsTests.Site>
 {
+    [Theory]
+    [InlineData("Bruker")]
+    [InlineData("Admin")]
+    public async Task ResourcesOverlayRendersExistingPermissionAwareViewsWithoutApplicationChrome(string role)
+    {
+        using var client = site.Client(role == "Admin" ? site.AdminId : site.OwnerId, role);
+        var response = await client.GetAsync("/Home/Resources?overlay=true");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+        Assert.Contains(site.OwnResource.ResourceName, html);
+        Assert.Contains(site.OtherResource.ResourceName, html);
+        Assert.Contains("Detaljer om ressursen", html);
+        Assert.Contains("data-resources-link", html);
+        Assert.Contains("name=\"overlay\" value=\"true\"", html);
+        Assert.Contains("data-map-focus=", html);
+        Assert.DoesNotContain("<!DOCTYPE", html);
+        Assert.DoesNotContain("class=\"navbar\"", html);
+        Assert.DoesNotContain("<script", html);
+        Assert.Contains($"href=\"/Home/Edit/{site.OwnResource.Id}\"", html);
+        Assert.Contains($"href=\"/Home/Delete/{site.OwnResource.Id}\"", html);
+        Assert.Contains("target=\"_blank\" rel=\"noopener\"", html);
+        if (role == "Admin")
+        {
+            Assert.Contains($"href=\"/Home/Edit/{site.OtherResource.Id}\"", html);
+            Assert.Contains("action=\"/Home/ResetMap\"", html);
+            Assert.Contains("name=\"__RequestVerificationToken\"", html);
+        }
+        else
+        {
+            Assert.DoesNotContain($"href=\"/Home/Edit/{site.OtherResource.Id}\"", html);
+            Assert.DoesNotContain($"href=\"/Home/Delete/{site.OtherResource.Id}\"", html);
+            Assert.DoesNotContain("action=\"/Home/ResetMap\"", html);
+            Assert.DoesNotContain("Koordiner", html);
+        }
+        var mine = await client.GetStringAsync("/Home/Resources?overlay=true&mine=true");
+        Assert.DoesNotContain(site.OtherResource.ResourceName, mine);
+    }
+
     [Fact]
     public void AuthorizationMetadataMatchesSupportedRolesAndIndexRoute()
     {

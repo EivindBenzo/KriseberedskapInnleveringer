@@ -667,6 +667,64 @@ img[data-resource-icon] {
     }
 }
 
+/* The home grid reserves the header's intrinsic height, including wrapped navigation. */
+body:has(.home-page) {
+    min-height: 100svh;
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+    body:has(.home-page) {
+        display: grid;
+        grid-template-rows: auto minmax(min-content, 1fr);
+        min-height: 100svh;
+    }
+
+    body:has(.home-page) .main-content {
+        display: grid;
+        margin-block: 0;
+        padding-block: 1rem;
+    }
+
+    .home-page.home-page {
+        display: grid;
+        grid-template-rows: minmax(min-content, 1fr) auto;
+        gap: clamp(1rem, 2svh, 2rem);
+        width: 100%;
+        margin: 0 auto;
+    }
+
+    .home-page .home-hero {
+        gap: clamp(1.5rem, 3vw, 3rem);
+    }
+
+    .home-page .home-hero-copy { padding: 0; }
+    .home-page .eyebrow { margin-bottom: .5rem; }
+    .home-page h1 { font-size: clamp(2rem, 3vw, 3rem); margin-bottom: 1rem; }
+    .home-page .home-lead { font-size: 1rem; line-height: 1.5; }
+    .home-page .home-actions { margin-top: 1rem; }
+    .home-page .home-context { margin-top: .75rem; }
+
+    .home-page .home-photo {
+        height: clamp(15rem, 37svh, 28rem);
+        min-height: 0;
+        aspect-ratio: auto;
+    }
+
+    .home-page .home-guide {
+        grid-template-columns: 1fr 3fr;
+        gap: 1.5rem;
+        margin-top: 0;
+        padding-top: 1rem;
+    }
+
+    .home-page .home-guide h2 { font-size: 1.25rem; margin-bottom: .5rem; }
+    .home-page .home-steps { gap: 1.25rem; }
+    .home-page .home-steps li::before { margin-bottom: .35rem; }
+    .home-page .home-steps h3 { margin-bottom: .4rem; }
+    .home-page .home-guide p { font-size: .875rem; line-height: 1.45; }
+    .home-page .home-steps a { font-size: .875rem; }
+}
+
 @media (max-width: 480px) {
     header::after {
         height: 40px;

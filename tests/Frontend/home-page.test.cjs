@@ -9,10 +9,11 @@ test('both home states share a local photograph and practical guidance instead o
     const home = read('Views/Home/Index.cshtml');
     assert.doesNotMatch(home, /Hva vil du gjøre|feature-grid|feature-card|dashboard/);
     assert.equal((home.match(/class="home-photo"/g) || []).length, 1);
-    const photo = home.match(/<img[\s\S]*?class="home-photo" \/>/)[0];
+    const photo = home.match(/<img[\s\S]*?class="home-photo"[^>]*\/>/)[0];
     assert.match(photo, /src="~\/images\/Heimevernet-background.jpg"/);
     assert.match(photo, /alt="[^"]+"/);
     assert.match(photo, /width="1024" height="707"/);
+    assert.match(photo, /fetchpriority="high"/);
     assert.ok(existsSync(resolve(root, 'wwwroot/images/Heimevernet-background.jpg')));
     assert.ok(home.indexOf(photo) > home.indexOf('Opprett brukerkonto'));
     assert.match(home, /<section class="home-hero" aria-labelledby="home-title">/);
@@ -58,4 +59,16 @@ test('layout removes the unused footer while retaining accurate prototype brandi
     assert.match(layout, /Studentprosjekt · prototype/);
     assert.match(layout, /aria-label="Hovedmeny"/);
     assert.match(layout, /@RenderBody\(\)/);
+});
+
+test('desktop home budgets the actual header in normal flow without clipping short or zoomed pages', () => {
+    const css = read('wwwroot/css/site.css');
+    const homeRules = css.slice(css.indexOf('/* The home grid'), css.indexOf('@media (max-width: 480px)'));
+    assert.match(homeRules, /@media \(min-width: 1024px\) and \(min-height: 700px\)/);
+    assert.match(homeRules, /body:has\(\.home-page\)[^{]*\{[^}]*grid-template-rows: auto minmax\(min-content, 1fr\);[^}]*min-height: 100svh;/);
+    assert.match(homeRules, /body:has\(\.home-page\) \.main-content \{[^}]*margin-block: 0;[^}]*padding-block: 1rem;/);
+    assert.match(homeRules, /\.home-page\.home-page \{[^}]*grid-template-rows: minmax\(min-content, 1fr\) auto;[^}]*margin: 0 auto;/);
+    assert.match(homeRules, /\.home-page \.home-photo \{[^}]*height: clamp\(15rem, 37svh, 28rem\)/);
+    assert.doesNotMatch(homeRules, /overflow:\s*(?:hidden|clip)|(?:^|[;{\s])height:\s*100(?:s|d)?vh|calc\([^)]*-\s*\d+px|position:\s*(?:fixed|absolute)/);
+    assert.match(read('wwwroot/css/home.css'), /min-height: 44px/);
 });
