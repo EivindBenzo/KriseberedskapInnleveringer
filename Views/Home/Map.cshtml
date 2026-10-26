@@ -45,6 +45,17 @@
         <div><span class="eyebrow">RESSURSOVERSIKT</span><h1 id="workspaceTitle">Ressurskart</h1></div>
         <button type="button" id="registrationToggle" class="btn-secondary" aria-controls="registrationPanel" aria-expanded="@(registrationOpen ? "true" : "false")">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</button>
     </div>
+    <div class="resource-actions">
+        <a asp-action="Resources" class="btn-secondary">Ressurser og mine ressurser</a>
+        @if (User.IsInRole("Admin"))
+        {
+            <a asp-action="Resources" asp-fragment="reset-map" class="btn-secondary">Administrer kartplasseringer</a>
+        }
+    </div>
+    @if (isEditing)
+    {
+        <p class="workspace-notice">Lagring plasserer ressursen på kartet. Endret plassering krever ny verifisering.</p>
+    }
     @if (TempData["MapSuccess"] is string success)
     {
         <p class="workspace-notice" role="status">@success</p>
@@ -140,7 +151,7 @@
                         <option value="@type">@type</option>
                     }
                 </select>
-                <p id="resourceResultsStatus" class="workspace-muted" role="status">@(resources.Count == 0 ? "Ingen ressurser er registrert ennå." : "")</p>
+                <p id="resourceResultsStatus" class="workspace-muted" role="status">@(resources.Count == 0 ? "Ingen ressurser er plassert på kartet." : "")</p>
                 <div class="workspace-resource-list">
             @foreach (var r in resources)
             {
@@ -313,7 +324,8 @@
             const count = resourceCards.filter(card => !card.hidden).length;
             document.getElementById('resourceCount').textContent = count;
             document.getElementById('resourceResultsStatus').textContent = count
-                ? count + ' ressurser vist' : 'Ingen ressurser passer filteret.';
+                ? count + ' ressurser vist' : savedResources.length
+                    ? 'Ingen ressurser passer filteret.' : 'Ingen ressurser er plassert på kartet.';
         }
     });
     resourceFilter.addEventListener('change', function () {

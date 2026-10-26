@@ -100,6 +100,25 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             throw new WorkflowException("Behovet er avsluttet.");
     }
 
+    public async Task<int> ResetMapAsync(ClaimsPrincipal actor, bool confirmed)
+    {
+        var actorId = Admin(actor);
+        if (!confirmed) throw new WorkflowException("Bekreft at alle ressursplasseringer skal fjernes fra kartet.");
+        var count = 0;
+        await Mutate(async () =>
+        {
+            var resources = await db.MapSubmissions.Where(r => r.IsOnMap).ToListAsync();
+            foreach (var resource in resources)
+            {
+                resource.IsOnMap = false;
+                Touch(resource);
+                Audit(actorId, "ResourceRemovedFromMap", "Administrator bekreftet nullstilling av kartet.", resource.Id);
+            }
+            count = resources.Count;
+        });
+        return count;
+    }
+
     public Task VerifyAsync(int resourceId, bool approve, string expectedToken, ClaimsPrincipal actor, string reason) =>
         Mutate(async () =>
         {
@@ -150,7 +169,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
                 values.Capability?.Length > 1000 || values.TransportRequirements?.Length > 1000 ||
                 !PlaceGeocoder.ValidPoint(values.Latitude, values.Longitude))
                 throw new WorkflowException("Ugyldige ressursopplysninger.");
-            var changed = resource.ResourceName != values.ResourceName || resource.ResourceType != values.ResourceType ||
+            var changed = !resource.IsOnMap || resource.ResourceName != values.ResourceName || resource.ResourceType != values.ResourceType ||
                           resource.LocationName != values.LocationName || resource.Latitude != values.Latitude ||
                           resource.Longitude != values.Longitude || resource.Capability != values.Capability ||
                           resource.TransportRequirements != values.TransportRequirements;
@@ -162,6 +181,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             resource.Capability = values.Capability;
             resource.TransportRequirements = values.TransportRequirements;
             resource.Availability = availability;
+            resource.IsOnMap = true;
             if (changed) Invalidate(resource);
             Touch(resource);
             Audit(actorId, changed ? "ResourceEditedReverificationRequired" : "AvailabilityChanged", reason, resourceId);

@@ -46,6 +46,7 @@ public class MapSubmission
 
     public double Latitude { get; set; }
     public double Longitude { get; set; }
+    public bool IsOnMap { get; set; } = true;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? UpdatedAtUtc { get; set; }
     public string? OwnerId { get; set; }

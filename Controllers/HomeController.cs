@@ -196,7 +196,7 @@ public class HomeController : Controller
             await LoadResourcesAsync();
             return View("Map", model);
         }
-        var materialChange = resource.ResourceName != model.ResourceName ||
+        var materialChange = !resource.IsOnMap || resource.ResourceName != model.ResourceName ||
             resource.ResourceType != model.ResourceType || resource.LocationName != model.LocationName ||
             resource.Latitude != model.Latitude || resource.Longitude != model.Longitude ||
             resource.Capability != model.Capability?.Trim() ||
@@ -209,6 +209,7 @@ public class HomeController : Controller
         resource.Capability = model.Capability?.Trim();
         resource.TransportRequirements = model.TransportRequirements?.Trim();
         resource.Availability = model.Availability;
+        resource.IsOnMap = true;
         if (materialChange)
         {
             resource.VerificationStatus = ResourceVerificationStatus.Pending;
@@ -277,6 +278,25 @@ public class HomeController : Controller
         return RedirectToAction(nameof(Map));
     }
 
+    [HttpPost]
+    [Authorize(Roles = "Admin")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetMap(bool confirmed = false)
+    {
+        try
+        {
+            var workflow = new WorkflowService(_db,
+                Microsoft.Extensions.Options.Options.Create(new WorkflowOptions()));
+            var count = await workflow.ResetMapAsync(User, confirmed);
+            TempData["MapSuccess"] = $"{count} ressursplasseringer er fjernet fra kartet. Ressurser og historikk er bevart.";
+        }
+        catch (WorkflowException exception)
+        {
+            TempData["MapError"] = exception.Message;
+        }
+        return RedirectToAction(nameof(Resources));
+    }
+
     [HttpGet]
     public IActionResult Data(string? type) => RedirectToAction(nameof(Resources), new { type });
 
@@ -301,6 +321,7 @@ public class HomeController : Controller
     {
         ViewBag.Resources = await _db.MapSubmissions
             .AsNoTracking()
+            .Where(r => r.IsOnMap)
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync();
     }

@@ -67,6 +67,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
             .WithMany().HasForeignKey(submission => submission.OwnerId).OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<MapSubmission>().Property(r => r.Availability)
             .HasDefaultValue(ResourceAvailability.Available);
+        modelBuilder.Entity<MapSubmission>().Property(r => r.IsOnMap).HasDefaultValue(true);
         modelBuilder.Entity<MapSubmission>().Property(r => r.VerificationStatus)
             .HasDefaultValue(ResourceVerificationStatus.Pending);
         modelBuilder.Entity<ResourceRequest>().HasOne(r => r.Resource).WithMany()

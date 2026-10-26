@@ -25,7 +25,7 @@ function element(value = '') {
     };
 }
 
-function page({ selected = false, editId = null, focus = '', register = false, placement = false, resizeObserver = false,
+function page({ selected = false, editId = null, focus = '', register = false, placement = false, resizeObserver = false, emptyMap = false,
     resourceStatus = { isEligible: false, availability: 'Reservert', verification: 'Venter på verifisering',
         statusText: 'Kan ikke forespørres nå · Reservert · Venter på verifisering' } } = {}) {
     const elements = {};
@@ -116,7 +116,7 @@ function page({ selected = false, editId = null, focus = '', register = false, p
     const script = view.slice(view.lastIndexOf('<script>') + 8, view.lastIndexOf('</script>'))
         .replace('const startLat = @startLat;', 'const startLat = 58;')
         .replace('const startLng = @startLng;', 'const startLng = 8;')
-        .replace(/const savedResources = .*;/, `const savedResources = [{id: 42, name: "Bil", type: "Maskin", lat: 60, lng: 10, availability: "Reservert", verification: "Verifisert", updated: "25.10.2026 12:30 UTC", status: ${JSON.stringify(resourceStatus)}}];`)
+        .replace(/const savedResources = .*;/, emptyMap ? 'const savedResources = [];' : `const savedResources = [{id: 42, name: "Bil", type: "Maskin", lat: 60, lng: 10, availability: "Reservert", verification: "Verifisert", updated: "25.10.2026 12:30 UTC", status: ${JSON.stringify(resourceStatus)}}];`)
         .replace(/const hasSelectedPoint = .*;/, `const hasSelectedPoint = ${selected};`)
         .replace(/const registrationInitiallyOpen = .*;/, `const registrationInitiallyOpen = ${register || selected || editId !== null};`)
         .replace(/const editId = .*;/, `const editId = ${editId};`)
@@ -244,6 +244,14 @@ test('focusing a saved resource explicitly restores its type and never selects f
 });
 
 const settle = () => new Promise(resolve => setImmediate(resolve));
+test('an empty resource map shows no markers and distinguishes reset state from filters', () => {
+    const p = page({ emptyMap: true });
+    assert.equal(p.markers.length, 0);
+    p.controls.setTypeVisible('Maskin', false);
+    assert.equal(p.elements.resourceCount.textContent, 0);
+    assert.equal(p.elements.resourceResultsStatus.textContent, 'Ingen ressurser er plassert på kartet.');
+});
+
 test('preview never binds or opens a popup after placement, lookup, type, search, edit or validation', async () => {
     const p = page({ placement: true });
     assert.ok(p.markers[0].popup.includes('Bil'), 'saved resources retain their meaningful popups');
