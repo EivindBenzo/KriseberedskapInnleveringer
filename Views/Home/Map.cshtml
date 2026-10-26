@@ -316,6 +316,23 @@
         savedMarker.on('click', () => selectResource(r.id));
         return { resource: r, marker: savedMarker };
     });
+    document.addEventListener('resource-deleted', function (event) {
+        const id = String(event.detail.id);
+        for (let index = savedMarkers.length - 1; index >= 0; index--) {
+            if (String(savedMarkers[index].resource.id) !== id) continue;
+            map.removeLayer(savedMarkers[index].marker);
+            savedMarkers.splice(index, 1);
+        }
+        const resourceIndex = savedResources.findIndex(resource => String(resource.id) === id);
+        if (resourceIndex >= 0) savedResources.splice(resourceIndex, 1);
+        const cardIndex = resourceCards.findIndex(card => card.dataset.resourceId === id);
+        if (cardIndex >= 0) resourceCards.splice(cardIndex, 1)[0].remove();
+        const count = resourceCards.filter(card => !card.hidden).length;
+        document.getElementById('resourceCount').textContent = count;
+        document.getElementById('resourceResultsStatus').textContent = count
+            ? count + ' ressurser vist' : savedResources.length
+                ? 'Ingen ressurser passer filteret.' : 'Ingen ressurser er plassert på kartet.';
+    });
     window.ResourceIcons.watchAvailability(function () {
         savedMarkers.forEach(function (item) {
             const options = resourceMarkerOptions(item.resource.type, false, map.getZoom(), item.resource.status);

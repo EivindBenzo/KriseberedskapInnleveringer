@@ -45,7 +45,7 @@ test('registration content stays inside the sidebar without clipping feedback or
     assert.doesNotMatch(section, /overflow:\s*(?:hidden|clip)/);
     assert.match(rule(css, '.map-workspace .form-control'), /min-width: 0;[\s\S]*max-width: 100%/);
     assert.match(rule(css, '.map-workspace .workspace-sidebar'), /overflow-y: auto/);
-    assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.workspace-sidebar \{[^}]*overflow: visible/);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.workspace-sidebar \{[^}]*overflow-y: auto/);
     for (const field of ['ResourceName', 'ResourceType', 'Availability', 'Capability', 'TransportRequirements', 'Latitude', 'Longitude']) {
         assert.match(view, new RegExp(`asp-validation-for="${field}"`));
     }

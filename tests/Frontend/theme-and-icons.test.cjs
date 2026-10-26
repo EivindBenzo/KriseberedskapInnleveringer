@@ -106,9 +106,10 @@ test('compact icons clamp and scale with zoom while marker, legend and overview 
                 assert.equal(marker.icon.iconUrl, context.window.resourceIconUrl(type, preview ? null : {}));
                 assert.match(marker.icon.html, new RegExp(`width="${size}" height="${size}"`));
                 assert.equal(marker.icon.iconSize[0], 44);
+                assert.equal(marker.icon.iconSize[1], Math.max(44, size + 12));
                 assert.equal(marker.icon.iconAnchor[0], 22);
-                assert.equal(marker.icon.iconAnchor[1], 0);
-                assert.equal(marker.icon.popupAnchor[1], -8);
+                assert.equal(marker.icon.iconAnchor[1], marker.icon.iconSize[1] - 8);
+                assert.equal(marker.icon.popupAnchor[1], 4 - marker.icon.iconSize[1]);
             }
         }
     }

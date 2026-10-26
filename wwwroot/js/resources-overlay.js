@@ -1,5 +1,6 @@
 (function () {
     'use strict';
+    const managementUrl = new URL('resource-management.js', document.currentScript?.src || new URL('/js/resources-overlay.js', window.location.href));
 
     window.ResourcesOverlay = {
         initialize({ onFocus, onRegister }) {
@@ -8,6 +9,15 @@
             const content = document.getElementById('resourcesDialogContent');
             const back = document.getElementById('resourcesDialogBack');
             if (!dialog.showModal) return;
+            const managementReady = window.ResourceManagement ? Promise.resolve() : new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = managementUrl.href;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.append(script);
+            });
+            // A failed script load must leave ordinary server navigation available.
+            managementReady.catch(() => {});
             let controller;
             let previousFocus;
             let afterClose;
@@ -33,6 +43,7 @@
                     const response = await fetch(endpoint, { signal: request.signal, credentials: 'same-origin' });
                     if (!response.ok || response.redirected) throw new Error('Resources unavailable');
                     const html = await response.text();
+                    await managementReady;
                     if (request.signal.aborted || !dialog.open) return;
                     const template = document.createElement('template');
                     template.innerHTML = html;
@@ -40,13 +51,14 @@
                         template.content.querySelector('script, iframe')) throw new Error('Unexpected response');
                     content.replaceChildren(template.content);
                     window.ResourceIcons.initializeImages(content);
+                    window.ResourceManagement.attach(content.querySelector('.resource-overview'), load);
                     content.scrollTop = 0;
                     if (focusResults) content.focus();
                 } catch {
                     if (request.signal.aborted || !dialog.open) return;
                     const error = document.createElement('p');
                     error.setAttribute('role', 'alert');
-                    error.textContent = 'Kunne ikke laste ressursene. Prøv igjen eller åpne ressursoversikten i en ny fane.';
+                    error.textContent = 'Kunne ikke laste ressursene. Prøv igjen eller åpne ressursoversikten.';
                     const retry = document.createElement('button');
                     retry.type = 'button';
                     retry.className = 'btn-secondary';
@@ -55,9 +67,7 @@
                     const fallback = document.createElement('a');
                     endpoint.searchParams.delete('overlay');
                     fallback.href = endpoint.href;
-                    fallback.target = '_blank';
-                    fallback.rel = 'noopener';
-                    fallback.textContent = 'Åpne ressursoversikten (ny fane)';
+                    fallback.textContent = 'Åpne ressursoversikten';
                     content.replaceChildren(error, retry, fallback);
                 } finally {
                     if (controller === request) content.removeAttribute('aria-busy');
@@ -85,6 +95,7 @@
             });
             // Native showModal makes the background inert; keep Tab within the dialog at both ends.
             dialog.addEventListener('keydown', event => {
+                if (event.target?.closest('dialog') !== dialog && event.target?.closest('dialog')) return;
                 if (event.key !== 'Tab') return;
                 const focusable = Array.from(dialog.querySelectorAll('a[href], button, input, select, textarea, summary, [tabindex="0"]'))
                     .filter(element => !element.disabled && element.getClientRects().length > 0);

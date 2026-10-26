@@ -675,7 +675,7 @@ body:has(.home-page) {
 @media (min-width: 1024px) and (min-height: 700px) {
     body:has(.home-page) {
         display: grid;
-        grid-template-rows: auto minmax(min-content, 1fr);
+        grid-template-rows: max-content minmax(min-content, 1fr);
         min-height: 100svh;
     }
 

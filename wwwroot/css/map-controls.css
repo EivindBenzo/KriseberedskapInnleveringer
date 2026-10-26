@@ -188,15 +188,15 @@ button.city-suggestion-item[aria-selected="true"] {
         padding: 0.4rem 0.5rem;
     }
 }
-.resource-marker { background: transparent; border: 0; }
+.resource-marker { background: transparent; border: 0; filter: none; display: flex; flex-direction: column; align-items: center; }
 .resource-marker::before {
     content: "";
     position: absolute;
-    top: 0;
+    bottom: 0;
     left: 15px;
     border-left: 7px solid transparent;
     border-right: 7px solid transparent;
     border-bottom: 8px solid #000;
 }
-.resource-marker > img { display: block; margin: 8px auto 0; }
+.resource-marker > img { display: block; margin: 2px auto 0; filter: url(#resource-map-outline); }
 .resource-marker:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 5px #102c50; border-radius: .35rem; }

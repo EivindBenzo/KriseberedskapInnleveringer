@@ -30,10 +30,10 @@ test('zoom scaling keeps the upward pointer tip anchored and a 44px keyboard hit
                 const options = api.markerOptions(type, preview, zoom);
                 const size = api.sizeForZoom(zoom);
                 assert.equal(options.icon.iconSize[0], 44);
-                assert.equal(options.icon.iconSize[1], 44);
+                assert.equal(options.icon.iconSize[1], Math.max(44, size + 12));
                 assert.equal(options.icon.iconAnchor[0], 22);
-                assert.equal(options.icon.iconAnchor[1], 0);
-                assert.equal(options.icon.popupAnchor[1], -8);
+                assert.equal(options.icon.iconAnchor[1], options.icon.iconSize[1] - 8);
+                assert.equal(options.icon.popupAnchor[1], 4 - options.icon.iconSize[1]);
                 assert.match(options.icon.html, new RegExp(`width="${size}" height="${size}"`));
                 assert.equal(options.keyboard, true);
                 assert.equal(options.icon.iconUrl, api.get(type, preview ? null : {}, preview).url);
@@ -45,8 +45,8 @@ test('zoom scaling keeps the upward pointer tip anchored and a 44px keyboard hit
 
 test('only map markers have an upward pointer with its tip at the geographic anchor', () => {
     const css = read('wwwroot/css/map-controls.css');
-    assert.match(css, /\.resource-marker::before\s*\{[^}]*top: 0;[^}]*left: 15px;[^}]*border-left: 7px solid transparent;[^}]*border-right: 7px solid transparent;[^}]*border-bottom: 8px solid #000;/);
-    assert.match(css, /\.resource-marker > img\s*\{[^}]*margin: 8px auto 0;/);
+    assert.match(css, /\.resource-marker::before\s*\{[^}]*bottom: 0;[^}]*left: 15px;[^}]*border-left: 7px solid transparent;[^}]*border-right: 7px solid transparent;[^}]*border-bottom: 8px solid #000;/);
+    assert.match(css, /\.resource-marker > img\s*\{[^}]*margin: 2px auto 0;/);
     assert.match(css, /\.resource-marker:focus-visible/);
     assert.doesNotMatch(css, /(?:map-legend|data-resource-icon)[^{]*::(?:before|after)/);
 });

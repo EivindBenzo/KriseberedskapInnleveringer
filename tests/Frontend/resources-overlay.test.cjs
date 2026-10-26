@@ -38,7 +38,8 @@ function setup({ supported = true } = {}) {
             replaceChildren(...children) { this.children = children; },
             focus() { document.activeElement = this; },
             getClientRects() { return [1]; },
-            querySelectorAll() { return this.focusable || []; }
+            querySelectorAll() { return this.focusable || []; },
+            querySelector() { return {}; }
         };
     }
     const opener = document.getElementById('resourcesOverlayOpen');
@@ -55,6 +56,7 @@ function setup({ supported = true } = {}) {
     };
     const context = {
         document, window: { location: { href: 'https://example.test/Home/Map' },
+            ResourceManagement: { attach() {} },
             ResourceIcons: { initializeImages() { hydrated++; } } },
         URL, URLSearchParams, AbortController,
         FormData: class { constructor(form) { return form.values; } },
@@ -139,6 +141,16 @@ test('Tab and Shift+Tab wrap within visible dialog controls', () => {
     assert.equal(p.document.activeElement, p.back);
 });
 
+test('outer overlay Tab handler leaves nested native confirmation focus management alone', () => {
+    const p = setup();
+    p.open();
+    const nested = {};
+    const event = p.event({ closest: () => nested }, { key: 'Tab', shiftKey: true });
+    p.dialog.handlers.keydown(event);
+    assert.equal(event.prevented, undefined);
+    assert.equal(p.document.activeElement, p.back);
+});
+
 test('tabs and GET filters stay in the overlay and cancel outdated requests', async () => {
     const p = setup();
     p.open();
@@ -177,14 +189,14 @@ test('Vis på kart and registration close first, then invoke existing map callba
     assert.equal(p.document.activeElement, p.content, 'close cleanup must not steal focus from registration');
 });
 
-test('failed or redirected requests offer an accessible retry and standalone new-tab fallback', async () => {
+test('failed or redirected requests offer an accessible retry and same-tab fallback', async () => {
     const p = setup();
     p.open();
     p.requests[0].resolve({ ok: true, redirected: true });
     await settle();
     const [error, retry, fallback] = p.content.children;
     assert.equal(error.attributes.role, 'alert');
-    assert.equal(fallback.target, '_blank');
+    assert.equal(fallback.target, undefined);
     assert.equal(new URL(fallback.href).searchParams.has('overlay'), false);
     retry.handlers.click();
     assert.equal(p.requests.length, 2);
@@ -203,13 +215,13 @@ test('unsupported dialogs and modified clicks retain ordinary standalone navigat
 test('overlay uses the authorized resource view, existing permission gates and antiforgery-protected workflows', () => {
     const controller = read('Controllers/HomeController.cs');
     assert.match(controller, /\[Authorize\]\s*public class HomeController/);
-    assert.match(controller, /overlay \? PartialView\("Verify", model\) : View\("Verify", model\)/);
+    assert.match(controller, /overlay \|\| fragment \? PartialView\("Verify", model\) : View\("Verify", model\)/);
     const view = read('Views/Home/Verify.cshtml');
     assert.match(view, /ResourcePermissions.CanManage\(User, r.OwnerId\)/);
     assert.match(view, /User.IsInRole\("Admin"\)/);
     assert.match(view, /asp-action="ResetMap" method="post"/);
     assert.match(controller, /\[HttpPost\]\s*\[Authorize\(Roles = "Admin"\)\]\s*\[ValidateAntiForgeryToken\]\s*public async Task<IActionResult> ResetMap/);
-    assert.match(view, /target="@actionTarget" rel="@@?\(overlay \? "noopener" : null\)"/);
+    assert.doesNotMatch(view, /target="_blank"|actionTarget|ny fane|Rediger \//);
     assert.match(view, /@if \(!overlay\)/);
     assert.doesNotMatch(view, /asp-route-overlay=/, 'modified tab clicks must open the standalone view');
     const map = read('Views/Home/Map.cshtml');

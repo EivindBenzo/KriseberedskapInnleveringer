@@ -1,14 +1,26 @@
+body:has(.map-workspace) {
+    height: 100dvh;
+    min-height: 0;
+}
+
 .main-content:has(.map-workspace) {
+    display: flex;
+    flex-direction: column;
     max-width: 1680px;
-    margin: .75rem auto;
-    padding: 0 1.25rem;
+    margin: 0 auto;
+    padding: .75rem 1.25rem;
 }
 
 .map-workspace {
     --workspace-border: var(--workspace-surface-border);
-    --workspace-height: calc(100dvh - 206px);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
     color: var(--text);
 }
+
+.map-workspace > :not(.workspace-grid) { flex-shrink: 0; }
 
 .map-workspace .workspace-heading {
     display: flex;
@@ -32,7 +44,9 @@
     display: grid;
     grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
     gap: .75rem;
-    align-items: start;
+    align-items: stretch;
+    flex: 1;
+    min-height: 0;
 }
 
 .map-workspace[data-registration-open="true"] .workspace-grid {
@@ -60,8 +74,8 @@
 
 .map-workspace .workspace-sidebar {
     min-width: 0;
-    max-height: var(--workspace-height);
-    min-height: 320px;
+    height: 100%;
+    min-height: 0;
     overflow-y: auto;
     scrollbar-gutter: stable;
     border: 1px solid var(--workspace-border);
@@ -336,9 +350,10 @@
 }
 
 .map-workspace .workspace-map-region {
-    position: sticky;
-    top: 1rem;
+    display: flex;
+    flex-direction: column;
     min-width: 0;
+    min-height: 0;
 }
 
 .map-workspace .workspace-map-status {
@@ -348,8 +363,9 @@
 }
 
 .map-workspace #map {
-    height: calc(var(--workspace-height) - 28px);
-    min-height: 320px;
+    flex: 1;
+    height: 100%;
+    min-height: 0;
     margin: 0;
     box-shadow: none;
     border: 1px solid var(--workspace-border);
@@ -388,19 +404,10 @@
     display: none !important;
 }
 
-@media (min-width: 761px) and (max-width: 1279px) {
-    .map-workspace { --workspace-height: calc(100dvh - 245px); }
-}
-
-@media (max-height: 600px) {
-    .map-workspace .workspace-sidebar { max-height: none; overflow: visible; }
-    .map-workspace .workspace-map-region { position: static; }
-}
-
 @media (max-width: 760px) {
     .main-content:has(.map-workspace) {
-        margin: .75rem auto;
-        padding: 0 .65rem;
+        margin: 0 auto;
+        padding: .65rem;
     }
 
     .map-workspace .workspace-heading {
@@ -438,10 +445,14 @@
 
     .map-workspace .workspace-sidebar {
         width: 100%;
-        max-height: none;
+        height: auto;
+        max-height: 45%;
         min-height: 0;
-        overflow: visible;
+        overflow-y: auto;
     }
+
+    .map-workspace[data-registration-open="true"] .workspace-sidebar { flex: 1; max-height: 60%; }
+    .map-workspace[data-mobile-view="list"] .workspace-sidebar { flex: 1; max-height: 100%; }
 
     .map-workspace .workspace-search {
         padding: .65rem;
@@ -449,13 +460,13 @@
     }
 
     .map-workspace .workspace-map-region {
-        position: static;
+        flex: 1;
         width: 100%;
     }
 
     .map-workspace #map {
-        height: 58dvh;
-        min-height: 330px;
+        height: 100%;
+        min-height: 0;
     }
 
     .map-workspace[data-mobile-view="map"] .workspace-results,
