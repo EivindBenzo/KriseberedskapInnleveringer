@@ -114,7 +114,7 @@ public class HomeController : Controller
             return View(model);
         }
 
-        _db.MapSubmissions.Add(new MapSubmission
+        var resource = new MapSubmission
         {
             ResourceName = model.ResourceName,
             ResourceType = model.ResourceType,
@@ -127,7 +127,8 @@ public class HomeController : Controller
             Capability = model.Capability?.Trim(),
             TransportRequirements = model.TransportRequirements?.Trim(),
             OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-        });
+        };
+        _db.MapSubmissions.Add(resource);
         _db.WorkflowAudits.Add(new WorkflowAudit
         {
             ActorId = User.FindFirstValue(ClaimTypes.NameIdentifier)!,
@@ -138,6 +139,7 @@ public class HomeController : Controller
         await _db.SaveChangesAsync();
 
         TempData["MapSuccess"] = $"{model.ResourceType} «{model.ResourceName}» ble registrert ved {model.LocationName}.";
+        TempData["MapPlacedResourceId"] = resource.Id;
 
         // Back to the map so the new marker is shown together with the others.
         return RedirectToAction(nameof(Map));
@@ -243,6 +245,7 @@ public class HomeController : Controller
         TempData["MapSuccess"] = materialChange
             ? "Ressursen er oppdatert og venter på ny verifisering."
             : "Ressursens tilgjengelighet er oppdatert.";
+        TempData["MapPlacedResourceId"] = resource.Id;
         return RedirectToAction(nameof(Map));
     }
 
@@ -312,8 +315,9 @@ public class HomeController : Controller
         Resources(type, query, true, eligible);
 
     [HttpGet]
-    public async Task<IActionResult> Resources(string? type, string? query, bool mine = false, bool eligible = false, bool overlay = false, string? city = null, bool fragment = false)
+    public async Task<IActionResult> Resources(string? type, string? query, bool mine = false, bool eligible = false, bool overlay = false, string? city = null, bool fragment = false, bool history = false)
     {
+        if (history && !User.IsInRole(IdentitySeeder.AdminRole)) return Forbid();
         ViewBag.SelectedType = type;
         ViewBag.Query = query;
         ViewBag.Mine = mine;
@@ -321,9 +325,27 @@ public class HomeController : Controller
         ViewBag.ResourcesOverlay = overlay;
         ViewBag.ResourcesPartial = overlay || fragment;
         ViewBag.City = ResourceCity.Normalize(city);
-        var model = await BuildDataModelAsync(type, query, mine, eligible, city);
+        ViewBag.ResourceHistory = history;
+        var model = history
+            ? new DataPageViewModel { History = await LoadResourceHistoryAsync() }
+            : await BuildDataModelAsync(type, query, mine, eligible, city);
         return overlay || fragment ? PartialView("Verify", model) : View("Verify", model);
     }
+
+    private async Task<IReadOnlyList<ResourceHistoryEntry>> LoadResourceHistoryAsync() =>
+        await (from audit in _db.WorkflowAudits.AsNoTracking()
+               where audit.Action == "ResourceRegistered" || audit.Action == "ResourceDeleted"
+               join actor in _db.Users.AsNoTracking() on audit.ActorId equals actor.Id into actors
+               from actor in actors.DefaultIfEmpty()
+               orderby audit.OccurredAtUtc descending, audit.Id descending
+               select new ResourceHistoryEntry
+               {
+                   ResourceId = audit.ResourceId,
+                   Action = audit.Action,
+                   Description = audit.Reason,
+                   Actor = actor == null ? audit.ActorId : (actor.Email ?? actor.UserName ?? audit.ActorId),
+                   OccurredAtUtc = audit.OccurredAtUtc
+               }).Take(500).ToListAsync();
 
     protected virtual async Task LoadResourcesAsync()
     {

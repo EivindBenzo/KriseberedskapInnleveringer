@@ -3,7 +3,7 @@
     const managementUrl = new URL('resource-management.js', document.currentScript?.src || new URL('/js/resources-overlay.js', window.location.href));
 
     window.ResourcesOverlay = {
-        initialize({ onFocus, onRegister }) {
+        initialize({ onFocus, onRegister, onOpen }) {
             const opener = document.getElementById('resourcesOverlayOpen');
             const dialog = document.getElementById('resourcesDialog');
             const content = document.getElementById('resourcesDialogContent');
@@ -87,12 +87,14 @@
                 event.preventDefault();
                 previousFocus = document.activeElement;
                 dialog.showModal();
+                onOpen?.();
                 document.documentElement.classList.add('resources-overlay-open');
                 back.focus();
                 load(opener.href);
             });
             back.addEventListener('click', () => close());
             dialog.addEventListener('pointerdown', event => { backdropPress = isBackdrop(event); });
+            dialog.addEventListener('pointercancel', () => { backdropPress = false; });
             dialog.addEventListener('click', event => {
                 const dismiss = backdropPress && isBackdrop(event);
                 backdropPress = false;

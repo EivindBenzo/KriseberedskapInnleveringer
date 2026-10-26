@@ -3,7 +3,7 @@
     const base = document.currentScript.dataset.iconBase;
     const versionedUrls = JSON.parse(document.currentScript.dataset.iconUrls || '{}');
     // Bump with glyph changes; the versioned script refreshes every consumer's asset URLs.
-    const assetVersion = 'original-outlined-20261026';
+    const assetVersion = 'original-outline-1px-20261026';
     const icons = new Map([
         ['Kjøretøy', 'car'],
         ['Maskin', 'excavator'],

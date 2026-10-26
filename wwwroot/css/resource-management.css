@@ -10,14 +10,14 @@
     margin: 0;
     padding: .25rem;
     list-style: none;
-    background: #fff;
-    color: #17212b;
-    border: 1px solid #596b7c;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
     border-radius: .35rem;
 }
 .resource-city-options [role="option"] { padding: .6rem; cursor: pointer; overflow-wrap: anywhere; }
-.resource-city-options [role="option"]:hover:not([aria-selected="true"]) { background: #eaf2f8; }
-.resource-city-options [aria-selected="true"] { background: #dceaf6; outline: 2px solid #254e70; outline-offset: -2px; }
-.resource-delete-dialog { position: fixed; inset: 0; margin: auto; width: min(28rem, calc(100vw - 3rem)); max-height: calc(100dvh - 3rem); overflow: auto; border: 1px solid #596b7c; border-radius: .6rem; padding: 1.5rem; }
+.resource-city-options [role="option"]:hover:not([aria-selected="true"]) { background: var(--hover); }
+.resource-city-options [aria-selected="true"] { background: var(--hover); outline: 2px solid var(--accent); outline-offset: -2px; }
+.resource-delete-dialog { position: fixed; inset: 0; margin: auto; width: min(28rem, calc(100vw - 3rem)); max-height: calc(100dvh - 3rem); overflow: auto; border: 1px solid var(--border-strong); border-radius: .6rem; padding: 1.5rem; background: var(--surface); color: var(--text); }
 .resource-delete-dialog::backdrop { background: #0007; }
 .resource-delete-dialog form { display: flex; gap: .75rem; flex-wrap: wrap; }

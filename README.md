@@ -51,11 +51,15 @@ Kartet åpnes i **utforskingsmodus**. Søk flytter utsnittet; kartklikk registre
 
 Valgfritt, utført av operatøren lokalt:
 
-1. Bevar eksisterende `.env` og databasevolum. Sett både `ADMIN_EMAIL` og `ADMIN_PASSWORD` i lokal `.env` for en adresse som **ikke allerede har konto**. Velg en ny, unik hemmelighet utenfor chat, minst 12 tegn med stor/liten bokstav, tall og spesialtegn. Ikke gjenbruk passord delt i chat.
+1. Bevar eksisterende `.env` og databasevolum. Sett både `ADMIN_EMAIL` og `ADMIN_PASSWORD` i lokal `.env`. For en ny konto: velg en ny, unik hemmelighet utenfor chat, minst 12 tegn med stor/liten bokstav, tall og spesialtegn. For en eksisterende vanlig konto må passordet samsvare med kontoens nåværende passord. Ikke gjenbruk passord delt i chat.
 2. Kjør `docker compose up --build -d --force-recreate heimevernet`. Konto og roller opprettes i **din lokale MariaDB når appen starter**, ikke av cloud-agenten. Uten begge innstillinger opprettes ingen administrator; én manglende verdi stopper oppstart.
 3. Logg inn som Administrator. Fjern deretter begge bootstrap-verdier fra `.env` og gjenskap appcontaineren med samme kommando. Kontoen beholdes i databasen.
 
-En eksisterende vanlig konto blir **aldri** automatisk oppgradert: bootstrap stopper med feil. En eksisterende Admin beholdes uten passordendring. En innlogget administrator kan bruke «Administrer brukere». Hvis ingen Admin er tilgjengelig, kan en betrodd operatør med terminal-/databasetilgang eksplisitt oppgradere en **eksisterende** konto med engangskommandoen nedenfor. Ingen passord nullstilles, og registreringsskjemaet kan ikke tildele Admin. Cloud-agenten har ikke opprettet noen konto i brukerens lokale database eller hatt tilgang til den. Ikke legg ekte verdier i Git, logger eller skjermbilder.
+En eksisterende vanlig konto oppgraderes bare når det konfigurerte passordet er kontrollert mot Identity-hashen; gamle innlogginger tilbakekalles. Feil passord stopper bootstrap uten rolletildeling. En eksisterende Admin beholdes uten passordendring. En innlogget administrator kan bruke «Administrer brukere». Hvis ingen Admin er tilgjengelig og passordet ikke er kjent, kan en betrodd operatør med terminal-/databasetilgang eksplisitt oppgradere en **eksisterende** konto med engangskommandoen nedenfor. Ingen passord nullstilles, og registreringsskjemaet kan ikke tildele Admin. Cloud-agenten har ikke opprettet noen konto i brukerens lokale database eller hatt tilgang til den. Ikke legg ekte verdier i Git, logger eller skjermbilder.
+
+Ved lokal `dotnet run` må `ADMIN_EMAIL`, `ADMIN_PASSWORD` og databaseinnstillingene eksporteres som miljøvariabler (eller settes med .NET user-secrets); `.env` leses av Docker Compose, ikke av `dotnet run`. Oppstart kjører samme migreringer og administratorinitialisering i alle miljøer.
+
+Administratorer får fanen **Ressurshistorikk** under Ressurser, også i kartets ressurspanel. Den viser de siste 500 registreringene/slettingene med aktør og UTC-tid fra revisjonsloggen. Tilgangen kontrolleres på serveren. Eldre loggposter kan mangle ressurs-ID eller navn; manglende data fylles ikke ut med oppdiktet historikk.
 
 ### Gjenopprett administrator på eksisterende konto
 

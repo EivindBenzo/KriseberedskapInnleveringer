@@ -42,4 +42,15 @@ test('sidebar and legend icons render without shadow halos while map outlines st
     assert.match(css, /\.resource-marker,\s*\.map-legend img,\s*img\[data-resource-icon\]\s*\{\s*filter: none;/);
     assert.doesNotMatch(css, /drop-shadow\(0 0 0\.75px/);
     assert.match(read('wwwroot/css/map-controls.css'), /\.resource-marker > img \{[^}]*filter: url\(#resource-map-outline\)/);
+    const map = read('Views/Home/Map.cshtml');
+    const summary = map.match(/<summary><img data-resource-icon="@r\.ResourceType"[\s\S]*?<\/summary>/)[0];
+    assert.match(summary, /width="32" height="32"/);
+    assert.doesNotMatch(summary, /<svg|style=/);
+    for (const file of ['car', 'excavator', 'drone', 'generator', 'personnel', 'toolbox', 'unknown']) {
+        for (const suffix of ['', '-available', '-unavailable']) {
+            const svg = read(`wwwroot/images/resources/${file}${suffix}.svg`);
+            assert.match(svg, /stroke="#000" stroke-width="1"/);
+            assert.doesNotMatch(svg, /<filter|<fe|style=/);
+        }
+    }
 });

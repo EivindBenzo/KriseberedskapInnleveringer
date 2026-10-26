@@ -4,6 +4,7 @@
         if (!root || root.dataset.managementReady) return;
         root.dataset.managementReady = 'true';
         const form = root.querySelector('.filter-bar');
+        if (!form) return;
         const input = root.querySelector('#resourceCity');
         const list = root.querySelector('#resourceCityOptions');
         const status = root.querySelector('.resource-management-status');
@@ -14,6 +15,7 @@
         let active = -1;
         let opener;
         let busy = false;
+        let backdropPress = false;
         let filterRequest;
         const options = () => Array.from(list.querySelectorAll('[role="option"]'));
         function closeList() {
@@ -114,9 +116,27 @@
             dialog.showModal();
             cancel.focus();
         });
+        function isBackdrop(event) {
+            if (event.target !== dialog || dialog.querySelector('dialog[open]')) return false;
+            const bounds = dialog.getBoundingClientRect();
+            return event.clientX < bounds.left || event.clientX > bounds.right ||
+                event.clientY < bounds.top || event.clientY > bounds.bottom;
+        }
+        dialog.addEventListener('pointerdown', event => {
+            event.stopPropagation();
+            backdropPress = isBackdrop(event);
+        });
+        dialog.addEventListener('pointercancel', () => { backdropPress = false; });
+        dialog.addEventListener('click', event => {
+            event.stopPropagation();
+            const dismiss = backdropPress && isBackdrop(event);
+            backdropPress = false;
+            if (dismiss && !busy) dialog.close();
+        });
         cancel.addEventListener('click', () => { if (!busy) dialog.close(); });
         dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
         dialog.addEventListener('close', () => {
+            backdropPress = false;
             (opener?.isConnected ? opener : status).focus({ preventScroll: true });
         });
         deleteForm.addEventListener('submit', async event => {

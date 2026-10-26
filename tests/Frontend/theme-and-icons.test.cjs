@@ -102,7 +102,7 @@ test('compact icons clamp and scale with zoom while marker, legend and overview 
         for (const [type, file] of [...mapping, ['not-a-type', 'unknown']]) {
             for (const preview of [false, true]) {
                 const marker = api.markerOptions(type, preview, zoom);
-                assert.equal(marker.icon.iconUrl, `/images/resources/${file}${preview ? '' : '-unavailable'}.svg?v=original-outlined-20261026`);
+                assert.equal(marker.icon.iconUrl, `/images/resources/${file}${preview ? '' : '-unavailable'}.svg?v=original-outline-1px-20261026`);
                 assert.equal(marker.icon.iconUrl, context.window.resourceIconUrl(type, preview ? null : {}));
                 assert.match(marker.icon.html, new RegExp(`width="${size}" height="${size}"`));
                 assert.equal(marker.icon.iconSize[0], 44);
@@ -137,7 +137,7 @@ test('six types use distinct local SVGs; unknown types use a safe fallback', () 
         assert.equal(saved.icon.iconAnchor[0], saved.icon.iconSize[0] / 2);
     }
     for (const type of ['', null, '__proto__', '<svg onload=alert(1)>', '../../other']) {
-        assert.equal(options(type).icon.iconUrl, '/images/resources/unknown-unavailable.svg?v=original-outlined-20261026');
+        assert.equal(options(type).icon.iconUrl, '/images/resources/unknown-unavailable.svg?v=original-outline-1px-20261026');
         assert.equal(options(type).alt, 'Ukjent / ikke valgt ressurstype · Kan ikke forespørres nå · Ukjent status');
     }
 });
@@ -167,11 +167,11 @@ test('overview icon URLs and image initialization share the mapping without requ
             assert.equal(images[0].src, undefined);
             events.DOMContentLoaded({ type: 'DOMContentLoaded' });
         }
-        assert.equal(context.window.resourceIconUrl('Drone'), '/app/images/resources/drone.svg?v=original-outlined-20261026');
+        assert.equal(context.window.resourceIconUrl('Drone'), '/app/images/resources/drone.svg?v=original-outline-1px-20261026');
         assert.equal(images[0].src, context.window.ResourceIcons.get('Drone', {}).url);
         assert.equal(images[0].alt, 'Drone · Kan ikke forespørres nå · Ukjent status');
         assert.equal(images[1].alt, '', 'explicit decorative alt is preserved');
-        assert.equal(images[2].src, '/app/images/resources/unknown-unavailable.svg?v=original-outlined-20261026');
+        assert.equal(images[2].src, '/app/images/resources/unknown-unavailable.svg?v=original-outline-1px-20261026');
         assert.equal(images[2].alt, 'Ukjent / ikke valgt ressurstype · Kan ikke forespørres nå · Ukjent status');
     }
 });
@@ -184,7 +184,7 @@ test('all seven original filled glyphs have a crisp black outline and no square 
         assert.match(svg, /viewBox="0 0 48 48"/);
         assert.match(svg, /<path\b/);
         assert.match(svg, /fill="#172554"/);
-        assert.match(svg, /stroke="#000" stroke-width="1\.25" stroke-linejoin="round" paint-order="stroke fill"/);
+        assert.match(svg, /stroke="#000" stroke-width="1" stroke-linejoin="round" paint-order="stroke fill"/);
         assert.doesNotMatch(svg, /<rect\b|#f8fafc|#cbd5e1|fill="none"/);
         assert.doesNotMatch(svg, /<(?:image|text|script|foreignObject|use)\b|\b(?:href|style)=/i);
     }
@@ -334,7 +334,7 @@ function eligibleStatus(overrides = {}) {
 test('only availability determines icon color; preview stays neutral', () => {
     const api = loadResourceIcons();
     const eligible = eligibleStatus();
-    assert.equal(api.get('Drone', eligible).url, '/images/resources/drone-available.svg?v=original-outlined-20261026');
+    assert.equal(api.get('Drone', eligible).url, '/images/resources/drone-available.svg?v=original-outline-1px-20261026');
     assert.equal(api.get('Drone', eligible, true).url, api.get('Drone').url);
     assert.equal(api.markerOptions('Drone', true, 12, eligible).title, 'Ny ressurs (ikke lagret): Drone');
     for (const overrides of [
@@ -389,7 +389,7 @@ test('availability variants retain the original artwork and palette with identic
             const svg = readFileSync(resolve(root, `wwwroot/images/resources/${file}-${state}.svg`), 'utf8').trim();
             assert.equal(svg.replaceAll(color, '#172554'), neutral);
             assert.match(svg, new RegExp(`fill="${color}"`));
-            assert.match(svg, /stroke="#000" stroke-width="1\.25"/);
+            assert.match(svg, /stroke="#000" stroke-width="1"/);
             assert.doesNotMatch(svg, /<(?:image|script|foreignObject|use)\b/i);
         }
     }

@@ -27,9 +27,13 @@ public static class IdentitySeeder
         var user = await users.FindByEmailAsync(email);
         if (user != null)
         {
-            // Bootstrap must never turn a publicly registered account into an administrator.
             if (!await users.IsInRoleAsync(user, AdminRole))
-                throw new InvalidOperationException("Den konfigurerte administratorkontoen finnes allerede uten administratorrollen.");
+            {
+                // Verify ownership before elevating a previously registered account.
+                if (!await users.CheckPasswordAsync(user, password))
+                    throw new InvalidOperationException("Administratorkontoen finnes allerede. ADMIN_PASSWORD må samsvare med kontoens passord, eller bruk --promote-admin fra en betrodd terminal.");
+                await AdminPromotionCommand.PromoteAsync(services, email);
+            }
             return;
         }
 

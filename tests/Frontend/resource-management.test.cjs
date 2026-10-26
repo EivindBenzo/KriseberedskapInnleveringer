@@ -5,12 +5,16 @@ const vm = require('node:vm');
 const read = file => readFileSync(require('node:path').resolve(__dirname, '../..', file), 'utf8');
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
-function setup({ navigate = true } = {}) {
+function setup({ navigate = true, readOnly = false } = {}) {
     const nodes = {};
     const requests = [];
     const navigations = [];
     const events = [];
+    let replacement;
     const document = { activeElement: null, querySelectorAll: () => [], handlers: {},
+        createElement() {
+            return { content: { querySelector: selector => selector === '.resource-overview' ? replacement : null } };
+        },
         addEventListener(name, handler) { this.handlers[name] = handler; },
         removeEventListener(name) { delete this.handlers[name]; },
         dispatchEvent: event => events.push(event) };
@@ -31,7 +35,8 @@ function setup({ navigate = true } = {}) {
         '.resource-delete-error', '#resourceDeleteName', '.count-badge'];
     selectors.forEach(selector => { nodes[selector] = element(); });
     const root = element();
-    root.querySelector = selector => nodes[selector];
+    root.querySelector = selector => readOnly && selector !== '.resource-management-status' ? null : nodes[selector];
+    root.replaceWith = node => { root.replacement = node; root.isConnected = false; };
     const row = element();
     row.dataset.city = 'Oslo';
     root.querySelectorAll = () => row.isConnected ? [row] : [];
@@ -55,6 +60,8 @@ function setup({ navigate = true } = {}) {
     deleteForm.elements = { version: { value: '' } };
     deleteForm.querySelectorAll = () => [nodes['[data-delete-cancel]']];
     const dialog = nodes['.resource-delete-dialog'];
+    dialog.querySelector = () => dialog.nestedDialog || null;
+    dialog.getBoundingClientRect = () => ({ left: 300, top: 200, right: 700, bottom: 500 });
     dialog.showModal = () => { dialog.open = true; };
     dialog.close = () => { dialog.open = false; queueMicrotask(() => dialog.handlers.close()); };
     const link = element();
@@ -79,8 +86,35 @@ function setup({ navigate = true } = {}) {
     const event = (props = {}) => ({
         preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; }, ...props
     });
-    return { nodes, root, row, input, list, cities, dialog, deleteForm, link, document, event, requests, navigations, events };
+    return { nodes, root, row, input, list, cities, dialog, deleteForm, link, document, event, requests, navigations, events,
+        setReplacement(node) { replacement = node; } };
 }
+
+test('read-only history attaches without city filters or delete controls in standalone and overlay views', () => {
+    for (const navigate of [false, true]) {
+        const p = setup({ readOnly: true, navigate });
+        assert.equal(p.root.dataset.managementReady, 'true');
+        assert.deepEqual(p.root.handlers, {});
+        assert.deepEqual(p.document.handlers, {});
+        assert.equal(p.requests.length, 0);
+        assert.equal(p.navigations.length, 0);
+    }
+});
+
+test('standalone AJAX replacement can display read-only history and announce the updated results', async () => {
+    const p = setup({ navigate: false });
+    const history = setup({ readOnly: true });
+    delete history.root.dataset.managementReady;
+    p.setReplacement(history.root);
+    p.list.handlers.click(p.event({ target: p.cities[1] }));
+    p.requests[0].resolve({ ok: true, text: async () => '<section class="resource-overview"></section>' });
+    await settle();
+    assert.equal(p.root.replacement, history.root);
+    assert.equal(history.root.dataset.managementReady, 'true');
+    assert.equal(history.nodes['.resource-management-status'].textContent, 'Resultatene er oppdatert.');
+    assert.equal(history.document.activeElement, history.nodes['.resource-management-status']);
+    assert.deepEqual(history.root.handlers, {});
+});
 
 test('focus exposes every scoped city and keyboard selection filters immediately retaining scope and filters', () => {
     const p = setup();
@@ -117,6 +151,17 @@ test('delete confirmation is viewport centered and scrollable on small screens',
     assert.match(dialog, /margin: auto;/);
     assert.match(dialog, /max-height: calc\(100dvh - 3rem\);/);
     assert.match(dialog, /overflow: auto;/);
+    assert.match(dialog, /background: var\(--surface\);/);
+    assert.match(dialog, /color: var\(--text\);/);
+});
+
+test('city suggestions inherit dark surfaces and retain visible hover and keyboard focus', () => {
+    const css = read('wwwroot/css/resource-management.css');
+    const list = css.match(/\.resource-city-options\s*\{([^}]+)\}/)[1];
+    assert.match(list, /background: var\(--surface\)/);
+    assert.match(list, /color: var\(--text\)/);
+    assert.match(css, /:hover:not\(\[aria-selected="true"\]\)[^}]+background: var\(--hover\)/);
+    assert.match(css, /\[aria-selected="true"\][^}]+outline: 2px solid var\(--accent\)/);
 });
 
 test('city click filters immediately; Escape dismisses list without closing outer dialog; outside focus closes safely', () => {
@@ -167,6 +212,67 @@ test('delete confirmation uses safe text, version and antiforgery form, cancel a
     p.dialog.close();
     await settle();
     assert.equal(p.document.activeElement, p.link);
+});
+
+test('delete backdrop cancels only the topmost dialog without submitting or bubbling to the overlay', async () => {
+    const p = setup();
+    p.root.handlers.click(p.event({ target: p.link }));
+    const outside = () => p.event({ target: p.dialog, clientX: 100, clientY: 300 });
+    const down = outside();
+    const click = outside();
+    p.dialog.handlers.pointerdown(down);
+    p.dialog.handlers.click(click);
+    await settle();
+    assert.equal(down.stopped, true);
+    assert.equal(click.stopped, true);
+    assert.equal(p.dialog.open, false);
+    assert.equal(p.document.activeElement, p.link);
+    assert.equal(p.requests.length, 0);
+
+    p.root.handlers.click(p.event({ target: p.link }));
+    const padding = p.event({ target: p.dialog, clientX: 310, clientY: 210 });
+    const inner = p.event({ target: p.deleteForm, clientX: 400, clientY: 300 });
+    for (const inside of [padding, inner]) {
+        p.dialog.handlers.pointerdown(inside);
+        p.dialog.handlers.click(inside);
+        assert.equal(p.dialog.open, true);
+        p.dialog.handlers.pointerdown(inside);
+        p.dialog.handlers.click(outside());
+        assert.equal(p.dialog.open, true, 'dragging out does not dismiss');
+    }
+    p.dialog.handlers.pointerdown(outside());
+    p.dialog.handlers.click(padding);
+    assert.equal(p.dialog.open, true);
+    p.dialog.handlers.pointerdown(outside());
+    p.dialog.handlers.pointercancel();
+    p.dialog.handlers.click(outside());
+    assert.equal(p.dialog.open, true, 'cancelled gestures do not dismiss');
+    p.dialog.nestedDialog = {};
+    p.dialog.handlers.pointerdown(outside());
+    p.dialog.handlers.click(outside());
+    assert.equal(p.dialog.open, true);
+    assert.equal(p.requests.length, 0);
+});
+
+test('delete submission cannot be cancelled by backdrop, Escape or repeated clicks', async () => {
+    const p = setup();
+    p.root.handlers.click(p.event({ target: p.link }));
+    const submitted = p.deleteForm.handlers.submit(p.event());
+    await p.deleteForm.handlers.submit(p.event());
+    const outside = p.event({ target: p.dialog, clientX: 100, clientY: 300 });
+    p.dialog.handlers.pointerdown(outside);
+    p.dialog.handlers.click(outside);
+    p.nodes['[data-delete-cancel]'].handlers.click();
+    const escape = p.event();
+    p.dialog.handlers.cancel(escape);
+    assert.equal(escape.prevented, true);
+    assert.equal(p.dialog.open, true);
+    assert.equal(p.requests.length, 1);
+    p.requests[0].reject(new Error('Offline'));
+    await submitted;
+    p.dialog.handlers.pointerdown(outside);
+    p.dialog.handlers.click(outside);
+    assert.equal(p.dialog.open, false, 'backdrop works again after a failed request');
 });
 
 test('successful JSON deletion updates resource count, city counts and map event without navigation', async () => {

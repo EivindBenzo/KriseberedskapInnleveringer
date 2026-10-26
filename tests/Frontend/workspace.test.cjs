@@ -153,3 +153,13 @@ test('registration layout widens without sacrificing responsive map and form con
     assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.workspace-grid \{\s*display: flex;\s*flex-direction: column/);
     assert.match(css, /\.resource-card \{[^}]*border: 1px solid var\(--workspace-border\)/);
 });
+
+test('placement bounce has a smaller second lift and honors reduced motion without moving the geographic anchor', () => {
+    const css = read('wwwroot/css/map-controls.css');
+    assert.match(css, /\.resource-marker-placed > img \{ animation: resource-placement-bounce 650ms ease-out;/);
+    assert.match(css, /22% \{ transform: translateY\(-9px\); \}/);
+    assert.match(css, /60% \{ transform: translateY\(-3px\); \}/);
+    assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.resource-marker-placed > img \{ animation: none;/);
+    assert.match(css, /\.map-legend-handles button \{[^}]*touch-action: none;/);
+    assert.match(css, /\.map-legend ul \{[^}]*overflow-y: auto;[^}]*overscroll-behavior: contain;/);
+});

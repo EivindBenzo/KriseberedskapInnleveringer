@@ -7,6 +7,7 @@
     var registrationOpen = isEditing || !ViewData.ModelState.IsValid || Context.Request.Query["register"] == "true";
     var resources = (ViewBag.Resources as List<HeimevernetInnlevering1.Models.MapSubmission>) ?? new();
     var statusTime = DateTime.UtcNow;
+    var placedResourceId = TempData["MapPlacedResourceId"] is int placedId ? (int?)placedId : null;
     var resourceStatuses = ViewBag.ResourceStatuses as IReadOnlyDictionary<int, HeimevernetInnlevering1.Models.ResourceOperationalStatus>
         ?? resources.ToDictionary(r => r.Id, r => HeimevernetInnlevering1.Models.ResourceOperationalStatus.From(r, statusTime));
     var resourcesJson = System.Text.Json.JsonSerializer.Serialize(resources.Select(r => new
@@ -149,6 +150,7 @@
                 <label for="resourceFilter">Filtrer ressurstype</label>
                 <select id="resourceFilter" class="form-control">
                     <option value="">Alle typer</option>
+                    <option value="custom" disabled hidden>Valgte typer i kartet</option>
                     @foreach (var type in MapSubmissionViewModel.ResourceTypes)
                     {
                         <option value="@type">@type</option>
@@ -224,6 +226,7 @@
     const hasSelectedPoint = @Json.Serialize(selectedPoint);
     const registrationInitiallyOpen = @Json.Serialize(registrationOpen);
     const editId = @Json.Serialize(ViewBag.EditId);
+    const placedResourceId = @Json.Serialize(placedResourceId);
     const placeUrl = @Json.Serialize(Url.Action("Place", "Home"));
     const searchUrl = @Json.Serialize(Url.Action("SearchPlaces", "Home"));
 
@@ -262,7 +265,13 @@
     document.getElementById('showList').addEventListener('click', () => setMobileView('list'));
 
     function setPlacement(active) {
-        if (!active) cancelPointLookup();
+        if (!active) {
+            cancelPointLookup();
+            clearHoverPreview();
+            if (marker) map.removeLayer(marker);
+        } else if (marker) {
+            marker.addTo(map);
+        }
         placementActive = active;
         document.getElementById('mapModeStatus').textContent = active
             ? 'Registrering · klikk i kartet eller velg et stedsforslag for å plassere ressursen'
@@ -313,6 +322,7 @@
     const savedMarkers = savedResources.filter(r => r.id !== editId).map(function (r) {
         const savedMarker = L.marker([r.lat, r.lng], resourceMarkerOptions(r.type, false, map.getZoom(), r.status))
             .addTo(map).bindPopup(savedPopup(r));
+        if (r.id === placedResourceId) savedMarker.getElement?.()?.classList.add('resource-marker-placed');
         savedMarker.on('click', () => selectResource(r.id));
         return { resource: r, marker: savedMarker };
     });
@@ -350,6 +360,9 @@
     const controls = MapControls.add(map, {
         onTypeChange(type, visible) {
             visibleTypes.set(type, visible);
+            const selectedTypes = window.ResourceIcons.entries.filter(entry => visibleTypes.get(entry.type) !== false);
+            resourceFilter.value = selectedTypes.length === window.ResourceIcons.entries.length ? ''
+                : selectedTypes.length === 1 ? selectedTypes[0].type : 'custom';
             savedMarkers.filter(item => item.resource.type === type).forEach(function (item) {
                 if (visible) {
                     item.marker.setIcon(resourceMarkerOptions(type, false, map.getZoom(), item.resource.status).icon);
@@ -367,15 +380,38 @@
         }
     });
     resourceFilter.addEventListener('change', function () {
-        const types = new Set(savedResources.map(resource => resource.type));
-        types.forEach(type => controls.setTypeVisible(type, !resourceFilter.value || resourceFilter.value === type));
+        const selectedType = resourceFilter.value;
+        window.ResourceIcons.entries.forEach(({ type }) => controls.setTypeVisible(type, !selectedType || selectedType === type));
+        resourceFilter.value = selectedType;
     });
 
     // Marker for the location currently being chosen.
     const resourceType = document.getElementById('resourceType');
     let marker = null;
+    let hoverMarker = null;
+
+    function clearHoverPreview() {
+        if (hoverMarker) map.removeLayer(hoverMarker);
+        hoverMarker = null;
+    }
+
+    map.on('mousemove', function (event) {
+        if (event.originalEvent?.target?.closest?.('.leaflet-control')) {
+            clearHoverPreview();
+            return;
+        }
+        if (!placementActive || marker) return;
+        if (!hoverMarker) {
+            hoverMarker = L.marker(event.latlng, {
+                ...resourceMarkerOptions(resourceType.value, true, map.getZoom()),
+                opacity: 0.45, interactive: false, keyboard: false
+            }).addTo(map);
+        } else hoverMarker.setLatLng(event.latlng);
+    });
+    map.on('mouseout', clearHoverPreview);
 
     resourceType.addEventListener('change', function () {
+        if (hoverMarker) hoverMarker.setIcon(resourceMarkerOptions(resourceType.value, true, map.getZoom()).icon);
         if (!marker) return;
         const options = resourceMarkerOptions(resourceType.value, true, map.getZoom());
         marker.options.title = options.title;
@@ -388,6 +424,7 @@
             item.marker.setIcon(resourceMarkerOptions(item.resource.type, false, map.getZoom(), item.resource.status).icon);
         });
         if (marker) marker.setIcon(resourceMarkerOptions(resourceType.value, true, map.getZoom()).icon);
+        if (hoverMarker) hoverMarker.setIcon(resourceMarkerOptions(resourceType.value, true, map.getZoom()).icon);
     });
 
     const focusId = new URLSearchParams(window.location.search).get('focus');
@@ -401,6 +438,7 @@
     }
     if (focused) focusResource(focused);
     window.ResourcesOverlay.initialize({
+        onOpen() { setRegistrationOpen(false); },
         onRegister() { setRegistrationOpen(true); },
         onFocus(id, lat, lng) {
             const item = savedMarkers.find(item => String(item.resource.id) === id);
@@ -428,6 +466,7 @@
 
     function setLocation(lat, lng, label, resolvePlace = true) {
         cancelPointLookup();
+        clearHoverPreview();
         const version = pointVersion;
         const coordinates = lat.toFixed(5) + ', ' + lng.toFixed(5);
         map.setView([lat, lng], map.getZoom());
@@ -435,6 +474,14 @@
             marker = L.marker([lat, lng], resourceMarkerOptions(resourceType.value, true, map.getZoom())).addTo(map);
         } else {
             marker.setLatLng([lat, lng]);
+        }
+        if (resolvePlace) {
+            const element = marker.getElement?.();
+            if (element) {
+                element.classList.remove('resource-marker-placed');
+                void element.offsetWidth;
+                element.classList.add('resource-marker-placed');
+            }
         }
         document.getElementById('latitude').value = lat;
         document.getElementById('longitude').value = lng;

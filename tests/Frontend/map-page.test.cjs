@@ -14,7 +14,7 @@ function element(value = '') {
         removeAttribute(name) { delete this.attributes[name]; },
         get firstChild() { return this.children[0]; },
         focus() { this.focused = true; },
-        classList: { add: c => classes.add(c), remove: c => classes.delete(c) },
+        classList: { add: c => classes.add(c), remove: c => classes.delete(c), contains: c => classes.has(c) },
         addEventListener(name, callback) { this.handlers[name] = callback; },
         appendChild(child) { this.children.push(child); },
         replaceChildren() { this.children = []; },
@@ -25,7 +25,7 @@ function element(value = '') {
     };
 }
 
-function page({ selected = false, editId = null, focus = '', register = false, placement = false, resizeObserver = false, emptyMap = false,
+function page({ selected = false, editId = null, placedResourceId = null, focus = '', register = false, placement = false, resizeObserver = false, emptyMap = false,
     resourceStatus = { isEligible: false, availability: 'Reservert', verification: 'Venter på verifisering',
         statusText: 'Kan ikke forespørres nå · Reservert · Venter på verifisering' } } = {}) {
     const elements = {};
@@ -123,6 +123,7 @@ function page({ selected = false, editId = null, focus = '', register = false, p
         .replace(/const hasSelectedPoint = .*;/, `const hasSelectedPoint = ${selected};`)
         .replace(/const registrationInitiallyOpen = .*;/, `const registrationInitiallyOpen = ${register || selected || editId !== null};`)
         .replace(/const editId = .*;/, `const editId = ${editId};`)
+        .replace(/const placedResourceId = .*;/, `const placedResourceId = ${JSON.stringify(placedResourceId)};`)
         .replace(/const placeUrl = .*;/, 'const placeUrl = "/Home/Place";')
         .replace(/const searchUrl = .*;/, 'const searchUrl = "/Home/SearchPlaces";')
         .replace(/localitiesUrl: @Json.Serialize.*,$/m, 'localitiesUrl: "/data/norway-localities.json",');
@@ -170,6 +171,80 @@ test('overlay handles newly listed map points and registration without reloading
     assert.equal(p.markers.length, 1);
 });
 
+test('hover placement is translucent, follows the pointer and never writes coordinates before clicking', () => {
+    const p = page({ register: true });
+    p.map.events.mousemove({ latlng: { lat: 59, lng: 9 } });
+    const ghost = p.markers[1];
+    assert.equal(ghost.options.opacity, 0.45);
+    assert.equal(ghost.options.interactive, false);
+    assert.equal(ghost.options.keyboard, false);
+    assert.equal(p.elements.latitude, undefined);
+    assert.equal(p.requests.length, 0);
+    p.map.events.mousemove({ latlng: { lat: 60, lng: 10 } });
+    assert.equal(ghost.position.lat, 60);
+    assert.equal(p.markers.length, 2);
+    p.elements.resourceType.value = '';
+    p.elements.resourceType.handlers.change();
+    assert.match(ghost.options.icon.iconUrl, /unknown\.svg/);
+    p.map.events.click({ latlng: { lat: 60, lng: 10 } });
+    assert.equal(p.layers.has(ghost), false);
+    assert.equal(p.layers.has(p.markers[2]), true);
+    assert.equal(p.markers[2].dom.classList.contains('resource-marker-placed'), true);
+    assert.equal(p.elements.latitude.value, 60);
+});
+
+test('leaving registration via cancel, toggle or overlay removes unfinished markers and aborts stale lookups', async () => {
+    for (const exit of ['registrationCancel', 'registrationToggle', 'overlay']) {
+        const p = page({ register: true });
+        p.elements.resourceType.value = '';
+        p.map.events.mousemove({ latlng: { lat: 59, lng: 9 } });
+        const ghost = p.markers[1];
+        if (exit === 'overlay') p.overlay.onOpen();
+        else p.elements[exit].handlers.click();
+        assert.equal(p.layers.has(ghost), false);
+        p.overlay.onRegister();
+        p.map.events.click({ latlng: { lat: 60, lng: 10 } });
+        const preview = p.markers.at(-1);
+        const lookup = p.requests.at(-1);
+        p.elements.resourceName.value = 'Uferdig ressurs';
+        if (exit === 'overlay') p.overlay.onOpen();
+        else p.elements[exit].handlers.click();
+        assert.equal(p.layers.has(preview), false);
+        assert.equal(p.layers.has(p.markers[0]), true, 'saved resources remain visible');
+        assert.equal(lookup.options.signal.aborted, true);
+        lookup.resolve({ ok: true, json: async () => ({ label: 'For sent' }) });
+        await settle();
+        assert.equal(p.elements.selectedPlace.textContent, '60.00000, 10.00000');
+        assert.equal(p.elements.registrationPanel.hidden, true);
+        p.map.events.mousemove({ latlng: { lat: 61, lng: 11 } });
+        assert.equal(p.layers.size, 1);
+        p.overlay.onRegister();
+        assert.equal(p.layers.has(preview), true);
+        assert.equal(p.elements.resourceName.value, 'Uferdig ressurs');
+        assert.equal(p.elements.latitude.value, 60);
+    }
+});
+
+test('sidebar filtering updates every legend type and checkbox changes show the real mixed selection', () => {
+    const p = page();
+    p.elements.resourceFilter.value = 'Maskin';
+    p.elements.resourceFilter.handlers.change();
+    assert.equal(p.visibility.size, p.api.entries.length);
+    for (const { type } of p.api.entries) assert.equal(p.visibility.get(type), type === 'Maskin');
+    assert.equal(p.elements.resourceFilter.value, 'Maskin');
+    p.controls.setTypeVisible('Drone', true);
+    assert.equal(p.elements.resourceFilter.value, 'custom');
+    assert.equal(p.card.hidden, false);
+    p.api.entries.forEach(({ type }) => p.controls.setTypeVisible(type, false));
+    assert.equal(p.card.hidden, true);
+    assert.equal(p.layers.size, 0);
+    assert.equal(p.elements.resourceFilter.value, 'custom');
+    p.api.entries.forEach(({ type }) => p.controls.setTypeVisible(type, true));
+    assert.equal(p.card.hidden, false);
+    assert.equal(p.layers.size, 1);
+    assert.equal(p.elements.resourceFilter.value, '');
+});
+
 test('fresh create (including redirect after save) has only saved markers; type/zoom/filter changes never create preview', () => {
     const p = page();
     assert.equal(p.markers.length, 1);
@@ -184,6 +259,22 @@ test('fresh create (including redirect after save) has only saved markers; type/
     assert.equal(p.markers[0].options.icon.iconSize[0], 44);
     assert.match(p.markers[0].options.icon.html, new RegExp(`width="${p.api.sizeForZoom(8)}"`));
     assert.equal(p.requests.length, 0);
+});
+
+test('successful server placement bounces only its saved marker without a popup or phantom preview', () => {
+    for (const placedResourceId of [42, null, 999, '42']) {
+        const p = page({ placedResourceId });
+        assert.equal(p.markers.length, 1);
+        assert.equal(p.markers[0].dom.classList.contains('resource-marker-placed'), placedResourceId === 42);
+        assert.equal(p.markers[0].opened, undefined);
+        assert.equal(p.elements.latitude, undefined);
+        assert.equal(p.elements.registrationPanel.hidden, true);
+        assert.equal(p.requests.length, 0);
+    }
+    const view = read('Views/Home/Map.cshtml');
+    assert.equal((view.match(/TempData\["MapPlacedResourceId"\]/g) || []).length, 1);
+    assert.match(view, /TempData\["MapPlacedResourceId"\] is int placedId \? \(int\?\)placedId : null/);
+    assert.match(view, /const placedResourceId = @Json.Serialize\(placedResourceId\);/);
 });
 
 test('opening registration activates placement without a preview; first click creates it independently of filters', () => {
