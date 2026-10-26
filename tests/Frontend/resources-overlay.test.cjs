@@ -5,7 +5,7 @@ const { resolve } = require('node:path');
 const vm = require('node:vm');
 const read = file => readFileSync(resolve(__dirname, '../..', file), 'utf8');
 
-function setup({ supported = true } = {}) {
+function setup({ supported = true, onOpen } = {}) {
     const nodes = {};
     const classes = new Set();
     const requests = [];
@@ -68,6 +68,7 @@ function setup({ supported = true } = {}) {
     };
     vm.runInNewContext(read('wwwroot/js/resources-overlay.js'), context);
     context.window.ResourcesOverlay.initialize({
+        onOpen,
         onFocus(...args) { focusCalls.push(args); },
         onRegister() { registered = true; content.focus(); }
     });
@@ -129,6 +130,25 @@ test('native Escape close cleanup aborts loading and ignores late responses', as
     assert.equal(p.document.activeElement, p.opener);
 });
 
+test('optional open hook runs after opening but before loading and moving focus', () => {
+    let calls = 0;
+    const p = setup({ onOpen() {
+        calls++;
+        assert.equal(p.dialog.open, true);
+        assert.equal(p.requests.length, 0);
+        assert.equal(p.document.activeElement, p.opener);
+    } });
+    p.open();
+    assert.equal(calls, 1);
+    assert.equal(p.document.activeElement, p.back);
+    assert.equal(p.requests.length, 1);
+    const unsupported = setup({ supported: false, onOpen() { calls++; } });
+    assert.equal(unsupported.opener.handlers.click, undefined);
+    assert.equal(calls, 1);
+    p.opener.handlers.click(p.event(null, { ctrlKey: true }));
+    assert.equal(calls, 1, 'ordinary modified navigation does not stop registration');
+});
+
 test('backdrop click closes to map, aborts loading and restores opener focus', async () => {
     const p = setup();
     p.open();
@@ -180,6 +200,16 @@ test('nested confirmation takes precedence over outer backdrop dismissal', () =>
     p.dialog.nestedDialog = {};
     p.dialog.handlers.click(outside);
     assert.equal(p.dialog.open, true, 'a newly opened confirmation also prevents dismissal');
+});
+
+test('cancelled backdrop gestures cannot dismiss the overlay on a later click', () => {
+    const p = setup();
+    p.open();
+    const outside = p.event(p.dialog, { clientX: 50, clientY: 400 });
+    p.dialog.handlers.pointerdown(outside);
+    p.dialog.handlers.pointercancel();
+    p.dialog.handlers.click(outside);
+    assert.equal(p.dialog.open, true);
 });
 
 test('Tab and Shift+Tab wrap within visible dialog controls', () => {

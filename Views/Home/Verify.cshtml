@@ -4,6 +4,7 @@
 @{
     var mine = ViewBag.Mine is true;
     var overlay = ViewBag.ResourcesOverlay is true;
+    var history = ViewBag.ResourceHistory is true;
     ViewData["Title"] = "Ressurser";
     var now = DateTime.UtcNow;
     var resourceIconUrls = new[] { "car", "excavator", "drone", "generator", "personnel", "toolbox", "unknown" }
@@ -25,13 +26,49 @@
         <p class="workspace-alert" role="alert">@error</p>
     }
     <nav class="section-nav" aria-label="Ressursutvalg">
-        <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(!mine ? "page" : null)">Alle ressurser</a>
+        <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(!mine && !history ? "page" : null)">Alle ressurser</a>
         <a asp-action="Resources" asp-route-mine="true" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(mine ? "page" : null)">Mine ressurser</a>
+        @if (User.IsInRole("Admin"))
+        {
+            <a asp-action="Resources" asp-route-history="true" data-resources-link aria-current="@(history ? "page" : null)">Ressurshistorikk</a>
+        }
         @if (!overlay)
         {
             <a asp-action="Map" data-map-back>Åpne kart</a>
         }
     </nav>
+    <p class="resource-management-status" role="status" tabindex="-1"></p>
+    @if (history)
+    {
+        <h2>Ressurshistorikk</h2>
+        <p>De siste 500 registreringene og slettingene. Eldre poster kan mangle ressursopplysninger.</p>
+        @if (Model.History.Count == 0)
+        {
+            <p>Ingen registreringer eller slettinger er loggført ennå.</p>
+        }
+        <div class="resource-list">
+            @foreach (var entry in Model.History)
+            {
+                <article class="resource-row">
+                    <div>
+                        <h3>@(entry.Action == "ResourceRegistered" ? "Ressurs lagt til" : "Ressurs slettet")</h3>
+                        <p>@entry.Description</p>
+                        @if (entry.ResourceId.HasValue)
+                        {
+                            <small>Ressurs #@entry.ResourceId</small>
+                        }
+                    </div>
+                    <div>
+                        <p>Utført av @entry.Actor</p>
+                        <time datetime="@entry.OccurredAtUtc.ToString("O")">@entry.OccurredAtUtc.ToString("dd.MM.yyyy HH:mm:ss") UTC</time>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+    else
+    {
+    <div>
     <form asp-action="Resources" method="get" class="filter-bar">
         @if (overlay)
         {
@@ -68,7 +105,6 @@
         </div>
         <button type="submit" class="btn-secondary">Vis resultater</button>
     </form>
-    <p class="resource-management-status" role="status" tabindex="-1"></p>
     <dialog class="resource-delete-dialog" aria-labelledby="resourceDeleteTitle" aria-describedby="resourceDeleteName">
         <h2 id="resourceDeleteTitle">Slett ressurs?</h2>
         <p id="resourceDeleteName"></p>
@@ -179,6 +215,8 @@
                 </div>
             }
         </details>
+    }
+    </div>
     }
 </section>
 @if (ViewBag.ResourcesPartial is not true)

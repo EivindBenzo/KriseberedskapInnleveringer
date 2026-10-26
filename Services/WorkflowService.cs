@@ -198,7 +198,8 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             if (Busy(resource) || await db.ResourceRequests.AnyAsync(r => r.ResourceId == resourceId))
                 throw new WorkflowException("Ressurser med forespørselshistorikk kan ikke slettes. Sett ressursen utilgjengelig.");
             db.MapSubmissions.Remove(resource);
-            Audit(actorId, "ResourceDeleted", reason, resourceId);
+            var description = $"{resource.ResourceType}: {resource.ResourceName}. {Reason(reason)}";
+            Audit(actorId, "ResourceDeleted", description[..Math.Min(1000, description.Length)], resourceId);
         });
 
     public async Task<int> CreateNeedAsync(string description, string place, NeedPriority priority,

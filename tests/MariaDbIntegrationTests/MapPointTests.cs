@@ -69,6 +69,11 @@ public class MapPointTests
         Assert.Equal("Authoritative place", resource.LocationName);
         Assert.Equal(0, resource.Latitude);
         Assert.Equal("owner", resource.OwnerId);
+        Assert.Equal(resource.Id, controller.TempData["MapPlacedResourceId"]);
+        var audit = Assert.Single(db.ChangeTracker.Entries<WorkflowAudit>()).Entity;
+        Assert.Equal("ResourceRegistered", audit.Action);
+        Assert.Equal("owner", audit.ActorId);
+        Assert.Contains(resource.ResourceName, audit.Reason);
         Assert.False(controller.ModelState.ContainsKey("LocationName"));
         Assert.Equal(1, db.Saves);
     }
@@ -112,6 +117,7 @@ public class MapPointTests
         Assert.Equal("Map", edited.ActionName);
         Assert.Equal("Authoritative place", resource.LocationName);
         Assert.Equal(58, resource.Latitude);
+        Assert.Equal(resource.Id, controller.TempData["MapPlacedResourceId"]);
         Assert.Equal(ResourceVerificationStatus.Pending, resource.VerificationStatus);
         Assert.Null(resource.VerifiedAtUtc);
         Assert.Contains(db.ChangeTracker.Entries<WorkflowAudit>(), a =>

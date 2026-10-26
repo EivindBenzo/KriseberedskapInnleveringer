@@ -27,7 +27,7 @@ public class AdminPromotionTests
     }
 
     [Fact]
-    public async Task NormalBootstrapNeverPromotesExistingAccountButExplicitRecoveryDoes()
+    public async Task BootstrapPromotesExistingAccountOnlyAfterVerifyingConfiguredPassword()
     {
         await using var test = await Scenario.Create();
         var originalHash = test.User.PasswordHash;
@@ -35,7 +35,7 @@ public class AdminPromotionTests
         var bootstrap = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ADMIN_EMAIL"] = test.User.Email,
-            ["ADMIN_PASSWORD"] = Scenario.Password
+            ["ADMIN_PASSWORD"] = Scenario.Password + "-wrong"
         }).Build();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -43,7 +43,8 @@ public class AdminPromotionTests
         Assert.False(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.AdminRole));
         Assert.Equal(originalStamp, test.User.SecurityStamp);
 
-        await AdminPromotionCommand.PromoteAsync(test.Services, $" {test.User.Email!.ToUpperInvariant()} ");
+        bootstrap["ADMIN_PASSWORD"] = Scenario.Password;
+        await IdentitySeeder.SeedAsync(test.Services, bootstrap);
         Assert.True(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.AdminRole));
         Assert.True(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.UserRole));
         Assert.NotEqual(originalStamp, test.User.SecurityStamp);
@@ -73,6 +74,37 @@ public class AdminPromotionTests
         Assert.Equal(hash, test.User.PasswordHash);
         Assert.Equal(concurrencyStamp, test.User.ConcurrencyStamp);
         Assert.Equal(2, await test.Db.UserRoles.CountAsync(role => role.UserId == test.User.Id));
+    }
+
+    [Fact]
+    public async Task EnvironmentBootstrapCreatesAdministratorWhoCanUseNormalPasswordLogin()
+    {
+        await using var test = await Scenario.Create();
+        var email = $"{Guid.NewGuid():N}@example.test";
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ADMIN_EMAIL"] = $" {email} ",
+            ["ADMIN_PASSWORD"] = Scenario.Password
+        }).Build();
+        try
+        {
+            await IdentitySeeder.SeedAsync(test.Services, configuration);
+            var admin = await test.Users.FindByEmailAsync(email);
+            Assert.NotNull(admin);
+            Assert.True(await test.Users.IsInRoleAsync(admin, IdentitySeeder.AdminRole));
+            Assert.True(await test.Users.IsInRoleAsync(admin, IdentitySeeder.UserRole));
+            Assert.True(AccountLoginRules.CanUseChoice(nameof(LoginAccess.Admin), true));
+            var login = test.Services.GetRequiredService<SignInManager<IdentityUser>>();
+            Assert.True((await login.CheckPasswordSignInAsync(admin, Scenario.Password, true)).Succeeded);
+            Assert.False((await login.CheckPasswordSignInAsync(admin, Scenario.Password + "-wrong", true)).Succeeded);
+            var stamp = admin.SecurityStamp;
+            await IdentitySeeder.SeedAsync(test.Services, configuration);
+            Assert.Equal(stamp, admin.SecurityStamp);
+        }
+        finally
+        {
+            await test.Db.Users.Where(user => user.Email == email).ExecuteDeleteAsync();
+        }
     }
 
     [Fact]

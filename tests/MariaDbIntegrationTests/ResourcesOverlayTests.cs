@@ -72,6 +72,8 @@ public class ResourcesOverlayTests
             Assert.True((bool)controller.ViewBag.ResourcesOverlay);
             Assert.False(ResourcePermissions.CanManage(controller.User, other.OwnerId));
             Assert.True(ResourcePermissions.CanManage(controller.User, own.OwnerId));
+            Assert.IsType<ForbidResult>(await controller.Resources(null, null, history: true));
+            Assert.IsType<ForbidResult>(await controller.Resources(null, null, overlay: true, history: true));
 
             partial = Assert.IsType<PartialViewResult>(
                 await controller.Resources("Drone", "Egen", mine: true, eligible: true, overlay: true));
@@ -109,6 +111,21 @@ public class ResourcesOverlayTests
             partial = Assert.IsType<PartialViewResult>(
                 await controller.Resources(null, null, mine: true, overlay: true));
             Assert.Equal(1, Assert.Single(Assert.IsType<DataPageViewModel>(partial.Model).Cities).Count);
+            controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, "other"), new Claim(ClaimTypes.Role, "Admin")], "test"));
+            Assert.True(ResourcePermissions.CanManage(controller.User, unavailable.OwnerId));
+            Assert.IsType<ViewResult>(await controller.Edit(unavailable.Id));
+            var history = Assert.IsType<ViewResult>(await controller.Resources(null, null, history: true));
+            var entry = Assert.Single(Assert.IsType<DataPageViewModel>(history.Model).History);
+            Assert.Equal("ResourceDeleted", entry.Action);
+            Assert.Equal(own.Id, entry.ResourceId);
+            Assert.Equal("owner", entry.Actor);
+            Assert.Contains(own.ResourceName, entry.Description);
+            Assert.True(entry.OccurredAtUtc > DateTime.UtcNow.AddMinutes(-5));
+            Assert.True((bool)controller.ViewBag.ResourceHistory);
+            var historyOverlay = Assert.IsType<PartialViewResult>(
+                await controller.Resources(null, null, overlay: true, history: true));
+            Assert.Single(Assert.IsType<DataPageViewModel>(historyOverlay.Model).History);
         }
         finally
         {

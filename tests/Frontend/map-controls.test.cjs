@@ -57,7 +57,27 @@ function node(tagName) {
     return {
         tagName, handlers, listenerOptions: {}, children: [], attributes: {}, style: {},
         classList: { add: value => classes.add(value), remove: value => classes.delete(value), contains: value => classes.has(value) },
-        appendChild(child) { this.children.push(child); },
+        appendChild(child) {
+            function releaseCapture(element) {
+                if (element.capturedPointer !== undefined) {
+                    delete element.capturedPointer;
+                    element.handlers.lostpointercapture?.();
+                }
+                element.children?.forEach(releaseCapture);
+            }
+            releaseCapture(child);
+            if (child.parentNode) child.parentNode.children = child.parentNode.children.filter(item => item !== child);
+            this.children.push(child);
+            child.parentNode = this;
+        },
+        getBoundingClientRect() {
+            const list = this.children.find(child => child.tagName === 'ul');
+            return { left: parseFloat(this.style.left) || 0, top: parseFloat(this.style.top) || 0,
+                width: tagName === 'details' ? 200 : 800,
+                height: parseFloat(this.style.height) || (list ? list.getBoundingClientRect().height + 100 : tagName === 'ul' ? 180 : 600) };
+        },
+        setPointerCapture(id) { this.capturedPointer = id; },
+        remove() { this.parentNode.children = this.parentNode.children.filter(child => child !== this); this.parentNode = null; },
         setAttribute(key, value) { this.attributes[key] = value; },
         addEventListener(name, handler, options) { handlers[name] = handler; this.listenerOptions[name] = options; },
         removeEventListener(name) { delete handlers[name]; },
@@ -72,6 +92,7 @@ function controls({ mobile = false, native = false, rejected = false, onTypeChan
     document.createElement = tagName => node(tagName);
     document.createElementNS = (namespace, tagName) => Object.assign(node(tagName), { namespace });
     document.createTextNode = text => ({ textContent: text });
+    document.querySelector = () => document.modal || null;
     const container = node();
     container.id = 'map';
     container.ownerDocument = document;
@@ -276,4 +297,112 @@ test('native fullscreen changes and browser Escape update controls; denied nativ
     denied.map.events.unload();
     assert.equal(denied.document.body.style.overflow, 'auto');
     assert.equal(denied.document.handlers.keydown, undefined);
+});
+
+test('f toggles map fullscreen, ignores repeats, typing, modifiers and open dialogs, leaving native Escape alone', async () => {
+    for (const native of [false, true]) {
+        const page = controls({ native });
+        const press = overrides => {
+            let prevented = false;
+            page.document.handlers.keydown({ key: 'f', preventDefault() { prevented = true; }, ...overrides });
+            return prevented;
+        };
+        for (const event of [{ repeat: true }, { ctrlKey: true }, { altKey: true }, { metaKey: true },
+            { shiftKey: true }, { defaultPrevented: true }, { target: { isContentEditable: true } },
+            { target: { closest: () => ({ tagName: 'INPUT' }) } }]) {
+            assert.equal(press(event), false);
+            assert.equal(page.button.attributes['aria-pressed'], 'false');
+        }
+        page.document.modal = {};
+        assert.equal(press(), false);
+        page.document.modal = null;
+        assert.equal(press(), true);
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(page.button.attributes['aria-pressed'], 'true');
+        if (native) {
+            assert.equal(press({ key: 'Escape' }), false);
+            assert.equal(page.document.fullscreenElement, page.container);
+        }
+        assert.equal(press(), true);
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(page.button.attributes['aria-pressed'], 'false');
+    }
+});
+
+test('single bulk toggle uses exact dynamic labels for checkbox and programmatic selection', () => {
+    const changes = [];
+    const page = controls({ onTypeChange: (...args) => changes.push(args) });
+    const actions = page.legend.children[2].children;
+    assert.equal(actions.length, 1);
+    const toggle = actions[0];
+    assert.equal(toggle.textContent, 'Unselect all');
+    toggle.handlers.click();
+    assert.equal(toggle.textContent, 'Select all');
+    assert.equal(changes.length, 6);
+    page.legend.children[1].children.forEach(item => assert.equal(item.children[0].children[0].checked, false));
+    page.controller.setTypeVisible(page.api.entries[0].type, true);
+    assert.equal(toggle.textContent, 'Unselect all', 'focusResource uses this API to reveal its type');
+    page.controller.setTypeVisible(page.api.entries[0].type, true);
+    assert.equal(changes.length, 7, 'duplicate visibility updates emit no duplicate callbacks');
+    const checkbox = page.legend.children[1].children[0].children[0].children[0];
+    checkbox.checked = false;
+    checkbox.handlers.change();
+    assert.equal(toggle.textContent, 'Select all');
+    toggle.handlers.click();
+    assert.equal(toggle.textContent, 'Unselect all');
+    assert.equal(changes.length, 14);
+    page.legend.children[1].children.forEach(item => assert.equal(item.children[0].children[0].checked, true));
+});
+
+test('first pointer drag and resize reparent before capture and preserve the gesture on later moves', () => {
+    for (const mode of ['drag', 'resize']) {
+        const page = controls();
+        const handle = page.legend.children[0].children[0].children[mode === 'drag' ? 0 : 1];
+        const capture = handle.setPointerCapture;
+        handle.setPointerCapture = function (id) {
+            assert.equal(page.legend.parentNode, page.container, 'reparent before pointer capture');
+            capture.call(this, id);
+        };
+        const event = values => ({ button: 0, pointerId: 3, clientX: 0, clientY: 0,
+            preventDefault() {}, stopPropagation() {}, ...values });
+        handle.handlers.pointerdown(event());
+        handle.handlers.pointermove(event({ clientX: 20, clientY: 20 }));
+        handle.handlers.pointermove(event({ clientX: 40, clientY: 40 }));
+        assert.equal(handle.capturedPointer, 3);
+        if (mode === 'drag') assert.equal(page.legend.style.left, '40px');
+        else assert.equal(page.legend.children[1].style.height, '140px');
+    }
+});
+
+test('legend top handles support bounded pointer drag, resize and keyboard adjustments with cleanup', () => {
+    const page = controls();
+    const [drag, resize] = page.legend.children[0].children[0].children;
+    assert.match(drag.attributes['aria-label'], /piltastene/);
+    assert.equal(resize.attributes['aria-controls'], page.legend.children[1].id);
+    const event = values => ({ button: 0, pointerId: 1, clientX: 0, clientY: 0,
+        preventDefault() {}, stopPropagation() {}, ...values });
+    drag.handlers.pointerdown(event());
+    assert.equal(drag.capturedPointer, 1);
+    drag.handlers.pointermove(event({ clientX: 900, clientY: 900 }));
+    drag.handlers.pointerup();
+    assert.equal(page.legend.parentNode, page.container);
+    assert.equal(page.legend.style.left, '600px');
+    assert.equal(page.legend.style.top, '320px');
+    drag.handlers.keydown(event({ key: 'ArrowLeft' }));
+    assert.equal(page.legend.style.left, '590px');
+    resize.handlers.pointerdown(event({ clientY: 200 }));
+    resize.handlers.pointermove(event({ clientY: 300 }));
+    resize.handlers.pointerup();
+    const list = page.legend.children[1];
+    assert.equal(list.style.height, '80px');
+    assert.equal(page.legend.style.top, '420px', 'top handle keeps the lower edge stable');
+    resize.handlers.keydown(event({ key: 'ArrowUp' }));
+    assert.equal(list.style.height, '90px');
+    resize.handlers.pointerdown(event());
+    resize.handlers.pointercancel();
+    resize.handlers.pointermove(event({ clientY: -900 }));
+    assert.equal(list.style.height, '90px');
+    page.map.events.unload();
+    assert.equal(page.legend.parentNode, null);
+    assert.equal(drag.handlers.pointerdown, undefined);
 });
