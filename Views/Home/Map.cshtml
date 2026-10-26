@@ -46,7 +46,7 @@
     </div>
     <div class="workspace-toolbar" role="group" aria-label="Ressursverktøy">
         <button type="button" id="registrationToggle" class="btn-submit" aria-controls="registrationPanel" aria-expanded="@(registrationOpen ? "true" : "false")">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</button>
-        <a asp-action="Resources" class="btn-secondary">Ressurser og mine ressurser</a>
+        <a asp-action="Resources" class="btn-secondary" id="resourcesOverlayOpen" aria-haspopup="dialog" aria-controls="resourcesDialog">Ressurser og mine ressurser</a>
         @if (User.IsInRole("Admin"))
         {
             <a asp-action="Resources" asp-fragment="reset-map" class="btn-secondary">Administrer kartplasseringer</a>
@@ -201,12 +201,22 @@
     </div>
 </section>
 
+<link rel="stylesheet" href="~/css/resources-overlay.css" asp-append-version="true" />
+<dialog id="resourcesDialog" class="resources-dialog" aria-labelledby="resourcesDialogTitle">
+    <div class="resources-dialog-header">
+        <button type="button" class="btn-secondary" id="resourcesDialogBack" aria-label="Tilbake til kartet"><span aria-hidden="true">←</span> Tilbake til kartet</button>
+        <h2 id="resourcesDialogTitle">Ressurser</h2>
+    </div>
+    <div id="resourcesDialogContent" class="resources-dialog-content" tabindex="-1"></div>
+</dialog>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="~/css/map-controls.css" asp-append-version="true" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")" data-icon-urls="@System.Text.Json.JsonSerializer.Serialize(resourceIconUrls)"></script>
 <script src="~/js/map-controls.js" asp-append-version="true"></script>
 <script src="~/js/place-search.js" asp-append-version="true"></script>
+<script src="~/js/resources-overlay.js" asp-append-version="true"></script>
 <script>
     const startLat = @startLat;
     const startLng = @startLng;
@@ -373,6 +383,18 @@
         setMobileView('map');
     }
     if (focused) focusResource(focused);
+    window.ResourcesOverlay.initialize({
+        onRegister() { setRegistrationOpen(true); },
+        onFocus(id, lat, lng) {
+            const item = savedMarkers.find(item => String(item.resource.id) === id);
+            if (item) focusResource(item);
+            else {
+                map.setView([lat, lng], 15);
+                setMobileView('map');
+            }
+            document.getElementById('map').scrollIntoView({ block: 'nearest' });
+        }
+    });
 
     const selectedPlace = document.getElementById('selectedPlace');
 

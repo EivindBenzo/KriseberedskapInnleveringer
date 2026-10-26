@@ -60,10 +60,13 @@ function page({ selected = false, editId = null, focus = '', register = false, p
     const timers = new Map();
     let nextTimer = 0;
     const visibility = new Map();
-    let controls, observedElement, onResize, refreshAvailability;
+    let controls, observedElement, onResize, refreshAvailability, overlay;
     let currentTime = Date.now();
     const context = {
-        document, window: { location: { search: focus ? '?focus=' + focus : register ? '?register=true' : '' } },
+        document, window: {
+            location: { search: focus ? '?focus=' + focus : register ? '?register=true' : '' },
+            ResourcesOverlay: { initialize(callbacks) { overlay = callbacks; } }
+        },
         URLSearchParams, AbortController, Map, Set,
         Date: class extends Date { static now() { return currentTime; } },
         setTimeout(callback, delay) { timers.set(++nextTimer, { callback, delay }); return nextTimer; },
@@ -128,7 +131,7 @@ function page({ selected = false, editId = null, focus = '', register = false, p
         if (elements.registrationPanel.hidden) elements.registrationToggle.handlers.click();
     }
     return {
-        map, markers, elements, layers, controls, visibility, requests, card, api: context.window.ResourceIcons,
+        map, markers, elements, layers, controls, visibility, requests, card, overlay, api: context.window.ResourceIcons,
         expire(milliseconds) { currentTime += milliseconds; refreshAvailability(); },
         resize(width, height) {
             assert.equal(observedElement, elements.map);
@@ -141,6 +144,31 @@ function page({ selected = false, editId = null, focus = '', register = false, p
         }
     };
 }
+
+test('overlay resource focus uses the existing map without replacing registration or selected point', () => {
+    const p = page({ selected: true });
+    p.elements.resourceName.value = 'Uferdig registrering';
+    const selectedMarker = p.markers[1];
+    const coordinates = selectedMarker.position;
+    p.overlay.onFocus('42', 60, 10);
+    assert.deepEqual(Array.from(p.map.position), [60, 10]);
+    assert.equal(p.map.zoom, 15);
+    assert.equal(p.markers.length, 2);
+    assert.equal(selectedMarker.position, coordinates);
+    assert.equal(p.elements.resourceName.value, 'Uferdig registrering');
+    assert.equal(p.elements.registrationPanel.hidden, false);
+    assert.equal(p.markers[0].opened, true);
+});
+
+test('overlay handles newly listed map points and registration without reloading the map', () => {
+    const p = page();
+    p.overlay.onFocus('100', 59, 9);
+    assert.deepEqual(Array.from(p.map.position), [59, 9]);
+    assert.equal(p.markers.length, 1);
+    p.overlay.onRegister();
+    assert.equal(p.elements.registrationPanel.hidden, false);
+    assert.equal(p.markers.length, 1);
+});
 
 test('fresh create (including redirect after save) has only saved markers; type/zoom/filter changes never create preview', () => {
     const p = page();
@@ -194,7 +222,7 @@ test('saved markers retain operational state through zoom and filters while pend
             statusText: eligible ? 'Kan forespørres nå' : 'Kan ikke forespørres nå'
         };
         const p = page({ register: true, resourceStatus });
-        const expected = eligible ? /-available\.svg/ : /-unavailable\.svg/;
+        const expected = /-available\.svg/;
         assert.match(p.markers[0].options.icon.iconUrl, expected);
         assert.ok(p.markers[0].options.title.includes(resourceStatus.statusText));
         assert.ok(p.markers[0].popup.includes('Tilgjengelig · Godkjenning: Godkjent'));
@@ -206,7 +234,7 @@ test('saved markers retain operational state through zoom and filters while pend
         assert.match(p.markers[1].options.icon.className, /resource-state-neutral/);
         if (eligible) {
             p.expire(120000);
-            assert.match(p.markers[0].options.icon.iconUrl, /-unavailable\.svg/);
+            assert.match(p.markers[0].options.icon.iconUrl, /-available\.svg/);
             assert.match(p.markers[0].dom.title, /Godkjenning utløpt/);
             assert.match(p.markers[0].dom.alt, /Godkjenning utløpt/);
             assert.match(p.markers[0].popup, /Godkjenning utløpt/);

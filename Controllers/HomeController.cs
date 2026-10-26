@@ -308,13 +308,15 @@ public class HomeController : Controller
         Resources(type, query, true, eligible);
 
     [HttpGet]
-    public async Task<IActionResult> Resources(string? type, string? query, bool mine = false, bool eligible = false)
+    public async Task<IActionResult> Resources(string? type, string? query, bool mine = false, bool eligible = false, bool overlay = false)
     {
         ViewBag.SelectedType = type;
         ViewBag.Query = query;
         ViewBag.Mine = mine;
         ViewBag.Eligible = eligible;
-        return View("Verify", await BuildDataModelAsync(type, query, mine, eligible));
+        ViewBag.ResourcesOverlay = overlay;
+        var model = await BuildDataModelAsync(type, query, mine, eligible);
+        return overlay ? PartialView("Verify", model) : View("Verify", model);
     }
 
     protected virtual async Task LoadResourcesAsync()

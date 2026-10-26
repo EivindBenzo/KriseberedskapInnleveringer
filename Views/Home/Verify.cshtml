@@ -3,6 +3,8 @@
 @inject Microsoft.AspNetCore.Mvc.ViewFeatures.IFileVersionProvider FileVersionProvider
 @{
     var mine = ViewBag.Mine is true;
+    var overlay = ViewBag.ResourcesOverlay is true;
+    var actionTarget = overlay ? "_blank" : null;
     ViewData["Title"] = "Ressurser";
     var now = DateTime.UtcNow;
     var resourceIconUrls = new[] { "car", "excavator", "drone", "generator", "personnel", "toolbox", "unknown" }
@@ -12,7 +14,7 @@
 <section class="data-container resource-overview">
     <div class="page-heading">
         <div><span class="eyebrow">Oversikt og administrasjon</span><h1>Ressurser</h1></div>
-        <a asp-action="Map" asp-route-register="true" class="btn-submit">+ Registrer ressurs</a>
+        <a asp-action="Map" asp-route-register="true" class="btn-submit" data-map-register>+ Registrer ressurs</a>
     </div>
     @if (TempData["MapSuccess"] is string success)
     {
@@ -23,11 +25,16 @@
         <p class="workspace-alert" role="alert">@error</p>
     }
     <nav class="section-nav" aria-label="Ressursutvalg">
-        <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-query="@ViewBag.Query" asp-route-eligible="@ViewBag.Eligible" aria-current="@(!mine ? "page" : null)">Alle ressurser</a>
-        <a asp-action="Resources" asp-route-mine="true" asp-route-type="@ViewBag.SelectedType" asp-route-query="@ViewBag.Query" asp-route-eligible="@ViewBag.Eligible" aria-current="@(mine ? "page" : null)">Mine ressurser</a>
-        <a asp-action="Map">Åpne kart</a>
+        <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-query="@ViewBag.Query" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(!mine ? "page" : null)">Alle ressurser</a>
+        <a asp-action="Resources" asp-route-mine="true" asp-route-type="@ViewBag.SelectedType" asp-route-query="@ViewBag.Query" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(mine ? "page" : null)">Mine ressurser</a>
+        <a asp-action="Map" data-map-back>Åpne kart</a>
     </nav>
+    @if (overlay)
+    {
+        <p class="resource-meta">Redigering, sletting og koordinering åpnes i en ny fane. Kartet og påbegynt registrering beholdes her. Lukk og åpne oversikten igjen for å se endringer.</p>
+    }
     <form asp-action="Resources" method="get" class="filter-bar">
+        @if (overlay) { <input type="hidden" name="overlay" value="true" /> }
         <input type="hidden" name="mine" value="@mine.ToString().ToLowerInvariant()" />
         <div class="form-group">
             <label for="query">Navn eller sted</label>
@@ -92,20 +99,21 @@
                 <div class="resource-actions">
                     @if (r.IsOnMap)
                     {
-                        <a asp-action="Map" asp-route-focus="@r.Id" class="btn-secondary">Vis på kart</a>
+                        <a asp-action="Map" asp-route-focus="@r.Id" class="btn-secondary" data-map-focus="@r.Id"
+                           data-lat="@r.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-lng="@r.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)">Vis på kart</a>
                     }
                     @if (ResourcePermissions.CanManage(User, r.OwnerId))
                     {
-                        <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">@(r.IsOnMap ? "Rediger / tilgjengelighet" : "Rediger / plasser på kart")</a>
+                        <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary" target="@actionTarget" rel="@(overlay ? "noopener" : null)">@(r.IsOnMap ? "Rediger / tilgjengelighet" : "Rediger / plasser på kart")@(overlay ? " (ny fane)" : "")</a>
                     }
                     @if (User.IsInRole("Admin"))
                     {
-                        <a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="btn-secondary">Koordiner</a>
+                        <a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="btn-secondary" target="@actionTarget" rel="@(overlay ? "noopener" : null)">Koordiner@(overlay ? " (ny fane)" : "")</a>
                     }
                     @if (ResourcePermissions.CanManage(User, r.OwnerId))
                     {
                         <div class="resource-destructive-actions">
-                            <a asp-action="Delete" asp-route-id="@r.Id" class="btn-danger">Slett</a>
+                            <a asp-action="Delete" asp-route-id="@r.Id" class="btn-danger" target="@actionTarget" rel="@(overlay ? "noopener" : null)">Slett@(overlay ? " (ny fane)" : "")</a>
                         </div>
                     }
                 </div>
@@ -119,9 +127,9 @@
             <h2>Nullstill ressurskartet</h2>
             <p>Fjerner alle nåværende ressursmarkører fra kartet, også utenfor valgt filter. Ressursene beholdes her. Tilgjengelighet, reservasjoner og forespørselshistorikk endres ikke.</p>
             <p>Plasser en ressurs igjen via «Rediger / plasser på kart». Reserverte og tildelte ressurser må frigjøres før de kan redigeres.</p>
-            <form asp-action="ResetMap" method="post">
+            <form asp-action="ResetMap" method="post" target="@actionTarget" rel="@(overlay ? "noopener" : null)">
                 <label class="confirmation-label"><input type="checkbox" name="confirmed" value="true" required /> Jeg bekrefter at alle ressursmarkører skal fjernes fra kartet.</label>
-                <button type="submit" class="btn-danger">Nullstill alle kartplasseringer</button>
+                <button type="submit" class="btn-danger">Nullstill alle kartplasseringer@(overlay ? " (ny fane)" : "")</button>
             </form>
         </details>
     }
@@ -140,4 +148,7 @@
         </details>
     }
 </section>
-<script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")" data-icon-urls="@System.Text.Json.JsonSerializer.Serialize(resourceIconUrls)"></script>
+@if (!overlay)
+{
+    <script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")" data-icon-urls="@System.Text.Json.JsonSerializer.Serialize(resourceIconUrls)"></script>
+}

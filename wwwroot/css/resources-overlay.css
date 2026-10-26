@@ -1,0 +1,39 @@
+.resources-dialog {
+    width: min(60vw, 76rem);
+    max-width: calc(100vw - 2rem);
+    max-height: 85dvh;
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1.5rem 5rem #0006;
+}
+
+.resources-dialog[open] { display: flex; flex-direction: column; }
+.resources-dialog::backdrop { background: #020b1bb3; }
+html.resources-overlay-open { overflow: hidden; scrollbar-gutter: stable; }
+.resources-dialog-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.resources-dialog-header h2 { margin: 0; font-size: 1.2rem; }
+.resources-dialog-content { overflow: auto; overscroll-behavior: contain; padding: 1.25rem; min-height: 0; }
+.resources-dialog-content .resource-overview { margin: 0; padding: 0; max-width: none; }
+.resources-dialog-content .page-heading { flex-wrap: wrap; }
+.resources-dialog-content .filter-bar { display: flex; flex-wrap: wrap; }
+.resources-dialog-content .filter-bar .form-group { flex: 1 1 10rem; min-width: 0; }
+.resources-dialog-content .resource-row { grid-template-columns: minmax(0, 1fr); }
+.resources-dialog-content .resource-actions { flex-wrap: wrap; }
+.resources-dialog-content a, .resources-dialog-content p { overflow-wrap: anywhere; }
+
+@media (max-width: 900px) {
+    .resources-dialog { width: calc(100vw - 1.5rem); max-width: none; max-height: 85dvh; }
+    .resources-dialog-header, .resources-dialog-content { padding: 1rem; }
+}

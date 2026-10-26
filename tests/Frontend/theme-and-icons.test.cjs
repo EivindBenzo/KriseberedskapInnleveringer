@@ -102,7 +102,7 @@ test('compact icons clamp and scale with zoom while marker, legend and overview 
         for (const [type, file] of [...mapping, ['not-a-type', 'unknown']]) {
             for (const preview of [false, true]) {
                 const marker = api.markerOptions(type, preview, zoom);
-                assert.equal(marker.icon.iconUrl, `/images/resources/${file}${preview ? '' : '-unavailable'}.svg?v=availability-20261026`);
+                assert.equal(marker.icon.iconUrl, `/images/resources/${file}${preview ? '' : '-unavailable'}.svg?v=outline-emerald-20261026`);
                 assert.equal(marker.icon.iconUrl, context.window.resourceIconUrl(type, preview ? null : {}));
                 assert.equal(marker.icon.iconSize[0], size);
                 assert.equal(marker.icon.iconAnchor[0], size / 2);
@@ -135,7 +135,7 @@ test('six types use distinct local SVGs; unknown types use a safe fallback', () 
         assert.equal(saved.icon.iconAnchor[0], saved.icon.iconSize[0] / 2);
     }
     for (const type of ['', null, '__proto__', '<svg onload=alert(1)>', '../../other']) {
-        assert.equal(options(type).icon.iconUrl, '/images/resources/unknown-unavailable.svg?v=availability-20261026');
+        assert.equal(options(type).icon.iconUrl, '/images/resources/unknown-unavailable.svg?v=outline-emerald-20261026');
         assert.equal(options(type).alt, 'Ukjent / ikke valgt ressurstype · Kan ikke forespørres nå · Ukjent status');
     }
 });
@@ -163,30 +163,32 @@ test('overview icon URLs and image initialization share the mapping without requ
         vm.runInNewContext(source('resource-icons.js'), context);
         if (readyState === 'loading') {
             assert.equal(images[0].src, undefined);
-            events.DOMContentLoaded();
+            events.DOMContentLoaded({ type: 'DOMContentLoaded' });
         }
-        assert.equal(context.window.resourceIconUrl('Drone'), '/app/images/resources/drone.svg?v=availability-20261026');
+        assert.equal(context.window.resourceIconUrl('Drone'), '/app/images/resources/drone.svg?v=outline-emerald-20261026');
         assert.equal(images[0].src, context.window.ResourceIcons.get('Drone', {}).url);
         assert.equal(images[0].alt, 'Drone · Kan ikke forespørres nå · Ukjent status');
         assert.equal(images[1].alt, '', 'explicit decorative alt is preserved');
-        assert.equal(images[2].src, '/app/images/resources/unknown-unavailable.svg?v=availability-20261026');
+        assert.equal(images[2].src, '/app/images/resources/unknown-unavailable.svg?v=outline-emerald-20261026');
         assert.equal(images[2].alt, 'Ukjent / ikke valgt ressurstype · Kan ikke forespørres nå · Ukjent status');
     }
 });
 
-test('all seven original glyphs share a solid monochrome grid without decorative badges or external content', () => {
+test('all seven natural outline glyphs share slim rounded strokes and a map-independent backplate', () => {
     const glyphs = ['car', 'excavator', 'drone', 'generator', 'personnel', 'toolbox', 'unknown']
         .map(file => readFileSync(resolve(root, `wwwroot/images/resources/${file}.svg`), 'utf8'));
     assert.equal(new Set(glyphs).size, 7);
     for (const svg of glyphs) {
         assert.match(svg, /viewBox="0 0 48 48"/);
         assert.match(svg, /<path\b/);
-        assert.deepEqual([...new Set(svg.match(/#[\da-f]{6}/gi))], ['#172554']);
-        assert.doesNotMatch(svg, /<(?:circle|ellipse|rect|image|text|script|foreignObject|use)\b|\bstroke=|\b(?:href|style)=/i);
-        assert.doesNotMatch(svg, /<path[^>]*d="M0[ ,]0h48v48|<path[^>]*d="M24[ ,]0/i);
+        assert.deepEqual([...new Set(svg.match(/#[\da-f]{6}/gi))], ['#f8fafc', '#cbd5e1', '#172554']);
+        assert.match(svg, /<g fill="none" stroke="#172554" stroke-width="2\.25" stroke-linecap="round" stroke-linejoin="round">/);
+        assert.match(svg, /<rect x="1" y="1" width="46" height="46" rx="10" fill="#f8fafc" fill-opacity="\.96" stroke="#cbd5e1"\/>/);
+        assert.equal((svg.match(/<rect\b/g) || []).length, 1, 'one subtle backplate, no stacked badge');
+        assert.doesNotMatch(svg, /<(?:image|text|script|foreignObject|use)\b|\b(?:href|style)=/i);
     }
-    assert.match(glyphs[2], /a7 5/g, 'quadcopter has actual rotor silhouettes');
-    assert.equal((glyphs[4].match(/a[56] [56] 0 1 1/g) || []).length, 3, 'personnel depicts a group of three heads');
+    assert.equal((glyphs[2].match(/<ellipse\b/g) || []).length, 4, 'quadcopter has four individual rotors');
+    assert.equal((glyphs[4].match(/<circle\b/g) || []).length, 3, 'personnel depicts a group of three heads');
 });
 
 test('every rendered consumer loads the cache-versioned shared mapping, not private icon URLs', () => {
@@ -322,7 +324,7 @@ function eligibleStatus(overrides = {}) {
 test('only availability determines icon color; preview stays neutral', () => {
     const api = loadResourceIcons();
     const eligible = eligibleStatus();
-    assert.equal(api.get('Drone', eligible).url, '/images/resources/drone-available.svg?v=availability-20261026');
+    assert.equal(api.get('Drone', eligible).url, '/images/resources/drone-available.svg?v=outline-emerald-20261026');
     assert.equal(api.get('Drone', eligible, true).url, api.get('Drone').url);
     assert.equal(api.markerOptions('Drone', true, 12, eligible).title, 'Ny ressurs (ikke lagret): Drone');
     for (const overrides of [
@@ -369,14 +371,15 @@ test('expiry boundary keeps availability color and updates the accessible reason
     assert.equal(calls.length, 1, 'expired status does not reschedule forever');
 });
 
-test('availability variants retain the exact transparent silhouette and local cache-versioned asset mapping', () => {
+test('availability variants retain identical outlines and backplates with saturated emerald or red strokes', () => {
     const files = ['car', 'excavator', 'drone', 'generator', 'personnel', 'toolbox', 'unknown'];
     for (const file of files) {
         const neutral = readFileSync(resolve(root, `wwwroot/images/resources/${file}.svg`), 'utf8').trim();
-        for (const [state, color] of [['available', '#15803d'], ['unavailable', '#b91c1c']]) {
+        for (const [state, color] of [['available', '#047857'], ['unavailable', '#b91c1c']]) {
             const svg = readFileSync(resolve(root, `wwwroot/images/resources/${file}-${state}.svg`), 'utf8').trim();
             assert.equal(svg.replaceAll(color, '#172554'), neutral);
-            assert.doesNotMatch(svg, /<(?:circle|rect|ellipse|image|script|foreignObject|use)\b/i);
+            assert.match(svg, new RegExp(`<g fill="none" stroke="${color}" stroke-width="2\\.25"`));
+            assert.doesNotMatch(svg, /<(?:image|script|foreignObject|use)\b/i);
         }
     }
     const urls = { 'drone-available': '/app/images/resources/drone-available.svg?v=content-hash' };
@@ -387,6 +390,20 @@ test('availability variants retain the exact transparent silhouette and local ca
         }
     });
     assert.equal(api.get('Drone', eligibleStatus()).url, urls['drone-available']);
+});
+
+test('slim status strokes retain accessible contrast on the shared backplate over light and dark tiles', () => {
+    const luminance = rgb => rgb.map(channel => {
+        const value = channel / 255;
+        return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
+    }).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+    for (const tile of [[0, 0, 0], [255, 255, 255], [34, 139, 34]]) {
+        const plate = [248, 250, 252].map((channel, index) => .96 * channel + .04 * tile[index]);
+        for (const stroke of [[4, 120, 87], [185, 28, 28], [23, 37, 84]]) {
+            const contrast = (luminance(plate) + .05) / (luminance(stroke) + .05);
+            assert.ok(contrast >= 4.5, `${stroke} has ${contrast.toFixed(2)}:1 contrast on ${tile}`);
+        }
+    }
 });
 
 test('cards keep concise availability and approval while refreshing approval expiry', () => {
@@ -446,9 +463,60 @@ test('mixed list items render green for available and red for unavailable regard
             querySelectorAll: () => images
         }
     });
+
     for (const [index, file] of ['drone', 'generator', 'toolbox', 'car'].entries()) {
         const state = index % 2 === 0 ? 'available' : 'unavailable';
         assert.equal(images[index].dataset.resourceState, state);
         assert.match(images[index].src, new RegExp(`/${file}-${state}\\.svg`));
     }
+});
+
+test('dynamic overlays hydrate through the shared root API and stop expiry refreshes after detachment', () => {
+    let now = Date.parse('2026-10-26T12:00:00Z');
+    class Clock extends Date { static now() { return now; } }
+    const callbacks = [];
+    const status = eligibleStatus({ verificationExpiresAtUtc: '2026-10-26T12:00:01Z' });
+    const image = {
+        isConnected: true,
+        dataset: { resourceIcon: 'Drone', resourceStatus: JSON.stringify(status) },
+        hasAttribute: () => false
+    };
+    const api = loadResourceIcons({
+        Date: Clock,
+        window: { setTimeout(callback) { callbacks.push(callback); } }
+    });
+    api.initializeImages({
+        querySelectorAll(selector) {
+            assert.equal(selector, 'img[data-resource-icon]');
+            return [image];
+        }
+    });
+    assert.match(image.src, /drone-available\.svg/);
+    assert.match(image.alt, /Kan forespørres nå/);
+    assert.equal(callbacks.length, 1);
+    image.isConnected = false;
+    const originalTitle = image.title;
+    now += 1000;
+    callbacks[0]();
+    assert.equal(image.title, originalTitle, 'detached content is not refreshed');
+    assert.equal(callbacks.length, 1, 'detached roots do not reschedule');
+    const detachedImage = { ...image, src: undefined };
+    api.initializeImages({ querySelectorAll: () => [detachedImage] });
+    assert.equal(detachedImage.src, undefined);
+    assert.equal(callbacks.length, 1, 'already detached content creates no timer');
+});
+
+test('availability callbacks can stop a long-delay timer chain when an overlay is closed', () => {
+    let now = Date.parse('2026-10-26T12:00:00Z');
+    class Clock extends Date { static now() { return now; } }
+    const callbacks = [];
+    const api = loadResourceIcons({
+        Date: Clock,
+        window: { setTimeout(callback) { callbacks.push(callback); } }
+    });
+    api.watchAvailability(() => false, [eligibleStatus()]);
+    assert.equal(callbacks.length, 1);
+    now += 2147483647;
+    callbacks[0]();
+    assert.equal(callbacks.length, 1);
 });
