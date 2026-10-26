@@ -72,13 +72,12 @@
                     <div class="city-search-input">
                         <input type="text" id="citySearch" class="form-control" placeholder="By eller tettsted" autocomplete="off"
                                maxlength="120" role="combobox" aria-autocomplete="list" aria-expanded="false"
-                               aria-controls="citySuggestions" aria-describedby="citySearchHelp citySearchStatus" />
+                               aria-controls="citySuggestions" aria-describedby="citySearchStatus" />
                         <ul id="citySuggestions" class="city-suggestions" role="listbox" aria-label="Stedsforslag"></ul>
                     </div>
                     <button type="button" id="citySearchButton" class="btn-secondary">Søk</button>
                 </div>
                 <span id="citySearchStatus" role="status" aria-live="polite" aria-atomic="true"></span>
-                <small id="citySearchHelp">Søk og punktoppslag bruker OpenStreetMap. Unngå fortrolige opplysninger. Lokale stedsforslag: <a href="https://www.geonames.org/">GeoNames</a> (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, bearbeidet).</small>
             </div>
             <section id="registrationPanel" class="registration-panel" hidden="@(!registrationOpen)" aria-labelledby="registrationTitle">
                 <h2 id="registrationTitle">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</h2>
@@ -165,7 +164,7 @@
                      data-resource-type="@r.ResourceType"
                      data-lat="@r.Latitude.ToString(CultureInfo.InvariantCulture)"
                      data-lng="@r.Longitude.ToString(CultureInfo.InvariantCulture)">
-                    <summary><img data-resource-icon="@r.ResourceType" data-resource-status="@System.Text.Json.JsonSerializer.Serialize(status)" alt="" width="32" height="32" /><span><strong>@r.ResourceName</strong><small>@r.ResourceType · @r.LocationName</small><small data-resource-status-text="@r.Id">@status.StatusText</small></span></summary>
+                    <summary><img data-resource-icon="@r.ResourceType" data-resource-status="@System.Text.Json.JsonSerializer.Serialize(status)" alt="" width="32" height="32" /><span><strong>@r.ResourceName</strong><small>@r.ResourceType · @r.LocationName</small><small data-resource-status-text="@r.Id">@status.Availability · Godkjenning: @status.Verification</small></span></summary>
                     <div class="resource-detail">
                         <dl>
                             <div><dt>Sist oppdatert</dt><dd>@((r.UpdatedAtUtc ?? r.CreatedAtUtc).ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)) UTC</dd></div>
@@ -220,7 +219,7 @@
 
     const map = L.map('map').setView([startLat, startLng], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Stedsforslag: <a href="https://www.geonames.org/">GeoNames</a> (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, bearbeidet)'
     }).addTo(map);
 
     if (typeof ResizeObserver !== 'undefined') {
@@ -294,7 +293,7 @@
         return '<div class="resource-popup"><strong>' + escapeHtml(r.name) + '</strong>' +
             'Type: ' + escapeHtml(r.type) + '<br>' +
             'Sted: ' + escapeHtml(r.location) + '<br>' +
-            'Operativ status: ' + escapeHtml(window.ResourceIcons.statusText(r.status)) + '<br>' +
+            'Status: ' + escapeHtml(window.ResourceIcons.summaryText(r.status)) + '<br>' +
             'Sist oppdatert: ' + escapeHtml(r.updated) + '<br>' +
             '<a href="#resource-' + r.id + '">Vis ressursdetaljer i listen</a><br>' +
             r.lat.toFixed(5) + ', ' + r.lng.toFixed(5) + '</div>';

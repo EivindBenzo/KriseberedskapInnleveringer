@@ -244,7 +244,6 @@ header::after {
     min-height: calc(100vh - 300px);
 }
 
-.home-content,
 .form-container,
 .map-container,
 .data-container,
@@ -255,48 +254,6 @@ header::after {
     box-shadow: 0 20px 60px var(--shadow);
     border: 1px solid var(--border);
     backdrop-filter: blur(10px);
-}
-
-.feature-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
-    margin-top: 2rem;
-}
-
-.feature-card {
-    display: block;
-    color: inherit;
-    text-decoration: none;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1.75rem;
-    transition: all 0.3s ease;
-}
-
-.feature-card:hover {
-    transform: translateY(-6px);
-    border-color: rgba(96, 165, 250, 0.6);
-    background: var(--hover);
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35);
-}
-
-.feature-card h3 {
-    margin-top: 0.6rem;
-    margin-bottom: 0.4rem;
-    color: var(--heading);
-}
-
-.feature-card p {
-    margin-bottom: 0;
-    font-size: 0.95rem;
-}
-
-.feature-icon {
-    display: inline-block;
-    font-size: 1.8rem;
-    color: var(--accent);
 }
 
 .form {
@@ -492,16 +449,6 @@ li {
     color: var(--text);
 }
 
-footer {
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    text-align: center;
-    padding: 2rem;
-    margin-top: 4rem;
-    color: var(--muted);
-    font-size: 0.95rem;
-}
-
 .data-status,
 .integration-guide,
 .current-features {
@@ -549,57 +496,6 @@ footer {
 .result-value a {
     color: var(--accent);
     text-decoration: none;
-}
-
-.hero-photo {
-    min-height: 600px;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    padding: 3rem;
-    background-color: #0f172a;
-    background-image: linear-gradient(rgba(4, 17, 34, 0.42), rgba(4, 17, 34, 0.68)), url('/images/Heimevernet-background.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    border-radius: 20px;
-    margin-bottom: 2rem;
-}
-
-.hero-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(5, 22, 43, 0.12), rgba(5, 22, 43, 0.42));
-    pointer-events: none;
-    border-radius: 20px;
-}
-
-.hero-content-centered {
-    position: relative;
-    z-index: 1;
-    max-width: 1000px;
-    text-align: center;
-}
-
-.hero-title-big {
-    margin: 1rem 0 0;
-    font-size: clamp(4rem, 12vw, 9rem);
-    line-height: 0.95;
-    letter-spacing: -0.06em;
-    color: #ffffff;
-    background: none;
-    -webkit-text-fill-color: #ffffff;
-    text-shadow: 0 5px 25px rgba(0, 0, 0, 0.6);
-}
-
-.hero-photo .eyebrow {
-    color: #d7ebff;
-}
-
-.home-intro {
-    margin-top: 1.5rem;
 }
 
 /* Map and city autocomplete */
@@ -725,7 +621,6 @@ img[data-resource-icon] {
     flex-shrink: 0;
 }
 
-.feature-card,
 .result-content,
 .map-container {
     overflow-wrap: anywhere;
@@ -733,8 +628,7 @@ img[data-resource-icon] {
 }
 
 @media (max-width: 768px) {
-    .form-row,
-    .feature-grid {
+    .form-row {
         grid-template-columns: 1fr;
     }
 
@@ -743,7 +637,6 @@ img[data-resource-icon] {
         padding: 0 1rem;
     }
 
-    .home-content,
     .form-container,
     .map-container,
     .data-container,
@@ -769,15 +662,6 @@ img[data-resource-icon] {
         width: auto;
     }
 
-    .hero-photo {
-        min-height: 480px;
-        padding: 2rem 1rem;
-    }
-
-    .hero-title-big {
-        font-size: clamp(3.5rem, 17vw, 6rem);
-    }
-
     #map {
         height: 380px;
     }
@@ -797,7 +681,6 @@ img[data-resource-icon] {
         margin: 1.5rem auto;
     }
 
-    .home-content,
     .form-container,
     .map-container,
     .data-container,

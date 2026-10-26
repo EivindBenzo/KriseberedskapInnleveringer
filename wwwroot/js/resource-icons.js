@@ -27,6 +27,13 @@
         return status.statusText || 'Kan ikke forespørres nå · Ukjent status';
     }
 
+    function summaryText(status, now = Date.now()) {
+        if (!status) return '';
+        const verification = status.isEligible === true && Date.parse(status.verificationExpiresAtUtc) <= now
+            ? 'Godkjenning utløpt' : status.verification;
+        return status.availability + ' · Godkjenning: ' + verification;
+    }
+
     function get(type, status = null, preview = false) {
         const known = icons.has(type);
         const file = known ? icons.get(type) : 'unknown';
@@ -76,7 +83,7 @@
         schedule();
     }
 
-    window.ResourceIcons = Object.freeze({ entries, get, stateFor, statusText, sizeForZoom, markerOptions, watchAvailability });
+    window.ResourceIcons = Object.freeze({ entries, get, stateFor, statusText, summaryText, sizeForZoom, markerOptions, watchAvailability });
     window.resourceMarkerOptions = markerOptions;
     window.resourceIconUrl = (type, status) => get(type, status).url;
 
@@ -97,7 +104,7 @@
                 if (automaticAlt[index]) image.alt = resource.label + (status ? ' · ' + statusText(status) : '');
                 const row = image.closest?.('.resource-row, .resource-card');
                 const text = row?.querySelector('[data-resource-status-text]');
-                if (text && status) text.textContent = statusText(status);
+                if (text && status) text.textContent = summaryText(status);
             });
         }
         refresh();

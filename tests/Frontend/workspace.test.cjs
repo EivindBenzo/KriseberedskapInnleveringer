@@ -98,15 +98,17 @@ test('workspace styles keep desktop navigation visible and hamburger mobile-only
     assert.match(css, /\.btn-danger \{ color: var\(--error\)/);
 });
 
-test('dashboard is permission-aware and resource overview separates eligibility from registration', () => {
+test('home is permission-aware and resource overview keeps operational filtering without assessment prose', () => {
     const home = read('Views/Home/Index.cshtml');
     assert.match(home, /User.Identity\?\.IsAuthenticated/);
-    assert.match(home, /Hva vil du gjøre/);
+    assert.match(home, /Finn det som finnes/);
     assert.match(home, /User.IsInRole\("Admin"\)/);
     assert.doesNotMatch(home, /hero-title-big|hero-photo/);
     const resources = read('Views/Home/Verify.cshtml');
     assert.match(resources, /ResourceOperationalStatus.From/);
-    assert.match(resources, /@status.StatusText/);
+    assert.doesNotMatch(resources, /Operativ vurdering|@status.StatusText/);
+    assert.match(resources, /<label for="eligible">Operativ status<\/label>/);
+    assert.match(resources, /<option value="true" selected="@\(ViewBag.Eligible is true\)">Kan forespørres nå/);
     assert.match(resources, /Sist oppdatert/);
     assert.doesNotMatch(resources, /Owner\?\.UserName/);
     assert.match(read('Views/Home/Delete.cshtml'), /name="version"/);
@@ -119,9 +121,10 @@ test('resource cards have bounded theme-aware surfaces, readable facts and separ
     assert.match(view, /class="data-container resource-overview"/);
     assert.match(view, /class="resource-facts"[\s\S]*?<dl>[\s\S]*?<dt>Sist oppdatert<\/dt>/);
     assert.match(view, /class="resource-status"[\s\S]*?@status.Availability[\s\S]*?Godkjenning: @status.Verification/);
-    assert.match(view, /<details open>\s*<summary>Operativ vurdering<\/summary>\s*<p data-resource-status-text="@r.Id">@status.StatusText/);
+    assert.doesNotMatch(view, /Operativ vurdering|data-resource-status-text/);
     assert.match(view, /ResourcePermissions.CanManage\(User, r.OwnerId\)[\s\S]*?class="resource-destructive-actions"[\s\S]*?asp-action="Delete"/);
     assert.match(css, /\.resource-overview \{ max-width: 1240px/);
+    assert.match(css, /\.resource-overview \{[^}]*background: transparent; border: 0;/);
     assert.match(css, /\.data-container \.resource-row \{[^}]*border: 1px solid var\(--border-strong\)[^}]*background: var\(--surface\)/);
     assert.match(css, /\.resource-destructive-actions \{[^}]*border-top:/);
     assert.equal((tokens.match(/--border-strong:/g) || []).length, 2, 'each theme defines a readable card outline');

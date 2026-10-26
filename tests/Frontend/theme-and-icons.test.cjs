@@ -389,7 +389,7 @@ test('availability variants retain the exact transparent silhouette and local ca
     assert.equal(api.get('Drone', eligibleStatus()).url, urls['drone-available']);
 });
 
-test('cards and overview images keep availability color while refreshing the reason at approval expiry', () => {
+test('cards keep concise availability and approval while refreshing approval expiry', () => {
     let now = Date.parse('2026-10-26T12:00:00Z');
     class Clock extends Date { static now() { return now; } }
     const callbacks = [];
@@ -415,13 +415,14 @@ test('cards and overview images keep availability color while refreshing the rea
     });
     assert.match(image.src, /drone-available\.svg/);
     assert.equal(image.dataset.resourceState, 'available');
-    assert.equal(text.textContent, status.statusText);
+    assert.equal(text.textContent, 'Tilgjengelig · Godkjenning: Godkjent');
+    assert.doesNotMatch(text.textContent, /Kan forespørres|Kan ikke forespørres/);
     assert.match(automaticImage.alt, /Kan forespørres nå/);
     now += 1001;
     callbacks[0]();
     assert.match(image.src, /drone-available\.svg/);
     assert.equal(image.dataset.resourceState, 'available');
-    assert.match(text.textContent, /Godkjenning utløpt/);
+    assert.equal(text.textContent, 'Tilgjengelig · Godkjenning: Godkjenning utløpt');
     assert.match(automaticImage.alt, /Godkjenning utløpt/);
     assert.equal(image.alt, '', 'adjacent visible status carries the decorative image meaning');
 });
