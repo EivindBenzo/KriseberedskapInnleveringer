@@ -87,7 +87,7 @@ test('compact icons clamp and scale with zoom while marker, legend and overview 
     const context = {
         document: { currentScript: { dataset: { iconBase: '/images/resources/' } }, querySelectorAll: () => [] },
         window: {},
-        L: { icon: options => options }
+        L: { divIcon: options => options }
     };
     vm.runInNewContext(source('resource-icons.js'), context);
     const api = context.window.ResourceIcons;
@@ -102,12 +102,13 @@ test('compact icons clamp and scale with zoom while marker, legend and overview 
         for (const [type, file] of [...mapping, ['not-a-type', 'unknown']]) {
             for (const preview of [false, true]) {
                 const marker = api.markerOptions(type, preview, zoom);
-                assert.equal(marker.icon.iconUrl, `/images/resources/${file}${preview ? '' : '-unavailable'}.svg?v=outline-emerald-20261026`);
+                assert.equal(marker.icon.iconUrl, `/images/resources/${file}${preview ? '' : '-unavailable'}.svg?v=original-outlined-20261026`);
                 assert.equal(marker.icon.iconUrl, context.window.resourceIconUrl(type, preview ? null : {}));
-                assert.equal(marker.icon.iconSize[0], size);
-                assert.equal(marker.icon.iconAnchor[0], size / 2);
-                assert.equal(marker.icon.iconAnchor[1], size / 2);
-                assert.equal(marker.icon.popupAnchor[1], -size / 2);
+                assert.match(marker.icon.html, new RegExp(`width="${size}" height="${size}"`));
+                assert.equal(marker.icon.iconSize[0], 44);
+                assert.equal(marker.icon.iconAnchor[0], 22);
+                assert.equal(marker.icon.iconAnchor[1], 0);
+                assert.equal(marker.icon.popupAnchor[1], -8);
             }
         }
     }
@@ -117,7 +118,7 @@ test('six types use distinct local SVGs; unknown types use a safe fallback', () 
     const context = {
         document: { currentScript: { dataset: { iconBase: '/images/resources/' } }, querySelectorAll: () => [] },
         window: {},
-        L: { icon: options => options }
+        L: { divIcon: options => options }
     };
     vm.runInNewContext(source('resource-icons.js'), context);
     const options = context.window.resourceMarkerOptions;
@@ -135,7 +136,7 @@ test('six types use distinct local SVGs; unknown types use a safe fallback', () 
         assert.equal(saved.icon.iconAnchor[0], saved.icon.iconSize[0] / 2);
     }
     for (const type of ['', null, '__proto__', '<svg onload=alert(1)>', '../../other']) {
-        assert.equal(options(type).icon.iconUrl, '/images/resources/unknown-unavailable.svg?v=outline-emerald-20261026');
+        assert.equal(options(type).icon.iconUrl, '/images/resources/unknown-unavailable.svg?v=original-outlined-20261026');
         assert.equal(options(type).alt, 'Ukjent / ikke valgt ressurstype · Kan ikke forespørres nå · Ukjent status');
     }
 });
@@ -165,30 +166,38 @@ test('overview icon URLs and image initialization share the mapping without requ
             assert.equal(images[0].src, undefined);
             events.DOMContentLoaded({ type: 'DOMContentLoaded' });
         }
-        assert.equal(context.window.resourceIconUrl('Drone'), '/app/images/resources/drone.svg?v=outline-emerald-20261026');
+        assert.equal(context.window.resourceIconUrl('Drone'), '/app/images/resources/drone.svg?v=original-outlined-20261026');
         assert.equal(images[0].src, context.window.ResourceIcons.get('Drone', {}).url);
         assert.equal(images[0].alt, 'Drone · Kan ikke forespørres nå · Ukjent status');
         assert.equal(images[1].alt, '', 'explicit decorative alt is preserved');
-        assert.equal(images[2].src, '/app/images/resources/unknown-unavailable.svg?v=outline-emerald-20261026');
+        assert.equal(images[2].src, '/app/images/resources/unknown-unavailable.svg?v=original-outlined-20261026');
         assert.equal(images[2].alt, 'Ukjent / ikke valgt ressurstype · Kan ikke forespørres nå · Ukjent status');
     }
 });
 
-test('all seven natural outline glyphs share slim rounded strokes and a map-independent backplate', () => {
+test('all seven original filled glyphs have a crisp black outline and no square backplate', () => {
     const glyphs = ['car', 'excavator', 'drone', 'generator', 'personnel', 'toolbox', 'unknown']
         .map(file => readFileSync(resolve(root, `wwwroot/images/resources/${file}.svg`), 'utf8'));
     assert.equal(new Set(glyphs).size, 7);
     for (const svg of glyphs) {
         assert.match(svg, /viewBox="0 0 48 48"/);
         assert.match(svg, /<path\b/);
-        assert.deepEqual([...new Set(svg.match(/#[\da-f]{6}/gi))], ['#f8fafc', '#cbd5e1', '#172554']);
-        assert.match(svg, /<g fill="none" stroke="#172554" stroke-width="2\.25" stroke-linecap="round" stroke-linejoin="round">/);
-        assert.match(svg, /<rect x="1" y="1" width="46" height="46" rx="10" fill="#f8fafc" fill-opacity="\.96" stroke="#cbd5e1"\/>/);
-        assert.equal((svg.match(/<rect\b/g) || []).length, 1, 'one subtle backplate, no stacked badge');
+        assert.match(svg, /fill="#172554"/);
+        assert.match(svg, /stroke="#000" stroke-width="1\.25" stroke-linejoin="round" paint-order="stroke fill"/);
+        assert.doesNotMatch(svg, /<rect\b|#f8fafc|#cbd5e1|fill="none"/);
         assert.doesNotMatch(svg, /<(?:image|text|script|foreignObject|use)\b|\b(?:href|style)=/i);
     }
-    assert.equal((glyphs[2].match(/<ellipse\b/g) || []).length, 4, 'quadcopter has four individual rotors');
-    assert.equal((glyphs[4].match(/<circle\b/g) || []).length, 3, 'personnel depicts a group of three heads');
+    // Exact path data recovered from 4adf578 (also identical in baseline 1dad518).
+    const paths = [
+        ['m12 10-6 13-3 2v13h5v5h7v-5h18v5h7v-5h5V25l-3-2-6-13Zm3 5h18l4 9H11ZM8 28v5h8v-5Zm24 0v5h8v-5Z'],
+        ['M5 15h15l3 16H3V21h2Zm4 4v7h9l-1-7Z', 'm21 17 9-12h6l8 23-5 2-7-19-7 10ZM37 29h8v10H33l-4-5h8ZM8 34h16a6 6 0 0 1 0 12H8a6 6 0 0 1 0-12Z'],
+        ['M3 9a7 5 0 1 1 14 0A7 5 0 1 1 3 9Zm28 0a7 5 0 1 1 14 0 7 5 0 1 1-14 0ZM3 39a7 5 0 1 1 14 0A7 5 0 1 1 3 39Zm28 0a7 5 0 1 1 14 0 7 5 0 1 1-14 0Z', 'm9 11 4-3 9 11h4L35 8l4 3-9 12v2l9 12-4 3-9-11h-4l-9 11-4-3 9-12v-2Z', 'M19 17h10v14H19Zm2 14h6v4h-6Z'],
+        ['M14 4h20v7h10v29h-5v5h-6v-5H15v5H9v-5H4V11h10Zm5 4v3h10V8ZM9 16v19h30V16Zm15 2-9 11h7l-2 5 13-12h-8l3-4Z'],
+        ['M18 10a6 6 0 1 1 12 0 6 6 0 1 1-12 0ZM4 15a5 5 0 1 1 10 0 5 5 0 1 1-10 0Zm30 0a5 5 0 1 1 10 0 5 5 0 1 1-10 0Z', 'M19 19h10l5 10v9h-5v7H19v-7h-5v-9ZM4 23h8l2 4-3 6v8H5v-8H1v-5Zm32 0h8l3 5v5h-4v8h-6v-8l-3-6Z'],
+        ['M14 6h20v9h10v12H28v-5h-8v5H4V15h10Zm5 5v4h10v-4ZM4 30h16v4h8v-4h16v12H4Z'],
+        ['M11 15a13 13 0 0 1 26 0c0 6-3 9-7 12-2 1-3 3-3 6h-7c0-7 2-9 6-12 3-2 4-3 4-6a6 6 0 0 0-12 0ZM20 37h7v8h-7Z']
+    ];
+    glyphs.forEach((svg, index) => assert.deepEqual([...svg.matchAll(/\bd="([^"]+)"/g)].map(match => match[1]), paths[index]));
 });
 
 test('every rendered consumer loads the cache-versioned shared mapping, not private icon URLs', () => {
@@ -222,7 +231,7 @@ test('server-generated per-asset versions flow through markers, legends, cards a
             querySelectorAll: () => images
         },
         window: {},
-        L: { icon: options => options }
+        L: { divIcon: options => options }
     };
     vm.runInNewContext(source('resource-icons.js'), context);
     const api = context.window.ResourceIcons;
@@ -306,7 +315,7 @@ function loadResourceIcons(extra = {}) {
             querySelectorAll: () => []
         },
         window: {},
-        L: { icon: options => options },
+        L: { divIcon: options => options },
         ...extra
     };
     vm.runInNewContext(source('resource-icons.js'), context);
@@ -324,7 +333,7 @@ function eligibleStatus(overrides = {}) {
 test('only availability determines icon color; preview stays neutral', () => {
     const api = loadResourceIcons();
     const eligible = eligibleStatus();
-    assert.equal(api.get('Drone', eligible).url, '/images/resources/drone-available.svg?v=outline-emerald-20261026');
+    assert.equal(api.get('Drone', eligible).url, '/images/resources/drone-available.svg?v=original-outlined-20261026');
     assert.equal(api.get('Drone', eligible, true).url, api.get('Drone').url);
     assert.equal(api.markerOptions('Drone', true, 12, eligible).title, 'Ny ressurs (ikke lagret): Drone');
     for (const overrides of [
@@ -371,14 +380,15 @@ test('expiry boundary keeps availability color and updates the accessible reason
     assert.equal(calls.length, 1, 'expired status does not reschedule forever');
 });
 
-test('availability variants retain identical outlines and backplates with saturated emerald or red strokes', () => {
+test('availability variants retain the original artwork and palette with identical black outlines', () => {
     const files = ['car', 'excavator', 'drone', 'generator', 'personnel', 'toolbox', 'unknown'];
     for (const file of files) {
         const neutral = readFileSync(resolve(root, `wwwroot/images/resources/${file}.svg`), 'utf8').trim();
-        for (const [state, color] of [['available', '#047857'], ['unavailable', '#b91c1c']]) {
+        for (const [state, color] of [['available', '#15803d'], ['unavailable', '#b91c1c']]) {
             const svg = readFileSync(resolve(root, `wwwroot/images/resources/${file}-${state}.svg`), 'utf8').trim();
             assert.equal(svg.replaceAll(color, '#172554'), neutral);
-            assert.match(svg, new RegExp(`<g fill="none" stroke="${color}" stroke-width="2\\.25"`));
+            assert.match(svg, new RegExp(`fill="${color}"`));
+            assert.match(svg, /stroke="#000" stroke-width="1\.25"/);
             assert.doesNotMatch(svg, /<(?:image|script|foreignObject|use)\b/i);
         }
     }
@@ -392,18 +402,32 @@ test('availability variants retain identical outlines and backplates with satura
     assert.equal(api.get('Drone', eligibleStatus()).url, urls['drone-available']);
 });
 
-test('slim status strokes retain accessible contrast on the shared backplate over light and dark tiles', () => {
+test('original status fills retain contrast against the crisp black silhouette outline', () => {
     const luminance = rgb => rgb.map(channel => {
         const value = channel / 255;
         return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
     }).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
-    for (const tile of [[0, 0, 0], [255, 255, 255], [34, 139, 34]]) {
-        const plate = [248, 250, 252].map((channel, index) => .96 * channel + .04 * tile[index]);
-        for (const stroke of [[4, 120, 87], [185, 28, 28], [23, 37, 84]]) {
-            const contrast = (luminance(plate) + .05) / (luminance(stroke) + .05);
-            assert.ok(contrast >= 4.5, `${stroke} has ${contrast.toFixed(2)}:1 contrast on ${tile}`);
-        }
+    for (const fill of [[21, 128, 61], [185, 28, 28]]) {
+        const contrast = (luminance(fill) + .05) / .05;
+        assert.ok(contrast >= 3, `${fill} has ${contrast.toFixed(2)}:1 contrast against black`);
     }
+});
+
+test('marker HTML escapes status labels and versioned asset URLs while retaining an accessible image name', () => {
+    const api = loadResourceIcons({
+        document: {
+            currentScript: { dataset: { iconBase: '/images/resources/', iconUrls: JSON.stringify({
+                drone: '/images/resources/drone.svg?v=one&other="two"'
+            }) } },
+            querySelectorAll: () => []
+        }
+    });
+    const preview = api.markerOptions('Drone', true);
+    assert.match(preview.icon.html, /src="\/images\/resources\/drone\.svg\?v=one&amp;other=&quot;two&quot;"/);
+    assert.match(preview.icon.html, /alt="Ny ressurs \(ikke lagret\): Drone"/);
+    const saved = api.markerOptions('Drone', false, 12, { statusText: '"><script>alert(1)</script>' });
+    assert.doesNotMatch(saved.icon.html, /<script>/);
+    assert.match(saved.icon.html, /&quot;&gt;&lt;script&gt;/);
 });
 
 test('cards keep concise availability and approval while refreshing approval expiry', () => {

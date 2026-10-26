@@ -3,7 +3,7 @@
     const base = document.currentScript.dataset.iconBase;
     const versionedUrls = JSON.parse(document.currentScript.dataset.iconUrls || '{}');
     // Bump with glyph changes; the versioned script refreshes every consumer's asset URLs.
-    const assetVersion = 'outline-emerald-20261026';
+    const assetVersion = 'original-outlined-20261026';
     const icons = new Map([
         ['Kjøretøy', 'car'],
         ['Maskin', 'excavator'],
@@ -58,16 +58,26 @@
         const description = (preview ? 'Ny ressurs (ikke lagret): ' : '') + resource.label +
             (!preview && status ? ' · ' + statusText(status) : '');
         return {
-            icon: L.icon({
+            icon: L.divIcon({
                 iconUrl: resource.url,
-                iconSize: [size, size],
-                iconAnchor: [size / 2, size / 2],
-                popupAnchor: [0, -size / 2],
+                html: '<img src="' + escapeAttribute(resource.url) + '" width="' + size + '" height="' + size +
+                    '" alt="' + escapeAttribute(description) + '" draggable="false" />',
+                iconSize: [44, 44],
+                // The upward pointer tip stays on the geographic point at every zoom.
+                iconAnchor: [22, 0],
+                popupAnchor: [0, -8],
                 className: 'resource-marker resource-state-' + resource.state + (preview ? ' resource-marker-preview' : '')
             }),
+            keyboard: true,
             title: description,
             alt: description
         };
+    }
+
+    function escapeAttribute(value) {
+        return String(value).replace(/[&"<>]/g, character => ({
+            '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;'
+        })[character]);
     }
 
     function watchAvailability(callback, statuses) {
