@@ -55,6 +55,7 @@
         if (!preview && !status) status = {};
         const resource = get(type, status, preview);
         const size = sizeForZoom(zoom);
+        const height = Math.max(44, size + 12);
         const description = (preview ? 'Ny ressurs (ikke lagret): ' : '') + resource.label +
             (!preview && status ? ' · ' + statusText(status) : '');
         return {
@@ -62,10 +63,10 @@
                 iconUrl: resource.url,
                 html: '<img src="' + escapeAttribute(resource.url) + '" width="' + size + '" height="' + size +
                     '" alt="' + escapeAttribute(description) + '" draggable="false" />',
-                iconSize: [44, 44],
+                iconSize: [44, height],
                 // The upward pointer tip stays on the geographic point at every zoom.
-                iconAnchor: [22, 0],
-                popupAnchor: [0, -8],
+                iconAnchor: [22, height - 8],
+                popupAnchor: [0, 4 - height],
                 className: 'resource-marker resource-state-' + resource.state + (preview ? ' resource-marker-preview' : '')
             }),
             keyboard: true,

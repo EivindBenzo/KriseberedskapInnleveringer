@@ -31,7 +31,8 @@ test('resources keep mine actions inside their context and reset outside filtere
     assert.match(resources, /asp-action="Resources" asp-route-mine="true"/);
     for (const action of ['Edit', 'Delete'])
         assert.match(resources, new RegExp(`asp-action="${action}" asp-route-id="@r.Id"`));
-    assert.match(resources, /Rediger \/ tilgjengelighet/);
+    assert.match(resources, /asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">Rediger<\/a>/);
+    assert.doesNotMatch(resources, /Rediger \//);
     assert.match(resources, /@if \(r.IsOnMap\)/);
     assert.match(resources, /Ikke på kartet/);
     const reset = resources.slice(resources.indexOf('<details class="danger-zone"'));

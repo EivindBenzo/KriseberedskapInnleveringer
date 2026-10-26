@@ -1,0 +1,216 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { readFileSync } = require('node:fs');
+const vm = require('node:vm');
+const read = file => readFileSync(require('node:path').resolve(__dirname, '../..', file), 'utf8');
+const settle = () => new Promise(resolve => setImmediate(resolve));
+
+function setup({ navigate = true } = {}) {
+    const nodes = {};
+    const requests = [];
+    const navigations = [];
+    const events = [];
+    const document = { activeElement: null, querySelectorAll: () => [], handlers: {},
+        addEventListener(name, handler) { this.handlers[name] = handler; },
+        removeEventListener(name) { delete this.handlers[name]; },
+        dispatchEvent: event => events.push(event) };
+    function element() {
+        return {
+            dataset: {}, attributes: {}, handlers: {}, isConnected: true,
+            addEventListener(name, handler) { this.handlers[name] = handler; },
+            setAttribute(name, value) { this.attributes[name] = value; },
+            removeAttribute(name) { delete this.attributes[name]; },
+            focus() { document.activeElement = this; },
+            scrollIntoView() {},
+            remove() { this.isConnected = false; },
+            closest() { return null; }
+        };
+    }
+    const selectors = ['.filter-bar', '#resourceCity', '#resourceCityOptions', '.resource-management-status',
+        '.resource-delete-dialog', '[data-resource-delete-form]', '[data-delete-cancel]',
+        '.resource-delete-error', '#resourceDeleteName', '.count-badge'];
+    selectors.forEach(selector => { nodes[selector] = element(); });
+    const root = element();
+    root.querySelector = selector => nodes[selector];
+    const row = element();
+    row.dataset.city = 'Oslo';
+    root.querySelectorAll = () => row.isConnected ? [row] : [];
+    const input = nodes['#resourceCity'];
+    input.parentElement = { contains: node => node === input || node === list };
+    const list = nodes['#resourceCityOptions'];
+    list.hidden = true;
+    const cities = [['Oslo', 2], ['Bergen', 1], ['Ålesund', 1]].map(([city, count], index) => {
+        const option = element();
+        option.dataset = { city, count: String(count) };
+        option.id = 'city-' + index;
+        option.closest = () => option;
+        return option;
+    });
+    list.querySelectorAll = () => cities.filter(city => city.isConnected);
+    list.append = () => {};
+    const form = nodes['.filter-bar'];
+    form.action = 'https://example.test/Home/Resources';
+    form.values = [['mine', 'true'], ['query', 'søk'], ['type', 'Drone'], ['eligible', 'true']];
+    const deleteForm = nodes['[data-resource-delete-form]'];
+    deleteForm.elements = { version: { value: '' } };
+    deleteForm.querySelectorAll = () => [nodes['[data-delete-cancel]']];
+    const dialog = nodes['.resource-delete-dialog'];
+    dialog.showModal = () => { dialog.open = true; };
+    dialog.close = () => { dialog.open = false; queueMicrotask(() => dialog.handlers.close()); };
+    const link = element();
+    Object.defineProperty(link, 'isConnected', { get: () => row.isConnected });
+    link.dataset = { resourceDelete: '42', resourceName: '<img> Drone', version: 'current-version' };
+    link.href = 'https://example.test/Home/Delete/42';
+    link.closest = selector => selector === '[data-resource-delete]' ? link : row;
+    const context = {
+        document, window: { location: { href: 'https://example.test/Home/Resources' } },
+        URL, URLSearchParams, AbortController,
+        FormData: class {
+            constructor(f) { this.form = f; }
+            [Symbol.iterator]() {
+                return [...this.form.values, ['city', input.value]][Symbol.iterator]();
+            }
+        },
+        CustomEvent: class { constructor(type, { detail }) { this.type = type; this.detail = detail; } },
+        fetch(url, options) { return new Promise((resolve, reject) => requests.push({ url, options, resolve, reject })); }
+    };
+    vm.runInNewContext(read('wwwroot/js/resource-management.js'), context);
+    context.window.ResourceManagement.attach(root, navigate ? (...args) => navigations.push(args) : null);
+    const event = (props = {}) => ({
+        preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; }, ...props
+    });
+    return { nodes, root, row, input, list, cities, dialog, deleteForm, link, document, event, requests, navigations, events };
+}
+
+test('focus exposes every scoped city and keyboard selection filters immediately retaining scope and filters', () => {
+    const p = setup();
+    p.input.handlers.focus();
+    assert.equal(p.list.hidden, false);
+    assert.equal(p.cities.length, 3);
+    p.input.handlers.keydown(p.event({ key: 'ArrowDown' }));
+    assert.equal(p.input.attributes['aria-activedescendant'], 'city-0');
+    p.input.handlers.keydown(p.event({ key: 'Enter' }));
+    assert.equal(p.input.value, 'Oslo');
+    const url = p.navigations[0][0];
+    assert.equal(url.searchParams.get('city'), 'Oslo');
+    assert.equal(url.searchParams.get('query'), 'søk');
+    assert.equal(url.searchParams.get('type'), 'Drone');
+    assert.equal(url.searchParams.get('eligible'), 'true');
+    assert.equal(url.searchParams.get('mine'), 'true');
+    assert.equal(p.list.hidden, true);
+});
+
+test('city click filters immediately; Escape dismisses list without closing outer dialog; outside focus closes safely', () => {
+    const p = setup();
+    p.input.handlers.focus();
+    p.input.handlers.keydown(p.event({ key: 'ArrowUp' }));
+    assert.equal(p.input.attributes['aria-activedescendant'], 'city-2');
+    p.input.handlers.input();
+    assert.equal(p.input.attributes['aria-activedescendant'], undefined);
+    const escape = p.event({ key: 'Escape' });
+    p.input.handlers.keydown(escape);
+    assert.equal(escape.stopped, true);
+    assert.equal(p.list.hidden, true);
+    p.input.handlers.focus();
+    p.root.handlers.focusout(p.event({ relatedTarget: {} }));
+    assert.equal(p.list.hidden, true);
+    p.input.handlers.focus();
+    p.document.handlers.pointerdown(p.event({ target: {} }));
+    assert.equal(p.list.hidden, true);
+    p.list.handlers.click(p.event({ target: p.cities[2] }));
+    assert.equal(p.navigations[0][0].searchParams.get('city'), 'Ålesund');
+});
+
+test('standalone city selection fetches partial results instead of navigating the document', () => {
+    const p = setup({ navigate: false });
+    p.list.handlers.click(p.event({ target: p.cities[1] }));
+    assert.equal(p.requests.length, 1);
+    assert.equal(p.requests[0].url.searchParams.get('city'), 'Bergen');
+    assert.equal(p.requests[0].url.searchParams.get('fragment'), 'true');
+    assert.equal(p.requests[0].url.searchParams.has('overlay'), false);
+    assert.equal(p.requests[0].options.credentials, 'same-origin');
+});
+
+test('delete confirmation uses safe text, version and antiforgery form, cancel and Escape restore focus', async () => {
+    const p = setup();
+    p.root.handlers.click(p.event({ target: p.link }));
+    assert.equal(p.dialog.open, true);
+    assert.equal(p.nodes['#resourceDeleteName'].textContent, '<img> Drone');
+    assert.equal(p.deleteForm.elements.version.value, 'current-version');
+    assert.equal(p.document.activeElement, p.nodes['[data-delete-cancel]']);
+    p.nodes['[data-delete-cancel]'].handlers.click();
+    await settle();
+    assert.equal(p.document.activeElement, p.link);
+    p.root.handlers.click(p.event({ target: p.link }));
+    const escape = p.event();
+    p.dialog.handlers.cancel(escape);
+    assert.equal(escape.prevented, undefined, 'native Escape remains enabled');
+    p.dialog.close();
+    await settle();
+    assert.equal(p.document.activeElement, p.link);
+});
+
+test('successful JSON deletion updates resource count, city counts and map event without navigation', async () => {
+    const p = setup();
+    p.root.handlers.click(p.event({ target: p.link }));
+    const submitted = p.deleteForm.handlers.submit(p.event());
+    assert.equal(p.requests[0].options.method, 'POST');
+    assert.equal(p.requests[0].options.headers.Accept, 'application/json');
+    assert.equal(p.requests[0].options.body.form, p.deleteForm);
+    p.requests[0].resolve({ ok: true, headers: { get: () => 'application/json' }, json: async () => ({ deletedId: 42 }) });
+    await submitted;
+    await settle();
+    assert.equal(p.row.isConnected, false);
+    assert.equal(p.cities[0].dataset.count, '1');
+    assert.equal(p.nodes['.count-badge'].textContent, 0);
+    assert.equal(p.events[0].type, 'resource-deleted');
+    assert.equal(p.events[0].detail.id, 42);
+    assert.equal(p.navigations.length, 0);
+    assert.equal(p.dialog.open, false);
+    assert.equal(p.document.activeElement, p.nodes['.resource-management-status']);
+});
+
+test('conflict, auth redirect and network failures retain resource and report accessible errors', async () => {
+    for (const failure of ['conflict', 'redirect', 'network']) {
+        const p = setup();
+        p.root.handlers.click(p.event({ target: p.link }));
+        const submitted = p.deleteForm.handlers.submit(p.event());
+        if (failure === 'network') p.requests[0].reject(new Error('Offline'));
+        else p.requests[0].resolve({
+            ok: failure === 'redirect', redirected: failure === 'redirect',
+            headers: { get: () => 'application/json' }, json: async () => ({ error: 'Endret samtidig' })
+        });
+        await submitted;
+        assert.equal(p.row.isConnected, true);
+        assert.equal(p.dialog.open, true);
+        assert.ok(p.nodes['.resource-delete-error'].textContent);
+        assert.equal(p.document.activeElement, p.nodes['.resource-delete-error']);
+        assert.equal(p.nodes['[data-delete-cancel]'].disabled, false);
+        assert.equal(p.events.length, 0);
+    }
+});
+
+test('map deletion removes marker/sidebar data without touching center, zoom, filters or registration point', () => {
+    const source = read('Views/Home/Map.cshtml');
+    const listener = source.match(/document\.addEventListener\('resource-deleted', function \(event\) \{([\s\S]*?)\n    \}\);/)[1];
+    const item = { resource: { id: 42 }, marker: {} };
+    const retained = { resource: { id: 7 }, marker: {} };
+    let removed = 0;
+    const context = {
+        event: { detail: { id: 42 } },
+        savedMarkers: [item, retained], savedResources: [{ id: 42 }, { id: 7 }],
+        resourceCards: [{ dataset: { resourceId: '42' }, remove() { removed++; } },
+            { dataset: { resourceId: '7' }, hidden: true }],
+        map: { removeLayer(marker) { assert.equal(marker, item.marker); } },
+        document: { getElementById() { return {}; } }
+    };
+    vm.runInNewContext(listener, context);
+    assert.equal(removed, 1);
+    assert.equal(context.savedMarkers[0], retained);
+    assert.equal(context.savedResources.length, 1);
+    assert.equal(context.resourceCards.length, 1);
+    assert.doesNotMatch(listener, /setView|setZoom|setTypeVisible|setLocation|registration|resourceFilter/);
+    const view = read('Views/Home/Verify.cshtml');
+    assert.match(view, /@Html.AntiForgeryToken\(\)/);
+    assert.match(view, /resource-delete-error" role="alert"/);
+});

@@ -6,4 +6,5 @@ public class DataPageViewModel
 {
     public IReadOnlyList<FormSubmission> FormSubmissions { get; init; } = [];
     public IReadOnlyList<MapSubmission> MapSubmissions { get; init; } = [];
+    public IReadOnlyList<ResourceCity> Cities { get; init; } = [];
 }

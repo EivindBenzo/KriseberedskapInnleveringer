@@ -65,7 +65,7 @@ test('desktop home budgets the actual header in normal flow without clipping sho
     const css = read('wwwroot/css/site.css');
     const homeRules = css.slice(css.indexOf('/* The home grid'), css.indexOf('@media (max-width: 480px)'));
     assert.match(homeRules, /@media \(min-width: 1024px\) and \(min-height: 700px\)/);
-    assert.match(homeRules, /body:has\(\.home-page\)[^{]*\{[^}]*grid-template-rows: auto minmax\(min-content, 1fr\);[^}]*min-height: 100svh;/);
+    assert.match(homeRules, /body:has\(\.home-page\)[^{]*\{[^}]*grid-template-rows: max-content minmax\(min-content, 1fr\);[^}]*min-height: 100svh;/);
     assert.match(homeRules, /body:has\(\.home-page\) \.main-content \{[^}]*margin-block: 0;[^}]*padding-block: 1rem;/);
     assert.match(homeRules, /\.home-page\.home-page \{[^}]*grid-template-rows: minmax\(min-content, 1fr\) auto;[^}]*margin: 0 auto;/);
     assert.match(homeRules, /\.home-page \.home-photo \{[^}]*height: clamp\(15rem, 37svh, 28rem\)/);

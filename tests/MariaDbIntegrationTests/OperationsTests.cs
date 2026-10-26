@@ -47,7 +47,11 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
         Assert.DoesNotContain("<script", html);
         Assert.Contains($"href=\"/Home/Edit/{site.OwnResource.Id}\"", html);
         Assert.Contains($"href=\"/Home/Delete/{site.OwnResource.Id}\"", html);
-        Assert.Contains("target=\"_blank\" rel=\"noopener\"", html);
+        Assert.DoesNotContain("target=\"_blank\"", html);
+        Assert.DoesNotContain("ny fane", html);
+        Assert.Contains("class=\"resource-delete-dialog\"", html);
+        Assert.Contains("data-resource-delete=", html);
+        Assert.Contains("name=\"__RequestVerificationToken\"", html);
         if (role == "Admin")
         {
             Assert.Contains($"href=\"/Home/Edit/{site.OtherResource.Id}\"", html);
@@ -154,7 +158,8 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
     {
         using var client = site.Client(role == "Admin" ? site.AdminId : site.OwnerId, role);
         var html = await client.GetStringAsync("/");
-        var cards = Regex.Matches(html, "<a\\b[^>]*class=\"feature-card\"[^>]*>")
+        var guide = Regex.Match(html, "<ol class=\"home-steps\">[\\s\\S]*?</ol>").Value;
+        var cards = Regex.Matches(guide, "<a\\b[^>]*>")
             .Select(m => m.Value).Where(a => a.Contains("href=\"/Operations")).ToList();
         Assert.Equal(expectedCards, cards.Count);
         Assert.DoesNotContain("/Operations/Requests", html);

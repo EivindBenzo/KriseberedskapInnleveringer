@@ -33,8 +33,11 @@ public class ResourcesOverlayTests
             await db.Database.MigrateAsync();
             db.Users.AddRange(new IdentityUser { Id = "owner" }, new IdentityUser { Id = "other" });
             var own = Resource("Egen drone", "Drone", "owner");
+            own.LocationName = "Gate 1, 0456 Oslo";
             var other = Resource("Annen bil", "Kjøretøy", "other");
+            other.LocationName = "Bergen";
             var unavailable = Resource("Utilgjengelig drone", "Drone", "owner");
+            unavailable.LocationName = "  oslo  ";
             unavailable.Availability = ResourceAvailability.Unavailable;
             db.MapSubmissions.AddRange(own, other, unavailable);
             db.FormSubmissions.AddRange(Report("owner"), Report("other"));
@@ -56,7 +59,15 @@ public class ResourcesOverlayTests
             Assert.Equal("Verify", partial.ViewName);
             var all = Assert.IsType<DataPageViewModel>(partial.Model);
             Assert.Equal(full.MapSubmissions.Select(r => r.Id), all.MapSubmissions.Select(r => r.Id));
+            var fragment = Assert.IsType<PartialViewResult>(await controller.Resources(null, null, fragment: true));
+            Assert.False((bool)controller.ViewBag.ResourcesOverlay);
+            Assert.True((bool)controller.ViewBag.ResourcesPartial);
+            Assert.Equal(full.MapSubmissions.Count, Assert.IsType<DataPageViewModel>(fragment.Model).MapSubmissions.Count);
+            await controller.Resources(null, null, overlay: true);
             Assert.Equal(3, all.MapSubmissions.Count);
+            Assert.Collection(all.Cities,
+                city => { Assert.Equal("Oslo", city.Name); Assert.Equal(2, city.Count); },
+                city => { Assert.Equal("Bergen", city.Name); Assert.Equal(1, city.Count); });
             Assert.Equal("owner", Assert.Single(all.FormSubmissions).OwnerId);
             Assert.True((bool)controller.ViewBag.ResourcesOverlay);
             Assert.False(ResourcePermissions.CanManage(controller.User, other.OwnerId));
@@ -65,14 +76,54 @@ public class ResourcesOverlayTests
             partial = Assert.IsType<PartialViewResult>(
                 await controller.Resources("Drone", "Egen", mine: true, eligible: true, overlay: true));
             Assert.Equal(own.Id, Assert.Single(Assert.IsType<DataPageViewModel>(partial.Model).MapSubmissions).Id);
+            var mineCities = Assert.IsType<DataPageViewModel>(partial.Model).Cities;
+            Assert.Equal(2, Assert.Single(mineCities).Count);
+            partial = Assert.IsType<PartialViewResult>(
+                await controller.Resources(null, null, overlay: true, city: "  OSLO "));
+            Assert.Equal(2, Assert.IsType<DataPageViewModel>(partial.Model).MapSubmissions.Count);
+            partial = Assert.IsType<PartialViewResult>(
+                await controller.Resources(null, null, overlay: true, city: "Osl"));
+            Assert.Empty(Assert.IsType<DataPageViewModel>(partial.Model).MapSubmissions);
             partial = Assert.IsType<PartialViewResult>(
                 await controller.Resources("Kjøretøy", null, mine: true, overlay: true));
             Assert.Empty(Assert.IsType<DataPageViewModel>(partial.Model).MapSubmissions);
+
+            Assert.NotNull(Attribute.GetCustomAttribute(
+                typeof(HomeController).GetMethod(nameof(HomeController.DeleteConfirmed))!,
+                typeof(ValidateAntiForgeryTokenAttribute)));
+            controller.Request.Headers.Accept = "application/json";
+            Assert.IsType<ForbidResult>(await controller.DeleteConfirmed(other.Id, other.ConcurrencyToken));
+            Assert.IsType<ConflictObjectResult>(await controller.DeleteConfirmed(own.Id, "stale"));
+            Assert.IsType<ConflictObjectResult>(await controller.DeleteConfirmed(own.Id));
+            var busy = (await db.MapSubmissions.FindAsync(unavailable.Id))!;
+            busy.Availability = ResourceAvailability.Reserved;
+            await db.SaveChangesAsync();
+            Assert.IsType<ConflictObjectResult>(await controller.DeleteConfirmed(busy.Id, busy.ConcurrencyToken));
+            Assert.Equal(3, await db.MapSubmissions.CountAsync());
+            controller.Request.Headers.Accept = "text/html";
+            Assert.IsType<ViewResult>(await controller.DeleteConfirmed(own.Id, "stale"));
+            Assert.False(controller.ModelState.IsValid);
+            controller.Request.Headers.Accept = "application/json";
+            Assert.IsType<JsonResult>(await controller.DeleteConfirmed(own.Id, own.ConcurrencyToken));
+            Assert.False(await db.MapSubmissions.AnyAsync(r => r.Id == own.Id));
+            partial = Assert.IsType<PartialViewResult>(
+                await controller.Resources(null, null, mine: true, overlay: true));
+            Assert.Equal(1, Assert.Single(Assert.IsType<DataPageViewModel>(partial.Model).Cities).Count);
         }
         finally
         {
             await db.Database.EnsureDeletedAsync();
         }
+    }
+
+    [Fact]
+    public void CitiesNormalizeStoredAddressesExcludeCoordinatesAndSortNorwegianTies()
+    {
+        var labels = new[] { "Gate 1, 0456 Oslo", "  OSLO  ", "Ålesund", "Ørsta", "Ænes",
+            "Bergen", "  Vestre   Toten ", "58.14670, 7.99560", "", "<script>", "0, 1" };
+        var cities = ResourceCity.Aggregate(labels.Select(label => new MapSubmission { LocationName = label }));
+        Assert.Equal(new[] { "Oslo", "Bergen", "Vestre Toten", "Ænes", "Ørsta", "Ålesund" }, cities.Select(c => c.Name));
+        Assert.Equal(2, cities[0].Count);
     }
 
     private static MapSubmission Resource(string name, string type, string owner) => new()

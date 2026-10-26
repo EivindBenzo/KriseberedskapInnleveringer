@@ -259,6 +259,8 @@ public class HomeController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id, string? version = null)
     {
+        var json = Request.GetTypedHeaders().Accept?.Any(a =>
+            string.Equals(a.MediaType.Value, "application/json", StringComparison.OrdinalIgnoreCase)) is true;
         var resource = await _db.MapSubmissions.FindAsync(id);
         if (resource is null) return NotFound();
         if (!ResourcePermissions.CanManage(User, resource.OwnerId)) return Forbid();
@@ -270,10 +272,12 @@ public class HomeController : Controller
         }
         catch (WorkflowException exception)
         {
+            if (json) return Conflict(new { error = exception.Message });
             ModelState.AddModelError("", exception.Message);
             var current = await _db.MapSubmissions.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id);
             return current is null ? NotFound() : View("Delete", current);
         }
+        if (json) return Json(new { deletedId = id });
         TempData["MapSuccess"] = "Ressursen er slettet.";
         return RedirectToAction(nameof(Map));
     }
@@ -308,15 +312,17 @@ public class HomeController : Controller
         Resources(type, query, true, eligible);
 
     [HttpGet]
-    public async Task<IActionResult> Resources(string? type, string? query, bool mine = false, bool eligible = false, bool overlay = false)
+    public async Task<IActionResult> Resources(string? type, string? query, bool mine = false, bool eligible = false, bool overlay = false, string? city = null, bool fragment = false)
     {
         ViewBag.SelectedType = type;
         ViewBag.Query = query;
         ViewBag.Mine = mine;
         ViewBag.Eligible = eligible;
         ViewBag.ResourcesOverlay = overlay;
-        var model = await BuildDataModelAsync(type, query, mine, eligible);
-        return overlay ? PartialView("Verify", model) : View("Verify", model);
+        ViewBag.ResourcesPartial = overlay || fragment;
+        ViewBag.City = ResourceCity.Normalize(city);
+        var model = await BuildDataModelAsync(type, query, mine, eligible, city);
+        return overlay || fragment ? PartialView("Verify", model) : View("Verify", model);
     }
 
     protected virtual async Task LoadResourcesAsync()
@@ -349,15 +355,17 @@ public class HomeController : Controller
                 HttpContext?.RequestAborted ?? default);
     }
 
-    private async Task<DataPageViewModel> BuildDataModelAsync(string? type, string? query, bool mine, bool eligible)
+    private async Task<DataPageViewModel> BuildDataModelAsync(string? type, string? query, bool mine, bool eligible, string? city)
     {
         var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var reports = _db.FormSubmissions.AsNoTracking()
             .Where(s => User.IsInRole("Admin") || s.OwnerId == ownerId);
         var resources = _db.MapSubmissions.AsNoTracking().AsQueryable();
+        if (mine) resources = resources.Where(r => r.OwnerId == ownerId);
+        var scopedResources = await resources.OrderByDescending(r => r.CreatedAtUtc).ToListAsync();
+        var cities = ResourceCity.Aggregate(scopedResources);
         if (!string.IsNullOrEmpty(type))
             resources = resources.Where(r => r.ResourceType == type);
-        if (mine) resources = resources.Where(r => r.OwnerId == ownerId);
         if (!string.IsNullOrWhiteSpace(query))
             resources = resources.Where(r => r.ResourceName.Contains(query) || r.LocationName.Contains(query));
         if (eligible)
@@ -369,10 +377,15 @@ public class HomeController : Controller
                 r.OwnerId != null && r.OwnerId.Trim() != "" &&
                 MapSubmissionViewModel.ResourceTypes.Contains(r.ResourceType));
         }
+        var filtered = await resources.OrderByDescending(x => x.CreatedAtUtc).ToListAsync();
+        if (!string.IsNullOrWhiteSpace(city))
+            filtered = filtered.Where(r => string.Equals(ResourceCity.FromLocation(r.LocationName),
+                ResourceCity.Normalize(city), StringComparison.OrdinalIgnoreCase)).ToList();
         return new DataPageViewModel
         {
+            Cities = cities,
             FormSubmissions = await reports.OrderByDescending(x => x.CreatedAtUtc).ToListAsync(),
-            MapSubmissions = await resources.OrderByDescending(x => x.CreatedAtUtc).ToListAsync()
+            MapSubmissions = filtered
         };
     }
 }

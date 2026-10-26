@@ -4,7 +4,6 @@
 @{
     var mine = ViewBag.Mine is true;
     var overlay = ViewBag.ResourcesOverlay is true;
-    var actionTarget = overlay ? "_blank" : null;
     ViewData["Title"] = "Ressurser";
     var now = DateTime.UtcNow;
     var resourceIconUrls = new[] { "car", "excavator", "drone", "generator", "personnel", "toolbox", "unknown" }
@@ -12,6 +11,7 @@
         .ToDictionary(file => file, file => FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content($"~/images/resources/{file}.svg")));
 }
 <section class="data-container resource-overview">
+    <link rel="stylesheet" href="~/css/resource-management.css" asp-append-version="true" />
     <div class="page-heading">
         <div><span class="eyebrow">Oversikt og administrasjon</span><h1>Ressurser</h1></div>
         <a asp-action="Map" asp-route-register="true" class="btn-submit" data-map-register>+ Registrer ressurs</a>
@@ -25,20 +25,30 @@
         <p class="workspace-alert" role="alert">@error</p>
     }
     <nav class="section-nav" aria-label="Ressursutvalg">
-        <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-query="@ViewBag.Query" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(!mine ? "page" : null)">Alle ressurser</a>
-        <a asp-action="Resources" asp-route-mine="true" asp-route-type="@ViewBag.SelectedType" asp-route-query="@ViewBag.Query" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(mine ? "page" : null)">Mine ressurser</a>
+        <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-query="@ViewBag.Query" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(!mine ? "page" : null)">Alle ressurser</a>
+        <a asp-action="Resources" asp-route-mine="true" asp-route-type="@ViewBag.SelectedType" asp-route-query="@ViewBag.Query" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(mine ? "page" : null)">Mine ressurser</a>
         @if (!overlay)
         {
             <a asp-action="Map" data-map-back>Åpne kart</a>
         }
     </nav>
-    @if (overlay)
-    {
-        <p class="resource-meta">Redigering, sletting og koordinering åpnes i en ny fane. Kartet og påbegynt registrering beholdes her. Lukk og åpne oversikten igjen for å se endringer.</p>
-    }
     <form asp-action="Resources" method="get" class="filter-bar">
-        @if (overlay) { <input type="hidden" name="overlay" value="true" /> }
+        @if (overlay)
+        {
+            <input type="hidden" name="overlay" value="true" />
+        }
         <input type="hidden" name="mine" value="@mine.ToString().ToLowerInvariant()" />
+        <div class="form-group resource-city">
+            <label for="resourceCity">By / sted</label>
+            <input id="resourceCity" name="city" value="@ViewBag.City" class="form-control" maxlength="120" autocomplete="off"
+                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="resourceCityOptions" />
+            <ul id="resourceCityOptions" class="resource-city-options" role="listbox" aria-label="Byer med ressurser" hidden>
+                @foreach (var city in Model.Cities)
+                {
+                    <li role="option" id="resource-city-@Model.Cities.ToList().IndexOf(city)" data-city="@city.Name" data-count="@city.Count" aria-selected="false">@city.Name (@city.Count)</li>
+                }
+            </ul>
+        </div>
         <div class="form-group">
             <label for="query">Navn eller sted</label>
             <input id="query" name="query" value="@ViewBag.Query" class="form-control" maxlength="200" />
@@ -62,6 +72,18 @@
         </div>
         <button type="submit" class="btn-secondary">Vis resultater</button>
     </form>
+    <p class="resource-management-status" role="status" tabindex="-1"></p>
+    <dialog class="resource-delete-dialog" aria-labelledby="resourceDeleteTitle" aria-describedby="resourceDeleteName">
+        <h2 id="resourceDeleteTitle">Slett ressurs?</h2>
+        <p id="resourceDeleteName"></p>
+        <p class="resource-delete-error" role="alert" tabindex="-1"></p>
+        <form method="post" data-resource-delete-form>
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="version" />
+            <button type="button" class="btn-secondary" data-delete-cancel autofocus>Avbryt</button>
+            <button type="submit" class="btn-danger">Slett</button>
+        </form>
+    </dialog>
     <div class="results-heading">
         <h2>@(mine ? "Mine ressurser" : "Alle ressurser") <span class="count-badge">@Model.MapSubmissions.Count</span></h2>
         <small class="resource-meta">Status ved lasting · @now.ToString("dd.MM.yyyy HH:mm") UTC</small>
@@ -78,7 +100,7 @@
         @foreach (var r in Model.MapSubmissions)
         {
             var status = ResourceOperationalStatus.From(r, now);
-            <div class="resource-row">
+            <div class="resource-row" data-resource-row="@r.Id" data-city="@ResourceCity.FromLocation(r.LocationName)">
                 <div>
                     <h2><img data-resource-icon="@r.ResourceType" alt="" width="32" height="32" data-resource-status="@System.Text.Json.JsonSerializer.Serialize(status)" /> @r.ResourceName</h2>
                     <p class="resource-meta">@r.ResourceType · @r.LocationName</p>
@@ -87,9 +109,18 @@
                         <dl>
                             <div><dt>Sist oppdatert</dt><dd>@((r.UpdatedAtUtc ?? r.CreatedAtUtc).ToString("dd.MM.yyyy HH:mm")) UTC</dd></div>
                             <div><dt>Koordinater</dt><dd>@r.Latitude.ToString("F5"), @r.Longitude.ToString("F5")</dd></div>
-                            @if (!string.IsNullOrWhiteSpace(r.Capability)) { <div><dt>Kapasitet</dt><dd>@r.Capability</dd></div> }
-                            @if (!string.IsNullOrWhiteSpace(r.TransportRequirements)) { <div><dt>Transportbehov</dt><dd>@r.TransportRequirements</dd></div> }
-                            @if (r.VerificationExpiresAtUtc.HasValue) { <div><dt>Godkjenning gjelder til</dt><dd>@r.VerificationExpiresAtUtc.Value.ToString("dd.MM.yyyy HH:mm") UTC</dd></div> }
+                            @if (!string.IsNullOrWhiteSpace(r.Capability))
+                            {
+                                <div><dt>Kapasitet</dt><dd>@r.Capability</dd></div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(r.TransportRequirements))
+                            {
+                                <div><dt>Transportbehov</dt><dd>@r.TransportRequirements</dd></div>
+                            }
+                            @if (r.VerificationExpiresAtUtc.HasValue)
+                            {
+                                <div><dt>Godkjenning gjelder til</dt><dd>@r.VerificationExpiresAtUtc.Value.ToString("dd.MM.yyyy HH:mm") UTC</dd></div>
+                            }
                         </dl>
                     </details>
                 </div>
@@ -97,7 +128,10 @@
                     <h3>Status</h3>
                     <span class="status-badge @(r.Availability == ResourceAvailability.Available ? "status-positive" : "status-warning")">@status.Availability</span>
                     <p class="resource-meta">Godkjenning: @status.Verification</p>
-                    @if (!r.IsOnMap) { <span class="status-badge">Ikke på kartet</span> }
+                    @if (!r.IsOnMap)
+                    {
+                        <span class="status-badge">Ikke på kartet</span>
+                    }
                 </div>
                 <div class="resource-actions">
                     @if (r.IsOnMap)
@@ -107,16 +141,16 @@
                     }
                     @if (ResourcePermissions.CanManage(User, r.OwnerId))
                     {
-                        <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary" target="@actionTarget" rel="@(overlay ? "noopener" : null)">@(r.IsOnMap ? "Rediger / tilgjengelighet" : "Rediger / plasser på kart")@(overlay ? " (ny fane)" : "")</a>
+                        <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">Rediger</a>
                     }
                     @if (User.IsInRole("Admin"))
                     {
-                        <a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="btn-secondary" target="@actionTarget" rel="@(overlay ? "noopener" : null)">Koordiner@(overlay ? " (ny fane)" : "")</a>
+                        <a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="btn-secondary">Koordiner</a>
                     }
                     @if (ResourcePermissions.CanManage(User, r.OwnerId))
                     {
                         <div class="resource-destructive-actions">
-                            <a asp-action="Delete" asp-route-id="@r.Id" class="btn-danger" target="@actionTarget" rel="@(overlay ? "noopener" : null)">Slett@(overlay ? " (ny fane)" : "")</a>
+                            <a asp-action="Delete" asp-route-id="@r.Id" class="btn-danger" data-resource-delete="@r.Id" data-resource-name="@r.ResourceName" data-version="@r.ConcurrencyToken">Slett</a>
                         </div>
                     }
                 </div>
@@ -129,10 +163,10 @@
             <summary>Administrer kartplasseringer</summary>
             <h2>Nullstill ressurskartet</h2>
             <p>Fjerner alle nåværende ressursmarkører fra kartet, også utenfor valgt filter. Ressursene beholdes her. Tilgjengelighet, reservasjoner og forespørselshistorikk endres ikke.</p>
-            <p>Plasser en ressurs igjen via «Rediger / plasser på kart». Reserverte og tildelte ressurser må frigjøres før de kan redigeres.</p>
-            <form asp-action="ResetMap" method="post" target="@actionTarget" rel="@(overlay ? "noopener" : null)">
+            <p>Plasser en ressurs igjen via «Rediger». Reserverte og tildelte ressurser må frigjøres før de kan redigeres.</p>
+            <form asp-action="ResetMap" method="post">
                 <label class="confirmation-label"><input type="checkbox" name="confirmed" value="true" required /> Jeg bekrefter at alle ressursmarkører skal fjernes fra kartet.</label>
-                <button type="submit" class="btn-danger">Nullstill alle kartplasseringer@(overlay ? " (ny fane)" : "")</button>
+                <button type="submit" class="btn-danger">Nullstill alle kartplasseringer</button>
             </form>
         </details>
     }
@@ -151,7 +185,10 @@
         </details>
     }
 </section>
-@if (!overlay)
+@if (ViewBag.ResourcesPartial is not true)
 {
+    <div>
     <script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")" data-icon-urls="@System.Text.Json.JsonSerializer.Serialize(resourceIconUrls)"></script>
+    <script src="~/js/resource-management.js" asp-append-version="true"></script>
+    </div>
 }

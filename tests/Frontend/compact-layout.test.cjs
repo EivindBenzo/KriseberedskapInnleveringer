@@ -6,13 +6,15 @@ const read = file => readFileSync(resolve(__dirname, '../..', file), 'utf8');
 
 test('desktop workspace uses remaining viewport with internal results scrolling', () => {
     const css = read('wwwroot/css/workspace-map.css');
-    assert.match(css, /--workspace-height: calc\(100dvh - 206px\)/);
-    assert.match(css, /max-height: var\(--workspace-height\)/);
-    assert.match(css, /height: calc\(var\(--workspace-height\) - 28px\)/);
+    assert.match(css, /body:has\(\.map-workspace\) \{[^}]*height: 100dvh;[^}]*min-height: 0/);
+    assert.match(css, /\.map-workspace \{[^}]*flex: 1;[^}]*min-height: 0/);
+    assert.match(css, /\.workspace-grid \{[^}]*flex: 1;[^}]*min-height: 0/);
     assert.match(css, /overflow-y: auto/);
     assert.doesNotMatch(css, /min-height: 480px/);
-    assert.match(css, /@media \(max-height: 600px\)[\s\S]*max-height: none; overflow: visible/);
-    assert.match(css, /@media \(max-width: 760px\)[\s\S]*max-height: none;[\s\S]*overflow: visible/);
+    assert.doesNotMatch(css, /--workspace-height|min-height: 3[23]0px|overflow: hidden/);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.workspace-sidebar \{[^}]*max-height: 45%;[^}]*overflow-y: auto/);
+    assert.match(css, /data-registration-open="true"\] \.workspace-sidebar \{[^}]*max-height: 60%/);
+    assert.match(css, /data-mobile-view="list"\] \.workspace-sidebar \{[^}]*max-height: 100%/);
 });
 
 test('compact pages retain readable controls and hide only empty feedback', () => {
