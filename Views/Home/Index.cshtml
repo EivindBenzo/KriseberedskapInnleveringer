@@ -4,48 +4,63 @@
         && !string.IsNullOrEmpty(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
         && (User.IsInRole("Bruker") || User.IsInRole("Admin"));
 }
-<div class="dashboard">
-@if (User.Identity?.IsAuthenticated == true)
-{
-    <div class="home-content">
-        <span class="eyebrow">Arbeidsflate</span>
-        <h1>Hva vil du gjøre?</h1>
-        <p>Finn ressurser og følg opp egne registreringer.</p>
-        <div class="feature-grid">
-            <a asp-action="Map" class="feature-card">
-                <h2>Finn ressurser</h2>
-                <p>Se ressurser og tilgjengelighet i kartet.</p>
-            </a>
-            <a asp-action="Map" asp-route-register="true" class="feature-card">
-                <h2>Registrer ressurs</h2>
-                <p>Legg til en ressurs og velg plassering.</p>
-            </a>
-            <a asp-action="Resources" class="feature-card">
-                <h2>Ressurser</h2>
-                <p>Finn ressurser eller administrer dine egne.</p>
-            </a>
-            @if (canUseOperations)
+<link rel="stylesheet" href="~/css/home.css" asp-append-version="true" />
+<div class="home-page">
+    <section class="home-hero" aria-labelledby="home-title">
+        <div class="home-hero-copy">
+            <span class="eyebrow">Oversikt starter med et sted</span>
+            @if (User.Identity?.IsAuthenticated == true)
             {
-                <a asp-controller="Operations" asp-action="Index" class="feature-card">
-                    <h2>Forespørsler</h2>
-                    <p>@(User.IsInRole("Admin") ? "Følg forespørsler og koordiner tildeling." : "Svar på forespørsler til dine ressurser.")</p>
-                </a>
+                <h1 id="home-title">Finn det som finnes.<br />Bidra med det du har.</h1>
+                <p class="home-lead">Få oversikt over ressurser i området, eller sett din egen ressurs på kartet.</p>
+                <div class="home-actions">
+                    <a asp-action="Map" class="btn-submit">Finn ressurser i kartet <span aria-hidden="true">→</span></a>
+                    <a asp-action="Map" asp-route-register="true" class="btn-secondary">Registrer en ressurs</a>
+                </div>
+            }
+            else
+            {
+                <h1 id="home-title">Et sted å samle<br />ressurser og bidrag.</h1>
+                <p class="home-lead">Beredskapsportalen gir en felles oversikt over hva som finnes, hvor det er og om det er tilgjengelig.</p>
+                <div class="home-actions">
+                    <a asp-controller="Account" asp-action="Login" class="btn-submit">Logg inn <span aria-hidden="true">→</span></a>
+                    <a asp-controller="Account" asp-action="Register" class="btn-secondary">Opprett brukerkonto</a>
+                </div>
+                <p class="home-context">Studentprosjekt · prototype. Ikke en offisiell tjeneste eller en kanal for reelle nødsituasjoner.</p>
             }
         </div>
-    </div>
-}
-else
-{
-    <div class="public-intro home-content">
-        <div>
-            <span class="eyebrow">Studentprosjekt · prototype</span>
-            <h1>Beredskapsportalen</h1>
-            <p>En felles arbeidsflate for registrering, vurdering og koordinering av ressurser og behov.</p>
-            <p>Dette er ikke en offisiell tjeneste eller en kanal for å melde reelle nødsituasjoner.</p>
-            <a asp-controller="Account" asp-action="Login" class="btn-submit">Logg inn</a>
-            <a asp-controller="Account" asp-action="Register" class="btn-secondary">Opprett brukerkonto</a>
+        <img src="~/images/Heimevernet-background.jpg" asp-append-version="true"
+             alt="Soldater i Heimevernet tar en pause sammen i grønne omgivelser."
+             width="1024" height="707" class="home-photo" />
+    </section>
+
+    <section class="home-guide" aria-labelledby="home-guide-title">
+        <div class="home-guide-heading">
+            <span class="eyebrow">Fra oversikt til bidrag</span>
+            <h2 id="home-guide-title">Slik bruker du portalen</h2>
+            <p>En god registrering gjør det enklere å finne riktig ressurs.</p>
         </div>
-        <img src="~/images/Heimevernet-background.jpg" alt="" class="intro-photo" />
-    </div>
-}
+        <ol class="home-steps">
+            <li>
+                <h3>Start med området</h3>
+                <p>Søk etter et sted i kartet og filtrer på ressurstype. Se plassering og tilgjengelighet før du går videre.</p>
+            </li>
+            <li>
+                <h3>Gi ressursen en plass</h3>
+                <p>Oppgi navn, type og kapasitet. Marker punktet i kartet der ressursen finnes, og kontroller plasseringen før du lagrer.</p>
+            </li>
+            <li>
+                <h3>Hold bidraget ditt relevant</h3>
+                <p>Under «Mine ressurser» kan du endre detaljer og tilgjengelighet når noe endrer seg.</p>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <a asp-action="Resources" asp-route-mine="true">Se mine ressurser <span aria-hidden="true">→</span></a>
+                }
+                @if (canUseOperations)
+                {
+                    <a asp-controller="Operations" asp-action="Index">@(User.IsInRole("Admin") ? "Følg opp forespørsler og tildeling" : "Svar på forespørsler til dine ressurser") <span aria-hidden="true">→</span></a>
+                }
+            </li>
+        </ol>
+    </section>
 </div>

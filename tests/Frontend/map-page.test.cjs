@@ -197,7 +197,7 @@ test('saved markers retain operational state through zoom and filters while pend
         const expected = eligible ? /-available\.svg/ : /-unavailable\.svg/;
         assert.match(p.markers[0].options.icon.iconUrl, expected);
         assert.ok(p.markers[0].options.title.includes(resourceStatus.statusText));
-        assert.ok(p.markers[0].popup.includes(resourceStatus.statusText));
+        assert.ok(p.markers[0].popup.includes('Tilgjengelig · Godkjenning: Godkjent'));
         p.map.setZoom(8);
         p.controls.setTypeVisible('Maskin', false);
         p.controls.setTypeVisible('Maskin', true);
@@ -218,10 +218,22 @@ test('saved markers retain operational state through zoom and filters while pend
     assert.match(view, /status = resourceStatuses\[r.Id\]/);
     assert.match(view, /ViewBag.ResourceStatuses/);
     assert.match(view, /data-resource-status="/);
-    assert.match(view, /<summary>[\s\S]*?<small data-resource-status-text="@r.Id">@status.StatusText<\/small>[\s\S]*?<\/summary>/);
+    assert.match(view, /<summary>[\s\S]*?<small data-resource-status-text="@r.Id">@status.Availability · Godkjenning: @status.Verification<\/small>[\s\S]*?<\/summary>/);
+    assert.doesNotMatch(view, /@status.StatusText/);
     assert.doesNotMatch(view, /<dt>(?:Tilgjengelighet|Verifisering)<\/dt>|VerificationLabel/);
     assert.match(view, /@AvailabilityLabel\(Model.Availability\)/);
     assert.match(view, /watchAvailability/);
+});
+
+test('map popups show concise availability and approval without assessment prose', () => {
+    const p = page({
+        resourceStatus: { isEligible: false, availability: 'Utilgjengelig', verification: 'Venter på verifisering',
+            statusText: 'Kan ikke forespørres nå · Utilgjengelig · Venter på verifisering' }
+    });
+    const popup = p.markers[0].popup;
+    assert.match(popup, /Status: Utilgjengelig · Godkjenning: Venter på verifisering/);
+    assert.doesNotMatch(popup, /Operativ vurdering|Operativ status|Kan ikke forespørres nå/);
+    assert.match(popup, /href="#resource-42"/);
 });
 
 test('edit and validation redisplay retain selected point without duplicating edited saved marker', () => {
@@ -453,9 +465,13 @@ test('registration toolbar is grouped with resources; obsolete controls are abse
     assert.match(toolbar, /aria-controls="registrationPanel" aria-expanded=/);
     assert.match(toolbar, /Ressurser og mine ressurser/);
     assert.doesNotMatch(view, /placementToggle|Velg plassering|Personvern og kartdata/);
-    assert.match(view, /attribution: '&copy; OpenStreetMap contributors'/);
-    assert.match(view, /Søk og punktoppslag bruker OpenStreetMap/);
-    assert.match(view, /geonames.org/);
+    const attribution = view.match(/attribution: '([^']+)'/)[1];
+    assert.match(attribution, /openstreetmap.org\/copyright/);
+    assert.match(attribution, /geonames.org/);
+    assert.match(attribution, /creativecommons.org\/licenses\/by\/4.0\/.*bearbeidet/);
+    assert.match(read('wwwroot/data/NOTICE.txt'), /GeoNames[\s\S]*Creative Commons Attribution 4.0/);
+    assert.doesNotMatch(view, /Søk og punktoppslag bruker OpenStreetMap|citySearchHelp|Unngå fortrolige opplysninger/);
+    assert.match(view, /aria-describedby="citySearchStatus"/);
     assert.match(view, /<legend>Ressursdetaljer<\/legend>/);
     assert.match(view, /<legend>Plassering/);
     assert.match(view, /Ingen plassering valgt ennå/);
@@ -524,7 +540,7 @@ test('container resize invalidates Leaflet after grid changes without selecting 
 test('resource selection expands details; sidebar and shared legend filters also filter results', () => {
     const p = page();
     assert.doesNotMatch(p.markers[0].popup, /Tilgjengelighet:/);
-    assert.match(p.markers[0].popup, /Operativ status: Kan ikke forespørres nå · Reservert · Venter på verifisering/);
+    assert.match(p.markers[0].popup, /Status: Reservert · Godkjenning: Venter på verifisering/);
     assert.doesNotMatch(p.markers[0].popup, /Verifisering:/);
     assert.match(p.markers[0].popup, /Sist oppdatert: 25.10.2026 12:30 UTC/);
     p.markers[0].events.click();

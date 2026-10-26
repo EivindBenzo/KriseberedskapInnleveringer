@@ -88,10 +88,6 @@
                     <span class="status-badge @(r.Availability == ResourceAvailability.Available ? "status-positive" : "status-warning")">@status.Availability</span>
                     <p class="resource-meta">Godkjenning: @status.Verification</p>
                     @if (!r.IsOnMap) { <span class="status-badge">Ikke på kartet</span> }
-                    <details open>
-                        <summary>Operativ vurdering</summary>
-                        <p data-resource-status-text="@r.Id">@status.StatusText</p>
-                    </details>
                 </div>
                 <div class="resource-actions">
                     @if (r.IsOnMap)
