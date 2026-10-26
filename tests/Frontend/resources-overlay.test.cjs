@@ -46,6 +46,8 @@ function setup({ supported = true } = {}) {
     const dialog = document.getElementById('resourcesDialog');
     const content = document.getElementById('resourcesDialogContent');
     const back = document.getElementById('resourcesDialogBack');
+    dialog.getBoundingClientRect = () => ({ left: 100, top: 100, right: 900, bottom: 700 });
+    dialog.querySelector = () => dialog.nestedDialog || null;
     opener.href = 'https://example.test/Home/Resources';
     opener.focus();
     if (supported) dialog.showModal = () => { dialog.open = true; };
@@ -127,6 +129,59 @@ test('native Escape close cleanup aborts loading and ignores late responses', as
     assert.equal(p.document.activeElement, p.opener);
 });
 
+test('backdrop click closes to map, aborts loading and restores opener focus', async () => {
+    const p = setup();
+    p.open();
+    const outside = p.event(p.dialog, { clientX: 50, clientY: 400 });
+    p.dialog.handlers.pointerdown(outside);
+    p.dialog.handlers.click(outside);
+    await settle();
+    assert.equal(p.dialog.open, false);
+    assert.equal(p.requests[0].options.signal.aborted, true);
+    assert.equal(p.classes.size, 0);
+    assert.equal(p.document.activeElement, p.opener);
+});
+
+test('inside content, dialog padding and drags from inside never dismiss resources', () => {
+    const p = setup();
+    p.open();
+    const outside = p.event(p.dialog, { clientX: 50, clientY: 400 });
+    const padding = p.event(p.dialog, { clientX: 110, clientY: 110 });
+    const content = p.event(p.content, { clientX: 200, clientY: 200 });
+    for (const inside of [padding, content]) {
+        p.dialog.handlers.pointerdown(inside);
+        p.dialog.handlers.click(inside);
+        assert.equal(p.dialog.open, true);
+        p.dialog.handlers.pointerdown(inside);
+        p.dialog.handlers.click(outside);
+        assert.equal(p.dialog.open, true);
+    }
+    p.dialog.handlers.pointerdown(outside);
+    p.dialog.handlers.click(padding);
+    assert.equal(p.dialog.open, true);
+});
+
+test('nested confirmation takes precedence over outer backdrop dismissal', () => {
+    const p = setup();
+    p.open();
+    p.dialog.nestedDialog = {};
+    const outside = p.event(p.dialog, { clientX: 50, clientY: 400 });
+    p.dialog.handlers.pointerdown(outside);
+    p.dialog.handlers.click(outside);
+    assert.equal(p.dialog.open, true);
+    const nestedClick = p.event(p.dialog.nestedDialog, { clientX: 50, clientY: 400 });
+    p.dialog.handlers.pointerdown(nestedClick);
+    p.dialog.handlers.click(nestedClick);
+    assert.equal(p.dialog.open, true);
+    p.dialog.nestedDialog = null;
+    p.dialog.handlers.click(outside);
+    assert.equal(p.dialog.open, true, 'closing the confirmation must not reuse its backdrop press');
+    p.dialog.handlers.pointerdown(outside);
+    p.dialog.nestedDialog = {};
+    p.dialog.handlers.click(outside);
+    assert.equal(p.dialog.open, true, 'a newly opened confirmation also prevents dismissal');
+});
+
 test('Tab and Shift+Tab wrap within visible dialog controls', () => {
     const p = setup();
     p.open();
@@ -165,12 +220,13 @@ test('tabs and GET filters stay in the overlay and cancel outdated requests', as
     const filter = {
         action: 'https://example.test/Home/Resources',
         matches: selector => selector === '.filter-bar',
-        values: [['mine', 'true'], ['query', 'Drone & bil'], ['type', 'Drone'], ['eligible', 'true']]
+        values: [['mine', 'true'], ['city', 'Oslo'], ['type', 'Drone'], ['eligible', 'true']]
     };
     const submit = p.event(filter);
     p.content.handlers.submit(submit);
     assert.equal(submit.prevented, true);
-    assert.equal(p.requests[2].url.searchParams.get('query'), 'Drone & bil');
+    assert.equal(p.requests[2].url.searchParams.get('city'), 'Oslo');
+    assert.equal(p.requests[2].url.searchParams.has('query'), false);
     assert.equal(p.requests[2].url.searchParams.get('eligible'), 'true');
     assert.equal(p.requests[2].url.searchParams.get('overlay'), 'true');
 });

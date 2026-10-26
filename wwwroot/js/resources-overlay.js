@@ -21,6 +21,14 @@
             let controller;
             let previousFocus;
             let afterClose;
+            let backdropPress = false;
+
+            function isBackdrop(event) {
+                if (event.target !== dialog || dialog.querySelector('dialog[open]')) return false;
+                const bounds = dialog.getBoundingClientRect();
+                return event.clientX < bounds.left || event.clientX > bounds.right ||
+                    event.clientY < bounds.top || event.clientY > bounds.bottom;
+            }
 
             function close(action) {
                 afterClose = action;
@@ -84,7 +92,14 @@
                 load(opener.href);
             });
             back.addEventListener('click', () => close());
+            dialog.addEventListener('pointerdown', event => { backdropPress = isBackdrop(event); });
+            dialog.addEventListener('click', event => {
+                const dismiss = backdropPress && isBackdrop(event);
+                backdropPress = false;
+                if (dismiss) close();
+            });
             dialog.addEventListener('close', () => {
+                backdropPress = false;
                 controller?.abort();
                 document.documentElement.classList.remove('resources-overlay-open');
                 content.replaceChildren();

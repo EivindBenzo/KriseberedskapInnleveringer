@@ -305,7 +305,7 @@ test('header corrects flattened artwork to the reference crest proportions with 
     assert.match(css, /\.nav-brand img\s*\{[^}]*height: 80px;[^}]*width: auto;[^}]*object-fit: contain;/);
     assert.match(css, /@media[^{]*\{[\s\S]*\.nav-brand img\s*\{[^}]*height: 56px;[^}]*width: auto;/);
     assert.doesNotMatch(css, /\.nav-brand img\s*\{[^}]*(?:width:\s*\d|filter:\s*(?:grayscale|invert|brightness))/);
-    assert.match(css, /\.resource-marker,[^}]*drop-shadow\(0 0 0\.75px #fff\)[^}]*drop-shadow\(0 1px 1px #0f172a\)/);
+    assert.match(css, /\.resource-marker,[^}]*filter: none;/);
     assert.doesNotMatch(css, /:root\[data-theme="dark"\] \.map-legend img,[^}]*filter: brightness\(0\) invert\(1\);/);
 });
 
