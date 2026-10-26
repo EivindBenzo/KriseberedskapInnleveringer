@@ -11,13 +11,13 @@ function icons() {
     const context = {
         document: { currentScript: { dataset: { iconBase: '/images/resources/' } }, querySelectorAll: () => [] },
         window: {},
-        L: { icon: options => options }
+        L: { divIcon: options => options }
     };
     vm.runInNewContext(read('wwwroot/js/resource-icons.js'), context);
     return context.window.ResourceIcons;
 }
 
-test('zoom scaling is bounded with centered anchors and proportional popup offsets for all types', () => {
+test('zoom scaling keeps the upward pointer tip anchored and a 44px keyboard hit target for all types', () => {
     const api = icons();
     assert.equal(api.entries.length, 6);
     assert.equal(api.sizeForZoom(12), 32);
@@ -29,16 +29,26 @@ test('zoom scaling is bounded with centered anchors and proportional popup offse
             for (const zoom of [0, 8, 12, 14, 22]) {
                 const options = api.markerOptions(type, preview, zoom);
                 const size = api.sizeForZoom(zoom);
-                assert.equal(options.icon.iconSize[0], size);
-                assert.equal(options.icon.iconSize[1], size);
-                assert.equal(options.icon.iconAnchor[0], size / 2);
-                assert.equal(options.icon.iconAnchor[1], size / 2);
-                assert.equal(options.icon.popupAnchor[1], -size / 2);
+                assert.equal(options.icon.iconSize[0], 44);
+                assert.equal(options.icon.iconSize[1], 44);
+                assert.equal(options.icon.iconAnchor[0], 22);
+                assert.equal(options.icon.iconAnchor[1], 0);
+                assert.equal(options.icon.popupAnchor[1], -8);
+                assert.match(options.icon.html, new RegExp(`width="${size}" height="${size}"`));
+                assert.equal(options.keyboard, true);
                 assert.equal(options.icon.iconUrl, api.get(type, preview ? null : {}, preview).url);
                 assert.equal(options.icon.className.includes('preview'), preview);
             }
         }
     }
+});
+
+test('only map markers have an upward pointer with its tip at the geographic anchor', () => {
+    const css = read('wwwroot/css/map-controls.css');
+    assert.match(css, /\.resource-marker::before\s*\{[^}]*top: 0;[^}]*left: 15px;[^}]*border-left: 7px solid transparent;[^}]*border-right: 7px solid transparent;[^}]*border-bottom: 8px solid #000;/);
+    assert.match(css, /\.resource-marker > img\s*\{[^}]*margin: 8px auto 0;/);
+    assert.match(css, /\.resource-marker:focus-visible/);
+    assert.doesNotMatch(css, /(?:map-legend|data-resource-icon)[^{]*::(?:before|after)/);
 });
 
 function node(tagName) {

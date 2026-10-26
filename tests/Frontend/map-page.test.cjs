@@ -84,7 +84,7 @@ function page({ selected = false, editId = null, focus = '', register = false, p
             return controls;
         } },
         L: {
-            icon: options => options,
+            divIcon: options => options,
             map: () => map, tileLayer: () => ({ addTo() {} }),
             marker(position, options) {
                 const marker = {
@@ -181,7 +181,8 @@ test('fresh create (including redirect after save) has only saved markers; type/
     p.controls.setTypeVisible('Maskin', true);
     assert.equal(p.layers.size, 1);
     assert.equal(p.markers.length, 1);
-    assert.equal(p.markers[0].options.icon.iconSize[0], p.api.sizeForZoom(8));
+    assert.equal(p.markers[0].options.icon.iconSize[0], 44);
+    assert.match(p.markers[0].options.icon.html, new RegExp(`width="${p.api.sizeForZoom(8)}"`));
     assert.equal(p.requests.length, 0);
 });
 
@@ -206,10 +207,12 @@ test('opening registration activates placement without a preview; first click cr
     assert.ok(p.layers.has(p.markers[1]));
     p.map.setView([59, 9], 8);
     assert.equal(p.markers[1].options.icon.iconUrl, p.api.get('Generator').url);
-    assert.equal(p.markers[1].options.icon.iconSize[0], p.api.sizeForZoom(8));
+    assert.equal(p.markers[1].options.icon.iconSize[0], 44);
+    assert.match(p.markers[1].options.icon.html, new RegExp(`width="${p.api.sizeForZoom(8)}"`));
     p.controls.setTypeVisible('Maskin', true);
     assert.deepEqual(Array.from(p.markers[0].position), [60, 10]);
-    assert.equal(p.markers[0].options.icon.iconSize[0], p.api.sizeForZoom(8));
+    assert.equal(p.markers[0].options.icon.iconSize[0], 44);
+    assert.match(p.markers[0].options.icon.html, new RegExp(`width="${p.api.sizeForZoom(8)}"`));
 });
 
 test('saved markers retain operational state through zoom and filters while pending placement stays neutral', () => {

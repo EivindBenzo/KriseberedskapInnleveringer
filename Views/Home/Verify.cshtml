@@ -27,7 +27,10 @@
     <nav class="section-nav" aria-label="Ressursutvalg">
         <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-query="@ViewBag.Query" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(!mine ? "page" : null)">Alle ressurser</a>
         <a asp-action="Resources" asp-route-mine="true" asp-route-type="@ViewBag.SelectedType" asp-route-query="@ViewBag.Query" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(mine ? "page" : null)">Mine ressurser</a>
-        <a asp-action="Map" data-map-back>Åpne kart</a>
+        @if (!overlay)
+        {
+            <a asp-action="Map" data-map-back>Åpne kart</a>
+        }
     </nav>
     @if (overlay)
     {

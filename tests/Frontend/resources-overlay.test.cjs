@@ -216,8 +216,18 @@ test('overlay uses the authorized resource view, existing permission gates and a
     assert.match(map, /<dialog[^>]+aria-labelledby="resourcesDialogTitle"/);
     assert.match(map, /aria-label="Tilbake til kartet"/);
     const css = read('wwwroot/css/resources-overlay.css');
-    assert.match(css, /60vw/);
+    assert.match(css, /\.resources-dialog\s*\{[^}]*width: 80vw;/);
+    assert.doesNotMatch(css, /60vw/);
     assert.match(css, /max-height: 85dvh/);
     assert.match(css, /overflow: auto/);
     assert.match(css, /@media \(max-width: 900px\)/);
+});
+
+test('only the standalone resources view includes Åpne kart, and popup cards have responsive columns', () => {
+    const view = read('Views/Home/Verify.cshtml');
+    assert.match(view, /@if \(!overlay\)\s*\{\s*<a asp-action="Map" data-map-back>Åpne kart<\/a>\s*\}/);
+    assert.equal((view.match(/>Åpne kart<\/a>/g) || []).length, 1);
+    const css = read('wwwroot/css/resources-overlay.css');
+    assert.match(css, /\.resources-dialog-content \.resource-row\s*\{[^}]*grid-template-columns: minmax\(0, 1\.35fr\) minmax\(0, 1fr\) minmax\(10rem, \.85fr\)/);
+    assert.match(css, /@media \(max-width: 900px\)[\s\S]*width: calc\(100vw - 1\.5rem\)[\s\S]*\.resource-row\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\)/);
 });

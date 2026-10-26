@@ -80,6 +80,12 @@ test('mine and edit routes keep resources active and section links reveal collap
     };
     vm.runInNewContext(script, { document, window });
     assert.equal(links[1].attributes['aria-current'], 'page');
+    for (const pathname of ['/Home/Resources', '/Home/Edit/42', '/Home/Delete/42', '/home/mine']) {
+        window.location = { pathname, hash: '' };
+        listeners.hashchange.forEach(handler => handler());
+        assert.equal(links[1].attributes['aria-current'], 'page', pathname);
+        assert.equal(links.filter(link => link.attributes['aria-current'] === 'page').length, 1);
+    }
     window.location = { pathname: '/Operations', hash: '#resources' };
     listeners.hashchange.forEach(handler => handler());
     assert.equal(links[2].attributes['aria-current'], 'page');
@@ -96,6 +102,14 @@ test('workspace styles keep desktop navigation visible and hamburger mobile-only
     assert.match(css, /\.nav-brand img \{ height: 48px; width: auto; object-fit: contain;/);
     assert.match(css, /text-transform: none/);
     assert.match(css, /\.btn-danger \{ color: var\(--error\)/);
+});
+
+test('main navigation has a persistent non-color selected cue, distinct hover and high-contrast focus', () => {
+    const css = read('wwwroot/css/workspace.css');
+    assert.match(css, /\.nav-menu \.nav-link\s*\{[^}]*min-height: 44px;[^}]*padding: \.65rem 1rem;[^}]*border-radius: \.75rem;/);
+    assert.match(css, /\.nav-menu \.nav-link:hover\s*\{[^}]*background: #203f63;/);
+    assert.match(css, /\.nav-menu \.nav-link\[aria-current="page"\]\s*\{[^}]*background: #2b527e;[^}]*font-weight: 700;[^}]*text-decoration: underline;/);
+    assert.match(css, /\.nav-menu \.nav-link:focus-visible\s*\{[^}]*outline: 3px solid #c6e2ff;[^}]*outline-offset: 3px;/);
 });
 
 test('home is permission-aware and resource overview keeps operational filtering without assessment prose', () => {
