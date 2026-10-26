@@ -15,14 +15,9 @@
 
     const entries = Object.freeze(Array.from(icons, ([type, file]) => Object.freeze({ type, file })));
 
-    function stateFor(type, status, preview = false, now = Date.now()) {
+    function stateFor(type, status, preview = false) {
         if (preview || !status) return 'neutral';
-        const verified = Date.parse(status.verifiedAtUtc);
-        const expires = Date.parse(status.verificationExpiresAtUtc);
-        return icons.has(type) && status.isEligible === true &&
-            status.availability === 'Tilgjengelig' && status.verification === 'Godkjent' &&
-            Number.isFinite(verified) && verified <= now && Number.isFinite(expires) && expires > now
-            ? 'available' : 'unavailable';
+        return status.availability === 'Tilgjengelig' ? 'available' : 'unavailable';
     }
 
     function statusText(status, now = Date.now()) {
