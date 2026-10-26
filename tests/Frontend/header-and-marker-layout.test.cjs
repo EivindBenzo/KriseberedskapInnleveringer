@@ -24,7 +24,7 @@ test('shared header reserves scrollbar space and stable desktop slots independen
     assert.match(read('wwwroot/css/site.css'), /grid-template-rows: max-content minmax\(min-content, 1fr\)/);
 });
 
-test('map-only upward pointer sits below restored art with a two CSS pixel outline', () => {
+test('map-only upward pointer sits below restored art with a one CSS pixel outline', () => {
     const css = read('wwwroot/css/map-controls.css');
     const pointer = css.match(/\.resource-marker::before \{([^}]+)\}/)[1];
     assert.match(pointer, /bottom: 0/);
@@ -32,7 +32,14 @@ test('map-only upward pointer sits below restored art with a two CSS pixel outli
     assert.match(pointer, /border-bottom: 8px solid #000/);
     assert.match(css, /\.resource-marker > img \{[^}]*filter: url\(#resource-map-outline\)/);
     const layout = read('Views/Shared/_Layout.cshtml');
-    assert.match(layout, /<feMorphology in="SourceAlpha" operator="dilate" radius="2"/);
+    assert.match(layout, /<feMorphology in="SourceAlpha" operator="dilate" radius="1"/);
     assert.match(layout, /<feMergeNode in="SourceGraphic"/);
     assert.doesNotMatch(read('wwwroot/js/resource-icons.js'), /border-bottom|resource-marker.*<span/);
+});
+
+test('sidebar and legend icons render without shadow halos while map outlines stay scoped', () => {
+    const css = read('wwwroot/css/site.css');
+    assert.match(css, /\.resource-marker,\s*\.map-legend img,\s*img\[data-resource-icon\]\s*\{\s*filter: none;/);
+    assert.doesNotMatch(css, /drop-shadow\(0 0 0\.75px/);
+    assert.match(read('wwwroot/css/map-controls.css'), /\.resource-marker > img \{[^}]*filter: url\(#resource-map-outline\)/);
 });

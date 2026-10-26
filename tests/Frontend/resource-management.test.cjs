@@ -50,7 +50,7 @@ function setup({ navigate = true } = {}) {
     list.append = () => {};
     const form = nodes['.filter-bar'];
     form.action = 'https://example.test/Home/Resources';
-    form.values = [['mine', 'true'], ['query', 'søk'], ['type', 'Drone'], ['eligible', 'true']];
+    form.values = [['mine', 'true'], ['type', 'Drone'], ['eligible', 'true']];
     const deleteForm = nodes['[data-resource-delete-form]'];
     deleteForm.elements = { version: { value: '' } };
     deleteForm.querySelectorAll = () => [nodes['[data-delete-cancel]']];
@@ -93,11 +93,30 @@ test('focus exposes every scoped city and keyboard selection filters immediately
     assert.equal(p.input.value, 'Oslo');
     const url = p.navigations[0][0];
     assert.equal(url.searchParams.get('city'), 'Oslo');
-    assert.equal(url.searchParams.get('query'), 'søk');
+    assert.equal(url.searchParams.has('query'), false);
     assert.equal(url.searchParams.get('type'), 'Drone');
     assert.equal(url.searchParams.get('eligible'), 'true');
     assert.equal(url.searchParams.get('mine'), 'true');
     assert.equal(p.list.hidden, true);
+});
+
+test('resource filters expose only By, type and status with hover and keyboard selection styling', () => {
+    const view = read('Views/Home/Verify.cshtml');
+    assert.match(view, /<label for="resourceCity">By<\/label>/);
+    assert.doesNotMatch(view, /By \/ sted|Navn eller sted|(?:id|name|for)="query"|asp-route-query|ViewBag\.Query/);
+    const css = read('wwwroot/css/resource-management.css');
+    assert.match(css, /\[role="option"\]:hover:not\(\[aria-selected="true"\]\)\s*\{[^}]*background:/);
+    assert.match(css, /\[aria-selected="true"\]\s*\{[^}]*background:[^}]*outline: 2px solid/);
+});
+
+test('delete confirmation is viewport centered and scrollable on small screens', () => {
+    const css = read('wwwroot/css/resource-management.css');
+    const dialog = css.match(/\.resource-delete-dialog\s*\{([^}]+)\}/)[1];
+    assert.match(dialog, /position: fixed;/);
+    assert.match(dialog, /inset: 0;/);
+    assert.match(dialog, /margin: auto;/);
+    assert.match(dialog, /max-height: calc\(100dvh - 3rem\);/);
+    assert.match(dialog, /overflow: auto;/);
 });
 
 test('city click filters immediately; Escape dismisses list without closing outer dialog; outside focus closes safely', () => {

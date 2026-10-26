@@ -16,7 +16,8 @@
     border-radius: .35rem;
 }
 .resource-city-options [role="option"] { padding: .6rem; cursor: pointer; overflow-wrap: anywhere; }
+.resource-city-options [role="option"]:hover:not([aria-selected="true"]) { background: #eaf2f8; }
 .resource-city-options [aria-selected="true"] { background: #dceaf6; outline: 2px solid #254e70; outline-offset: -2px; }
-.resource-delete-dialog { width: min(28rem, calc(100vw - 3rem)); border: 1px solid #596b7c; border-radius: .6rem; padding: 1.5rem; }
+.resource-delete-dialog { position: fixed; inset: 0; margin: auto; width: min(28rem, calc(100vw - 3rem)); max-height: calc(100dvh - 3rem); overflow: auto; border: 1px solid #596b7c; border-radius: .6rem; padding: 1.5rem; }
 .resource-delete-dialog::backdrop { background: #0007; }
 .resource-delete-dialog form { display: flex; gap: .75rem; flex-wrap: wrap; }
