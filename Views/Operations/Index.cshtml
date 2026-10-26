@@ -31,17 +31,88 @@
     };
 }
 <section class="operations-workspace" aria-labelledby="operations-heading">
-<h1 id="operations-heading">Forespørsler</h1>
-<p>@(admin ? "Verifiser ressurser, opprett behov og koordiner tildeling. Eieren må akseptere først." : "Se forespørsler til dine ressurser. Du kan svare og oppdatere tilgjengelighet.")</p>
+<div class="page-heading">
+    <div><span class="eyebrow">Oppfølging og koordinering</span><h1 id="operations-heading">Forespørsler</h1></div>
+    <a asp-controller="Home" asp-action="Resources" asp-route-mine="true" class="btn-secondary">Mine ressurser</a>
+</div>
+<nav class="section-nav" aria-label="Arbeidsområder">
+    <a href="#requests">Forespørsler <span class="count-badge">@Model.Requests.Count(r => r.Status is ResourceRequestStatus.Pending or ResourceRequestStatus.Accepted or ResourceRequestStatus.Allocated)</span></a>
+    @if (admin)
+    {
+        <a asp-controller="Operations" asp-action="Index" asp-fragment="resources">Verifisering</a>
+        <a asp-controller="Operations" asp-action="Index" asp-fragment="needs">Behov</a>
+    }
+</nav>
 @if (TempData["WorkflowError"] is string error)
 {
-    <p role="alert">@error</p>
+    <p class="workspace-alert" role="alert">@error</p>
 }
 @if (TempData["WorkflowSuccess"] is string success)
 {
-    <p role="status">@success</p>
+    <p class="notice" role="status">@success</p>
 }
-<h2 id="resources">@(admin ? "Ressurser og verifisering" : "Mine ressurser")</h2>
+<h2 id="requests">@(admin ? "Forespørsler og koordinering" : "Forespørsler til meg")</h2>
+@if (Model.Requests.Count == 0)
+{
+    <p class="empty-state">@(admin ? "Ingen forespørsler er sendt." : "Du har ingen innkommende forespørsler.")</p>
+}
+@foreach (var request in Model.Requests.OrderBy(r => r.Status is ResourceRequestStatus.Pending or ResourceRequestStatus.Accepted or ResourceRequestStatus.Allocated ? 0 : 1))
+{
+    <div class="workflow-item">
+        <div class="results-heading">
+            <h3>@request.Resource.ResourceName <small class="resource-meta">#@request.Id</small></h3>
+            <span class="status-badge @(request.Status == ResourceRequestStatus.Pending ? "status-warning" : "")">@RequestLabel(request.Status)</span>
+        </div>
+        <p>@request.Need.Place · Behov #@request.NeedId</p>
+        <details>
+            <summary>Behov og begrunnelse</summary>
+            <p>@request.Need.Description</p>
+            <p>@request.Reason</p>
+        </details>
+        @if (request.Status == ResourceRequestStatus.Pending && request.Resource.OwnerId == actorId)
+        {
+            <form asp-action="Respond" method="post">
+                <input type="hidden" name="id" value="@request.Id" />
+                <input type="hidden" name="token" value="@request.ConcurrencyToken" />
+                <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
+                <button name="accept" value="true" type="submit" class="btn-submit">Aksepter og reserver</button>
+                <button name="accept" value="false" type="submit">Avvis</button>
+            </form>
+        }
+        @if (admin && request.Status == ResourceRequestStatus.Accepted)
+        {
+            <form asp-action="Allocate" method="post">
+                <input type="hidden" name="id" value="@request.Id" />
+                <input type="hidden" name="token" value="@request.ConcurrencyToken" />
+                <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
+                <button type="submit" class="btn-submit">Tildel som koordinator</button>
+            </form>
+        }
+        @if (admin && request.Status is ResourceRequestStatus.Pending or ResourceRequestStatus.Accepted)
+        {
+            <details>
+                <summary>Avbryt forespørsel</summary>
+                <form asp-action="Cancel" method="post">
+                    <input type="hidden" name="id" value="@request.Id" />
+                    <input type="hidden" name="token" value="@request.ConcurrencyToken" />
+                    <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
+                    <button type="submit" class="btn-danger">Avbryt forespørsel / frigjør reservasjon</button>
+                </form>
+            </details>
+        }
+        @if (request.Status == ResourceRequestStatus.Allocated && (admin || request.Resource.OwnerId == actorId))
+        {
+            <form asp-action="Return" method="post">
+                <input type="hidden" name="id" value="@request.Id" />
+                <input type="hidden" name="token" value="@request.ConcurrencyToken" />
+                <label>Retur og tilstand <input name="reason" required maxlength="1000" /></label>
+                <button type="submit" class="btn-submit">Registrer retur (krever ny verifisering)</button>
+            </form>
+        }
+    </div>
+}
+<details class="workflow-section" id="resources">
+<summary>@(admin ? "Ressurser og verifisering" : "Mine ressurser") <span class="count-badge">@Model.Resources.Count</span></summary>
 @if (Model.Resources.Count == 0)
 {
     <p>@(admin ? "Ingen ressurser å verifisere." : "Du har ingen registrerte ressurser.")</p>
@@ -49,14 +120,17 @@
 @foreach (var resource in Model.Resources)
 {
     <div class="workflow-item">
-        <h3>@resource.ResourceName – @resource.LocationName</h3>
-        <p>Kapasitet: @(resource.Capability ?? "Ikke oppgitt") · Transportbehov: @(resource.TransportRequirements ?? "Ikke oppgitt")</p>
-        <p>@AvailabilityLabel(resource.Availability) · @VerificationLabel(resource)
+        <h3>@resource.ResourceName</h3>
+        <p class="resource-meta">@resource.LocationName</p>
+        <span class="status-badge @(resource.Availability == ResourceAvailability.Available ? "status-positive" : "status-warning")">@AvailabilityLabel(resource.Availability)</span>
+        <span class="status-badge">@VerificationLabel(resource)</span>
+        <details>
+            <summary>Detaljer og tilgjengelighet</summary>
+            <p>Kapasitet: @(resource.Capability ?? "Ikke oppgitt") · Transportbehov: @(resource.TransportRequirements ?? "Ikke oppgitt")</p>
             @if (resource.VerificationExpiresAtUtc.HasValue)
             {
                 <span> · Gyldig til @resource.VerificationExpiresAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC</span>
             }
-        </p>
         @if (resource.Availability is ResourceAvailability.Available or ResourceAvailability.Unavailable)
         {
             <form asp-action="Availability" method="post">
@@ -71,7 +145,9 @@
                 <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
                 <button type="submit">Lagre tilgjengelighet</button>
             </form>
-            @if (admin)
+        }
+        </details>
+            @if (admin && resource.Availability is ResourceAvailability.Available or ResourceAvailability.Unavailable)
             {
                 <form asp-action="Verify" method="post">
                     <input type="hidden" name="id" value="@resource.Id" />
@@ -88,12 +164,15 @@
                     <button name="approve" value="false" type="submit">Avvis</button>
                 </form>
             }
-        }
     </div>
 }
+</details>
+<details class="workflow-section" id="needs">
+<summary>Behov og fremdrift <span class="count-badge">@Model.Needs.Count</span></summary>
 @if (admin)
 {
-    <h2>Opprett behov</h2>
+    <details>
+    <summary>+ Opprett behov</summary>
     <form asp-action="CreateNeed" method="post">
         <label>Beskrivelse <textarea name="description" required maxlength="2000"></textarea></label>
         <label>Sted <input name="place" required maxlength="200" /></label>
@@ -101,10 +180,10 @@
             <option value="Low">Lav</option><option value="Normal" selected>Normal</option>
             <option value="High">Høy</option><option value="Critical">Kritisk</option>
         </select></label>
-        <button type="submit">Opprett behov</button>
+        <button type="submit" class="btn-submit">Opprett behov</button>
     </form>
+    </details>
 }
-<h2 id="needs">Behov og fremdrift</h2>
 @if (Model.Needs.Count == 0)
 {
     <p>@(admin ? "Ingen behov er opprettet." : "Ingen behov er knyttet til dine forespørsler.")</p>
@@ -114,7 +193,8 @@
     <div class="workflow-item">
         <h3>Behov #@need.Id – @need.Place</h3>
         <p>@need.Description</p>
-        <p>Prioritet: @(need.Priority switch { NeedPriority.Low => "Lav", NeedPriority.Normal => "Normal", NeedPriority.High => "Høy", _ => "Kritisk" }) · @NeedLabel(need.Status)</p>
+        <span class="status-badge @(need.Priority == NeedPriority.Critical ? "status-critical" : "")">@(need.Priority switch { NeedPriority.Low => "Lav", NeedPriority.Normal => "Normal", NeedPriority.High => "Høy", _ => "Kritisk" }) prioritet</span>
+        <span class="status-badge">@NeedLabel(need.Status)</span>
         @if (admin && need.Status is NeedStatus.Open or NeedStatus.InProgress)
         {
             <form asp-action="NeedStatus" method="post">
@@ -152,59 +232,11 @@
         }
     </div>
 }
-<h2 id="requests">@(admin ? "Forespørsler og koordinering" : "Forespørsler til meg")</h2>
-@if (Model.Requests.Count == 0)
-{
-    <p>@(admin ? "Ingen forespørsler er sendt." : "Du har ingen innkommende forespørsler.")</p>
-}
-@foreach (var request in Model.Requests)
-{
-    <div class="workflow-item">
-        <h3>Forespørsel #@request.Id – @request.Resource.ResourceName</h3>
-        <p>Behov #@request.NeedId: @request.Need.Description (@request.Need.Place)</p>
-        <p>@RequestLabel(request.Status) · @request.Reason</p>
-        @if (request.Status == ResourceRequestStatus.Pending && request.Resource.OwnerId == actorId)
-        {
-            <form asp-action="Respond" method="post">
-                <input type="hidden" name="id" value="@request.Id" />
-                <input type="hidden" name="token" value="@request.ConcurrencyToken" />
-                <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
-                <button name="accept" value="true" type="submit">Aksepter og reserver</button>
-                <button name="accept" value="false" type="submit">Avvis</button>
-            </form>
-        }
-        @if (admin && request.Status == ResourceRequestStatus.Accepted)
-        {
-            <form asp-action="Allocate" method="post">
-                <input type="hidden" name="id" value="@request.Id" />
-                <input type="hidden" name="token" value="@request.ConcurrencyToken" />
-                <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
-                <button type="submit">Tildel som koordinator</button>
-            </form>
-        }
-        @if (admin && request.Status is ResourceRequestStatus.Pending or ResourceRequestStatus.Accepted)
-        {
-            <form asp-action="Cancel" method="post">
-                <input type="hidden" name="id" value="@request.Id" />
-                <input type="hidden" name="token" value="@request.ConcurrencyToken" />
-                <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
-                <button type="submit">Avbryt forespørsel / frigjør reservasjon</button>
-            </form>
-        }
-        @if (request.Status == ResourceRequestStatus.Allocated && (admin || request.Resource.OwnerId == actorId))
-        {
-            <form asp-action="Return" method="post">
-                <input type="hidden" name="id" value="@request.Id" />
-                <input type="hidden" name="token" value="@request.ConcurrencyToken" />
-                <label>Retur og tilstand <input name="reason" required maxlength="1000" /></label>
-                <button type="submit">Registrer retur (krever ny verifisering)</button>
-            </form>
-        }
-    </div>
-}
+</details>
 @if (admin)
 {
-    <h2>Beslutningslogg (siste 100)</h2>
+    <details class="workflow-section">
+    <summary>Beslutningslogg (siste 100)</summary>
     @if (Model.Audit.Count == 0)
     {
         <p>Ingen beslutninger er loggført.</p>
@@ -221,5 +253,6 @@
         </tbody>
     </table>
     </div>
+    </details>
 }
 </section>

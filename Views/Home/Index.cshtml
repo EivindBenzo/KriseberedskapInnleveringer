@@ -20,9 +20,9 @@
                 <h2>Registrer ressurs</h2>
                 <p>Legg til en ressurs og velg plassering.</p>
             </a>
-            <a asp-action="Mine" class="feature-card">
-                <h2>Mine ressurser</h2>
-                <p>Oppdater tilgjengelighet og opplysninger du eier.</p>
+            <a asp-action="Resources" class="feature-card">
+                <h2>Ressurser</h2>
+                <p>Finn ressurser eller administrer dine egne.</p>
             </a>
             @if (canUseOperations)
             {
@@ -30,20 +30,8 @@
                     <h2>Forespørsler</h2>
                     <p>@(User.IsInRole("Admin") ? "Følg forespørsler og koordiner tildeling." : "Svar på forespørsler til dine ressurser.")</p>
                 </a>
-                @if (User.IsInRole("Admin"))
-                {
-                    <a asp-controller="Operations" asp-action="Index" asp-fragment="resources" class="feature-card">
-                        <h2>Verifisering</h2>
-                        <p>Kontroller og godkjenn ressurser.</p>
-                    </a>
-                    <a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="feature-card">
-                        <h2>Behov og koordinering</h2>
-                        <p>Opprett behov og send ressursforespørsler.</p>
-                    </a>
-                }
             }
         </div>
-        <p class="account-notice">Ressurser må være tilgjengelige og ha gyldig godkjenning før de kan forespørres. Last siden på nytt for oppdatert status.</p>
     </div>
 }
 else

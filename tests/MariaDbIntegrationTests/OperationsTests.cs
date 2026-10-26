@@ -111,7 +111,7 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
 
     [Theory]
     [InlineData("Bruker", 1)]
-    [InlineData("Admin", 3)]
+    [InlineData("Admin", 1)]
     public async Task HomeCardsLinkToAuthorizedOperationsRoutes(string role, int expectedCards)
     {
         using var client = site.Client(role == "Admin" ? site.AdminId : site.OwnerId, role);
@@ -123,16 +123,54 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
         Assert.DoesNotContain("/Operations/Queue", html);
         Assert.DoesNotContain("/Operations/Needs", html);
         Assert.Contains(cards, a => a.Contains("href=\"/Operations\""));
-        if (role == "Admin")
-        {
-            Assert.Contains(cards, a => a.Contains("href=\"/Operations#resources\""));
-            Assert.Contains(cards, a => a.Contains("href=\"/Operations#needs\""));
-        }
+        Assert.DoesNotContain("href=\"/Operations#resources\"", html);
+        Assert.DoesNotContain("href=\"/Operations#needs\"", html);
         foreach (var card in cards)
         {
             var href = Regex.Match(card, "href=\"([^\"]+)\"").Groups[1].Value;
             Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(href)).StatusCode);
         }
+    }
+
+    [Theory]
+    [InlineData("/Home/Resources", false)]
+    [InlineData("/Home/Resources?query=no-resource-reset-rendering-fixture", true)]
+    [InlineData("/Home/Resources?mine=true", true)]
+    public async Task AdminResourceWorkspaceHasOneGlobalResetEvenWhenListIsEmpty(string route, bool empty)
+    {
+        using var client = site.Client(site.AdminId, "Admin");
+        var response = await client.GetAsync(route);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+        var reset = Assert.Single(Regex.Matches(html,
+            "<form\\b[^>]*action=\"/Home/ResetMap\"[^>]*>.*?</form>", RegexOptions.Singleline).Cast<Match>()).Value;
+        Assert.Contains("method=\"post\"", reset);
+        Assert.Contains("name=\"__RequestVerificationToken\"", reset);
+        var confirmation = Assert.Single(Regex.Matches(reset, "<input\\b[^>]*name=\"confirmed\"[^>]*>").Cast<Match>()).Value;
+        Assert.Contains("type=\"checkbox\"", confirmation);
+        Assert.Contains("value=\"true\"", confirmation);
+        Assert.Contains("required", confirmation);
+        Assert.DoesNotContain("checked", confirmation);
+        if (empty)
+        {
+            Assert.Contains("Ingen ressurser passer valget.", html);
+            Assert.DoesNotContain(site.OwnResource.ResourceName, html);
+            Assert.DoesNotContain(site.OtherResource.ResourceName, html);
+        }
+        else
+        {
+            Assert.Contains(site.OwnResource.ResourceName, html);
+            Assert.Contains(site.OtherResource.ResourceName, html);
+        }
+    }
+
+    [Fact]
+    public async Task ProviderResourceWorkspaceHasNoGlobalReset()
+    {
+        using var client = site.Client(site.OwnerId, "Bruker");
+        var html = await client.GetStringAsync("/Home/Resources");
+        Assert.Contains(site.OwnResource.ResourceName, html);
+        Assert.DoesNotContain("action=\"/Home/ResetMap\"", html);
     }
 
     [Theory]

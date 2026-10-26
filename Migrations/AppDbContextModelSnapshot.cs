@@ -100,6 +100,11 @@ namespace HeimevernetInnlevering1.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<bool>("IsOnMap")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
                     b.Property<double>("Latitude")
                         .HasColumnType("double");
 
