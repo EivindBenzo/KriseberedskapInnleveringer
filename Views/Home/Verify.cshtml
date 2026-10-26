@@ -6,6 +6,7 @@
     ViewData["Title"] = mine ? "Mine ressurser" : "Ressurser";
     var now = DateTime.UtcNow;
     var resourceIconUrls = new[] { "car", "excavator", "drone", "generator", "personnel", "toolbox", "unknown" }
+        .SelectMany(file => new[] { file, file + "-available", file + "-unavailable" })
         .ToDictionary(file => file, file => FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content($"~/images/resources/{file}.svg")));
 }
 <section class="data-container">
@@ -53,23 +54,10 @@
     <div class="resource-list">
         @foreach (var r in Model.MapSubmissions)
         {
-            var available = r.Availability switch
-            {
-                ResourceAvailability.Available => "Tilgjengelig",
-                ResourceAvailability.Unavailable => "Utilgjengelig",
-                ResourceAvailability.Reserved => "Reservert",
-                _ => "Tildelt"
-            };
-            var verified = r.VerificationStatus switch
-            {
-                ResourceVerificationStatus.Rejected => "Avvist",
-                ResourceVerificationStatus.Approved when WorkflowEligibility.HasCurrentApproval(r, now) => "Godkjent",
-                ResourceVerificationStatus.Approved => "Godkjenning utløpt",
-                _ => "Venter på verifisering"
-            };
+            var status = ResourceOperationalStatus.From(r, now);
             <div class="resource-row">
                 <div>
-                    <h2><img data-resource-icon="@r.ResourceType" alt="" width="32" height="32" /> @r.ResourceName</h2>
+                    <h2><img data-resource-icon="@r.ResourceType" alt="" width="32" height="32" data-resource-status="@System.Text.Json.JsonSerializer.Serialize(status)" /> @r.ResourceName</h2>
                     <p>@r.ResourceType · @r.LocationName</p>
                     <p class="resource-meta">Sist oppdatert @((r.UpdatedAtUtc ?? r.CreatedAtUtc).ToString("dd.MM.yyyy HH:mm")) UTC</p>
                     <details>
@@ -81,8 +69,7 @@
                     </details>
                 </div>
                 <div>
-                    <p>@available · @verified</p>
-                    <p class="resource-meta">@(WorkflowEligibility.IsEligible(r, now) && r.OwnerId != null ? "Kan forespørres nå" : "Kan ikke disponeres nå")</p>
+                    <p data-resource-status-text="@r.Id">@status.StatusText</p>
                 </div>
                 <div class="resource-actions">
                     <a asp-action="Map" asp-route-focus="@r.Id" class="btn-secondary">Vis på kart</a>
@@ -93,7 +80,7 @@
                     }
                     @if (User.IsInRole("Admin"))
                     {
-                        <a asp-controller="Operations" asp-action="Needs" class="btn-secondary">Koordiner</a>
+                        <a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="btn-secondary">Koordiner</a>
                     }
                 </div>
             </div>

@@ -17,6 +17,7 @@ function element(value = '') {
         classList: { add: c => classes.add(c), remove: c => classes.delete(c) },
         addEventListener(name, callback) { this.handlers[name] = callback; },
         appendChild(child) { this.children.push(child); },
+        replaceChildren() { this.children = []; },
         contains() { return false; },
         get innerHTML() { return this.textContent; },
         set innerHTML(value) { this.children = []; this.textContent = value; },
@@ -24,7 +25,9 @@ function element(value = '') {
     };
 }
 
-function page({ selected = false, editId = null, focus = '', register = false, placement = false } = {}) {
+function page({ selected = false, editId = null, focus = '', register = false, placement = false, resizeObserver = false,
+    resourceStatus = { isEligible: false, availability: 'Reservert', verification: 'Venter på verifisering',
+        statusText: 'Kan ikke forespørres nå · Reservert · Venter på verifisering' } } = {}) {
     const elements = {};
     const card = element();
     card.dataset = { resourceId: '42', resourceType: 'Maskin' };
@@ -39,7 +42,8 @@ function page({ selected = false, editId = null, focus = '', register = false, p
         addEventListener() {}
     };
     document.getElementById('resourceType').value = 'Drone';
-    document.getElementById('selectedPlace').textContent = selected ? 'Eksisterende sted' : 'Ingen plassering valgt';
+    document.getElementById('resourceName').value = '';
+    document.getElementById('selectedPlace').textContent = selected ? 'Eksisterende sted' : '';
     const layers = new Set();
     const map = {
         events: {}, zoom: 12,
@@ -53,14 +57,19 @@ function page({ selected = false, editId = null, focus = '', register = false, p
     };
     const markers = [];
     const requests = [];
+    const timers = new Map();
+    let nextTimer = 0;
     const visibility = new Map();
-    let controls;
+    let controls, observedElement, onResize, refreshAvailability;
+    let currentTime = Date.now();
     const context = {
         document, window: { location: { search: focus ? '?focus=' + focus : register ? '?register=true' : '' } },
         URLSearchParams, AbortController, Map, Set,
-        setTimeout: () => 1, clearTimeout() {},
+        Date: class extends Date { static now() { return currentTime; } },
+        setTimeout(callback, delay) { timers.set(++nextTimer, { callback, delay }); return nextTimer; },
+        clearTimeout(id) { timers.delete(id); },
         fetch(url, options) {
-            return new Promise(resolve => requests.push({ url, options, resolve }));
+            return new Promise((resolve, reject) => requests.push({ url, options, resolve, reject }));
         },
         MapControls: { add(map, options) {
             controls = {
@@ -76,13 +85,14 @@ function page({ selected = false, editId = null, focus = '', register = false, p
             map: () => map, tileLayer: () => ({ addTo() {} }),
             marker(position, options) {
                 const marker = {
-                    options, position,
+                    options, position, dom: element(),
                     addTo() { layers.add(this); return this; },
                     bindPopup(popup) { this.popup = popup; return this; },
                     openPopup() { this.opened = true; return this; },
                     on(name, handler) { (this.events ??= {})[name] = handler; return this; },
                     setIcon(icon) { this.options.icon = icon; },
                     getLatLng() { return this.position; },
+                    getElement() { return this.dom; },
                     setLatLng(position) { this.position = position; return this; }
                 };
                 markers.push(marker);
@@ -90,7 +100,15 @@ function page({ selected = false, editId = null, focus = '', register = false, p
             }
         }
     };
+    if (resizeObserver) context.ResizeObserver = class {
+        constructor(callback) { onResize = callback; }
+        observe(target) { observedElement = target; }
+    };
     vm.runInNewContext(read('wwwroot/js/resource-icons.js'), context);
+    context.window.ResourceIcons = {
+        ...context.window.ResourceIcons,
+        watchAvailability(callback) { refreshAvailability = callback; }
+    };
     vm.runInNewContext(read('wwwroot/js/place-search.js'), context);
     context.PlaceSearch = context.window.PlaceSearch;
     context.resourceMarkerOptions = context.window.resourceMarkerOptions;
@@ -98,7 +116,7 @@ function page({ selected = false, editId = null, focus = '', register = false, p
     const script = view.slice(view.lastIndexOf('<script>') + 8, view.lastIndexOf('</script>'))
         .replace('const startLat = @startLat;', 'const startLat = 58;')
         .replace('const startLng = @startLng;', 'const startLng = 8;')
-        .replace(/const savedResources = .*;/, 'const savedResources = [{id: 42, name: "Bil", type: "Maskin", lat: 60, lng: 10, availability: "Reservert", verification: "Venter på verifisering", updated: "25.10.2026 12:30 UTC"}];')
+        .replace(/const savedResources = .*;/, `const savedResources = [{id: 42, name: "Bil", type: "Maskin", lat: 60, lng: 10, availability: "Reservert", verification: "Verifisert", updated: "25.10.2026 12:30 UTC", status: ${JSON.stringify(resourceStatus)}}];`)
         .replace(/const hasSelectedPoint = .*;/, `const hasSelectedPoint = ${selected};`)
         .replace(/const registrationInitiallyOpen = .*;/, `const registrationInitiallyOpen = ${register || selected || editId !== null};`)
         .replace(/const editId = .*;/, `const editId = ${editId};`)
@@ -108,9 +126,20 @@ function page({ selected = false, editId = null, focus = '', register = false, p
     vm.runInNewContext(script, context);
     if (placement) {
         if (elements.registrationPanel.hidden) elements.registrationToggle.handlers.click();
-        elements.placementToggle.handlers.click();
     }
-    return { map, markers, elements, layers, controls, visibility, requests, card, api: context.window.ResourceIcons };
+    return {
+        map, markers, elements, layers, controls, visibility, requests, card, api: context.window.ResourceIcons,
+        expire(milliseconds) { currentTime += milliseconds; refreshAvailability(); },
+        resize(width, height) {
+            assert.equal(observedElement, elements.map);
+            onResize([{ contentRect: { width, height } }]);
+        },
+        timeout() {
+            for (const [id, timer] of timers) if (timer.delay === 6000) {
+                timers.delete(id); timer.callback();
+            }
+        }
+    };
 }
 
 test('fresh create (including redirect after save) has only saved markers; type/zoom/filter changes never create preview', () => {
@@ -128,13 +157,16 @@ test('fresh create (including redirect after save) has only saved markers; type/
     assert.equal(p.requests.length, 0);
 });
 
-test('only explicit placement creates preview; saved marker filters never remove it', () => {
+test('opening registration activates placement without a preview; first click creates it independently of filters', () => {
     const p = page({ placement: true });
+    assert.equal(p.elements.placementToggle.attributes['aria-pressed'], 'true');
+    assert.equal(p.markers.length, 1);
     p.map.events.click({ latlng: { lat: 59, lng: 9 } });
     assert.equal(p.markers.length, 2);
     assert.equal(p.elements.latitude.value, 59);
     assert.equal(p.elements.longitude.value, 9);
     assert.equal(p.elements.selectedPlace.textContent, '59.00000, 9.00000');
+    assert.equal(p.elements.citySearch.value, '59.00000, 9.00000');
     assert.equal(p.requests.length, 1);
     p.elements.resourceType.value = 'Generator';
     p.elements.resourceType.handlers.change();
@@ -150,11 +182,52 @@ test('only explicit placement creates preview; saved marker filters never remove
     assert.equal(p.markers[0].options.icon.iconSize[0], p.api.sizeForZoom(8));
 });
 
+test('saved markers retain operational state through zoom and filters while pending placement stays neutral', () => {
+    const now = Date.now();
+    for (const eligible of [false, true]) {
+        const resourceStatus = {
+            isEligible: eligible, availability: 'Tilgjengelig', verification: 'Godkjent',
+            verifiedAtUtc: new Date(now - 60000).toISOString(),
+            verificationExpiresAtUtc: new Date(now + 60000).toISOString(),
+            statusText: eligible ? 'Kan forespørres nå' : 'Kan ikke forespørres nå'
+        };
+        const p = page({ register: true, resourceStatus });
+        const expected = eligible ? /-available\.svg/ : /-unavailable\.svg/;
+        assert.match(p.markers[0].options.icon.iconUrl, expected);
+        assert.ok(p.markers[0].options.title.includes(resourceStatus.statusText));
+        assert.ok(p.markers[0].popup.includes(resourceStatus.statusText));
+        p.map.setZoom(8);
+        p.controls.setTypeVisible('Maskin', false);
+        p.controls.setTypeVisible('Maskin', true);
+        assert.match(p.markers[0].options.icon.iconUrl, expected);
+        p.map.events.click({ latlng: { lat: 59, lng: 9 } });
+        assert.match(p.markers[1].options.icon.className, /resource-state-neutral/);
+        if (eligible) {
+            p.expire(120000);
+            assert.match(p.markers[0].options.icon.iconUrl, /-unavailable\.svg/);
+            assert.match(p.markers[0].dom.title, /Godkjenning utløpt/);
+            assert.match(p.markers[0].dom.alt, /Godkjenning utløpt/);
+            assert.match(p.markers[0].popup, /Godkjenning utløpt/);
+            assert.doesNotMatch(p.markers[0].popup, /Verifisert|Verifisering:|Tilgjengelighet:/);
+            assert.match(p.markers[1].options.icon.className, /resource-state-neutral/);
+        }
+    }
+    const view = read('Views/Home/Map.cshtml');
+    assert.match(view, /status = resourceStatuses\[r.Id\]/);
+    assert.match(view, /ViewBag.ResourceStatuses/);
+    assert.match(view, /data-resource-status="/);
+    assert.match(view, /<summary>[\s\S]*?<small data-resource-status-text="@r.Id">@status.StatusText<\/small>[\s\S]*?<\/summary>/);
+    assert.doesNotMatch(view, /<dt>(?:Tilgjengelighet|Verifisering)<\/dt>|VerificationLabel/);
+    assert.match(view, /@AvailabilityLabel\(Model.Availability\)/);
+    assert.match(view, /watchAvailability/);
+});
+
 test('edit and validation redisplay retain selected point without duplicating edited saved marker', () => {
     const edit = page({ selected: true, editId: 42 });
     assert.equal(edit.markers.length, 1);
     assert.deepEqual(Array.from(edit.markers[0].position), [58, 8]);
     assert.equal(edit.elements.selectedPlace.textContent, 'Eksisterende sted');
+    assert.equal(edit.elements.citySearch.value, 'Eksisterende sted');
     assert.equal(edit.requests.length, 0);
     const invalid = page({ selected: true });
     assert.equal(invalid.markers.length, 2);
@@ -178,6 +251,7 @@ test('preview never binds or opens a popup after placement, lookup, type, search
     p.requests[0].resolve({ ok: true, json: async () => ({ label: 'Valgt sted' }) });
     await settle();
     assert.equal(p.elements.selectedPlace.textContent, 'Valgt sted');
+    assert.equal(p.elements.citySearch.value, 'Valgt sted');
     p.elements.resourceType.value = 'Utstyr';
     p.elements.resourceType.handlers.change();
     p.elements.citySearch.value = 'Bergen';
@@ -186,13 +260,17 @@ test('preview never binds or opens a popup after placement, lookup, type, search
     await settle();
     p.elements.citySuggestions.children[0].children[0].handlers.click({ stopPropagation() {} });
     assert.equal(p.elements.selectedPlace.textContent, 'Bergen');
+    assert.equal(p.elements.citySearch.value, 'Bergen');
+    assert.equal(p.elements.latitude.value, 60.39);
+    assert.equal(p.elements.longitude.value, 5.32);
+    assert.equal(p.requests.length, 2, 'search selection does not trigger reverse lookup or another search');
     assert.equal(p.markers.length, 2, 'selection reuses one preview');
     const previews = [p.markers[1], page({ selected: true, editId: 42 }).markers[0],
         page({ selected: true }).markers[1]];
     for (const marker of previews) {
         assert.equal(marker.popup, undefined);
         assert.equal(marker.opened, undefined);
-        assert.ok(marker.options.title.startsWith('Ny ressurs: '));
+        assert.ok(marker.options.title.startsWith('Ny ressurs (ikke lagret): '));
         assert.ok(marker.options.alt);
     }
 });
@@ -209,11 +287,81 @@ test('new point clears old label immediately; late reverse responses cannot chan
     first.resolve({ ok: true, json: async () => ({ label: 'Gammelt sted' }) });
     await settle();
     assert.equal(p.elements.selectedPlace.textContent, 'Siste sted');
+    assert.equal(p.elements.citySearch.value, 'Siste sted');
     p.map.events.click({ latlng: { lat: 0, lng: 0 } });
     p.requests[2].resolve({ ok: false });
     await settle();
     assert.equal(p.elements.selectedPlace.textContent, '0.00000, 0.00000');
+    assert.equal(p.elements.citySearch.value, '0.00000, 0.00000');
     assert.equal(p.elements.latitude.value, 0);
+});
+
+test('typing invalidates reverse lookup without changing form data or starting a remote search', async () => {
+    const p = page({ register: true });
+    p.elements.resourceName.value = 'Min ressurs';
+    p.map.events.click({ latlng: { lat: 59, lng: 9 } });
+    const lookup = p.requests[0];
+    p.elements.citySearch.value = 'Bergen';
+    p.elements.citySearch.handlers.input();
+    assert.equal(lookup.options.signal.aborted, true);
+    lookup.resolve({ ok: true, json: async () => ({ label: 'For sent' }) });
+    await settle();
+    assert.equal(p.elements.citySearch.value, 'Bergen');
+    assert.equal(p.elements.selectedPlace.textContent, '59.00000, 9.00000');
+    assert.equal(p.elements.latitude.value, 59);
+    assert.equal(p.elements.longitude.value, 9);
+    assert.equal(p.elements.resourceName.value, 'Min ressurs');
+    assert.equal(p.elements.resourceType.value, 'Drone');
+    assert.equal(p.requests.length, 1);
+    p.map.events.click({ latlng: { lat: 60, lng: 10 } });
+    p.requests[1].resolve({ ok: true, json: async () => ({ label: '<img src=x onerror=alert(1)>' }) });
+    await settle();
+    assert.equal(p.elements.citySearch.value, '<img src=x onerror=alert(1)>');
+    assert.equal(p.elements.selectedPlace.textContent, '<img src=x onerror=alert(1)>');
+    assert.equal(p.elements.citySearch.children.length, 0);
+    assert.equal(p.elements.selectedPlace.children.length, 0);
+    assert.equal(p.markers.length, 2, 'new clicks move the existing preview');
+    assert.deepEqual(Array.from(p.markers[1].position), [60, 10]);
+});
+
+test('reverse lookup failure or invalid label retains usable coordinates in summary and search', async () => {
+    for (const result of [{ ok: false }, { ok: true, json: async () => ({ label: 'x'.repeat(221) }) },
+        { ok: true, json: async () => ({ label: 'bad\nlabel' }) },
+        { ok: true, json: async () => ({ label: 123 }) }]) {
+        const p = page({ register: true });
+        assert.equal(p.markers.length, 1, 'registration alone must not create a preview');
+        p.map.events.click({ latlng: { lat: 59, lng: 9 } });
+        p.requests[0].resolve(result);
+        await settle();
+        assert.equal(p.elements.citySearch.value, '59.00000, 9.00000');
+        assert.equal(p.elements.selectedPlace.textContent, '59.00000, 9.00000');
+        assert.equal(p.elements.latitude.value, 59);
+        assert.equal(p.elements.longitude.value, 9);
+        assert.equal(p.requests.length, 1);
+    }
+});
+
+test('reverse request timeout and network failure retain coordinates, and closing registration invalidates lookup', async () => {
+    const p = page({ register: true });
+    p.map.events.click({ latlng: { lat: 59, lng: 9 } });
+    p.timeout();
+    assert.equal(p.requests[0].options.signal.aborted, true);
+    p.requests[0].resolve({ ok: true, json: async () => ({ label: 'Timed out' }) });
+    await settle();
+    assert.equal(p.elements.citySearch.value, '59.00000, 9.00000');
+    p.map.events.click({ latlng: { lat: 60, lng: 10 } });
+    p.requests[1].reject(new Error('Offline'));
+    await settle();
+    assert.equal(p.elements.citySearch.value, '60.00000, 10.00000');
+    assert.equal(p.elements.selectedPlace.textContent, '60.00000, 10.00000');
+    p.map.events.click({ latlng: { lat: 61, lng: 11 } });
+    p.elements.registrationToggle.handlers.click();
+    assert.equal(p.requests[2].options.signal.aborted, true);
+    p.requests[2].resolve({ ok: true, json: async () => ({ label: 'Closed' }) });
+    await settle();
+    assert.equal(p.elements.citySearch.value, '61.00000, 11.00000');
+    assert.equal(p.elements.latitude.value, 61);
+    assert.equal(p.elements.longitude.value, 11);
 });
 
 test('full city search requires explicit button/Enter, ignores outdated results and uses selection without stale labels', async () => {
@@ -241,10 +389,11 @@ test('full city search requires explicit button/Enter, ignores outdated results 
     assert.equal(p.elements.citySuggestions.children.length, 0);
 });
 
-test('browse clicks and browse search only move the map, including when registration is open', async () => {
+test('browse clicks and browse search only move the map; registration placement can be explicitly disabled', async () => {
     for (const register of [false, true]) {
         const p = page({ register });
         assert.equal(p.elements.registrationPanel.hidden, !register);
+        if (register) p.elements.placementToggle.handlers.click();
         p.map.events.click({ latlng: { lat: 59, lng: 9 } });
         assert.equal(p.requests.length, 0);
         assert.equal(p.markers.length, 1);
@@ -277,18 +426,21 @@ test('closing registration or disabling placement stops coordinate updates and r
     assert.equal(p.elements.latitude.value, 59);
     assert.equal(p.requests.length, 1);
     p.elements.registrationToggle.handlers.click();
-    assert.equal(p.elements.placementToggle.attributes['aria-pressed'], 'false');
+    assert.equal(p.elements.placementToggle.attributes['aria-pressed'], 'true');
     assert.equal(p.markers.length, 2);
 });
 
-test('edit and invalid submission start in browse mode while preserving coordinates', () => {
+test('edit and invalid submission start in placement mode, preserving then moving existing coordinates', () => {
     for (const editId of [null, 42]) {
         const p = page({ selected: true, editId });
         assert.equal(p.elements.registrationPanel.hidden, false);
-        p.map.events.click({ latlng: { lat: 61, lng: 11 } });
         assert.equal(p.elements.latitude.value, 58);
         assert.equal(p.elements.longitude.value, 8);
         assert.equal(p.requests.length, 0);
+        p.map.events.click({ latlng: { lat: 61, lng: 11 } });
+        assert.equal(p.elements.latitude.value, 61);
+        assert.equal(p.elements.longitude.value, 11);
+        assert.equal(p.requests.length, 1);
     }
 });
 
@@ -314,10 +466,30 @@ test('mobile Kart/Liste controls and resource focus change view without choosing
     assert.equal(p.elements.mapWorkspace.dataset.mobileView, 'map', 'minimal map stubs need no invalidateSize');
 });
 
+test('container resize invalidates Leaflet after grid changes without selecting coordinates or moving map', () => {
+    const p = page({ resizeObserver: true });
+    const position = Array.from(p.map.position);
+    p.resize(1100, 700);
+    assert.equal(p.map.invalidations, 1);
+    p.resize(900, 700);
+    assert.equal(p.map.invalidations, 2);
+    p.resize(0, 0);
+    assert.equal(p.map.invalidations, 2, 'ignore the hidden mobile map');
+    p.resize(700, 650);
+    assert.equal(p.map.invalidations, 3, 'restore the map after its container becomes visible');
+    assert.deepEqual(Array.from(p.map.position), position);
+    assert.equal(p.elements.latitude, undefined);
+    assert.equal(p.markers.length, 1);
+    assert.equal(p.requests.length, 0);
+    delete p.map.invalidateSize;
+    assert.doesNotThrow(() => p.resize(600, 650));
+});
+
 test('resource selection expands details; sidebar and shared legend filters also filter results', () => {
     const p = page();
-    assert.match(p.markers[0].popup, /Tilgjengelighet: Reservert/);
-    assert.match(p.markers[0].popup, /Verifisering: Venter på verifisering/);
+    assert.doesNotMatch(p.markers[0].popup, /Tilgjengelighet:/);
+    assert.match(p.markers[0].popup, /Operativ status: Kan ikke forespørres nå · Reservert · Venter på verifisering/);
+    assert.doesNotMatch(p.markers[0].popup, /Verifisering:/);
     assert.match(p.markers[0].popup, /Sist oppdatert: 25.10.2026 12:30 UTC/);
     p.markers[0].events.click();
     assert.equal(p.card.open, true);
@@ -341,11 +513,11 @@ test('map-first markup keeps search outside registration and exposes persisted o
     for (const field of ['Availability', 'Capability', 'TransportRequirements']) {
         assert.ok(view.includes(`asp-for="${field}"`));
     }
-    assert.match(view, /WorkflowEligibility\.HasCurrentApproval/);
+    assert.match(view, /ResourceOperationalStatus\.From/);
     assert.match(view, /r\.UpdatedAtUtc \?\? r\.CreatedAtUtc/);
     assert.match(view, /"Lagre endringer" : "Registrer ressurs"/);
     const css = read('wwwroot/css/workspace-map.css');
-    assert.match(css, /grid-template-columns: 320px minmax\(0, 1fr\)/);
+    assert.match(css, /grid-template-columns:/);
     assert.match(css, /\[data-mobile-view="map"\] \.workspace-results/);
     assert.match(css, /\[data-mobile-view="list"\] \.workspace-map-region/);
 });

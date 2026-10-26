@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HeimevernetInnlevering1.Controllers;
 
-[Authorize]
+[Authorize(Roles = "Bruker,Admin")]
 [AutoValidateAntiforgeryToken]
 public class OperationsController(AppDbContext db, WorkflowService workflow) : Controller
 {

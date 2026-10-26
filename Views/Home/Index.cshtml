@@ -1,5 +1,8 @@
 @{
     ViewData["Title"] = "Hjem";
+    var canUseOperations = User.Identity?.IsAuthenticated == true
+        && !string.IsNullOrEmpty(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
+        && (User.IsInRole("Bruker") || User.IsInRole("Admin"));
 }
 <div class="dashboard">
 @if (User.Identity?.IsAuthenticated == true)
@@ -7,11 +10,11 @@
     <div class="home-content">
         <span class="eyebrow">Arbeidsflate</span>
         <h1>Hva vil du gjøre?</h1>
-        <p>Finn registrerte ressurser, hold egne opplysninger oppdatert og følg forespørsler.</p>
+        <p>Finn ressurser og følg opp egne registreringer.</p>
         <div class="feature-grid">
             <a asp-action="Map" class="feature-card">
                 <h2>Finn ressurser</h2>
-                <p>Utforsk kartet og se ressursenes faktiske status.</p>
+                <p>Se ressurser og tilgjengelighet i kartet.</p>
             </a>
             <a asp-action="Map" asp-route-register="true" class="feature-card">
                 <h2>Registrer ressurs</h2>
@@ -21,23 +24,26 @@
                 <h2>Mine ressurser</h2>
                 <p>Oppdater tilgjengelighet og opplysninger du eier.</p>
             </a>
-            <a asp-controller="Operations" asp-action="Requests" class="feature-card">
-                <h2>Forespørsler</h2>
-                <p>Svar på forespørsler om dine ressurser og følg fremdriften.</p>
-            </a>
-            @if (User.IsInRole("Admin"))
+            @if (canUseOperations)
             {
-                <a asp-controller="Operations" asp-action="Queue" class="feature-card">
-                    <h2>Verifisering</h2>
-                    <p>Vurder registreringer før de kan disponeres.</p>
+                <a asp-controller="Operations" asp-action="Index" class="feature-card">
+                    <h2>Forespørsler</h2>
+                    <p>@(User.IsInRole("Admin") ? "Følg forespørsler og koordiner tildeling." : "Svar på forespørsler til dine ressurser.")</p>
                 </a>
-                <a asp-controller="Operations" asp-action="Needs" class="feature-card">
-                    <h2>Behov og koordinering</h2>
-                    <p>Registrer behov, send forespørsler og følg tildelinger.</p>
-                </a>
+                @if (User.IsInRole("Admin"))
+                {
+                    <a asp-controller="Operations" asp-action="Index" asp-fragment="resources" class="feature-card">
+                        <h2>Verifisering</h2>
+                        <p>Kontroller og godkjenn ressurser.</p>
+                    </a>
+                    <a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="feature-card">
+                        <h2>Behov og koordinering</h2>
+                        <p>Opprett behov og send ressursforespørsler.</p>
+                    </a>
+                }
             }
         </div>
-        <p class="account-notice">Registrert betyr ikke disponibel: ressursen må være godkjent, innenfor gyldighetstiden og tilgjengelig. Informasjonen oppdateres ved ny sidelasting, ikke i sanntid.</p>
+        <p class="account-notice">Ressurser må være tilgjengelige og ha gyldig godkjenning før de kan forespørres. Last siden på nytt for oppdatert status.</p>
     </div>
 }
 else

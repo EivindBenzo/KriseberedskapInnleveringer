@@ -5,7 +5,7 @@
 
 <div class="form-container">
     <h1>Meld behov</h1>
-    <p>Fyll ut skjemaet under. Alle felt er påkrevd.</p>
+    <p>Alle felt er påkrevd.</p>
 
     @if (Model?.Latitude.HasValue == true && Model?.Longitude.HasValue == true)
     {
@@ -43,6 +43,6 @@
             <span asp-validation-for="Message" class="text-danger"></span>
         </div>
 
-        <button type="submit" class="btn-submit">Send inn</button>
+        <button type="submit" class="btn-submit">Meld behov</button>
     </form>
 </div>

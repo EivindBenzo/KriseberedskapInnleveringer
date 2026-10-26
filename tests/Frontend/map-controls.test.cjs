@@ -34,7 +34,7 @@ test('zoom scaling is bounded with centered anchors and proportional popup offse
                 assert.equal(options.icon.iconAnchor[0], size / 2);
                 assert.equal(options.icon.iconAnchor[1], size / 2);
                 assert.equal(options.icon.popupAnchor[1], -size / 2);
-                assert.equal(options.icon.iconUrl, api.get(type).url);
+                assert.equal(options.icon.iconUrl, api.get(type, preview ? null : {}, preview).url);
                 assert.equal(options.icon.className.includes('preview'), preview);
             }
         }

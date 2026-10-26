@@ -6,6 +6,9 @@
     var isEditing = ViewBag.EditId != null;
     var registrationOpen = isEditing || !ViewData.ModelState.IsValid || Context.Request.Query["register"] == "true";
     var resources = (ViewBag.Resources as List<HeimevernetInnlevering1.Models.MapSubmission>) ?? new();
+    var statusTime = DateTime.UtcNow;
+    var resourceStatuses = ViewBag.ResourceStatuses as IReadOnlyDictionary<int, HeimevernetInnlevering1.Models.ResourceOperationalStatus>
+        ?? resources.ToDictionary(r => r.Id, r => HeimevernetInnlevering1.Models.ResourceOperationalStatus.From(r, statusTime));
     var resourcesJson = System.Text.Json.JsonSerializer.Serialize(resources.Select(r => new
     {
         id = r.Id,
@@ -14,8 +17,7 @@
         location = r.LocationName,
         lat = r.Latitude,
         lng = r.Longitude,
-        availability = AvailabilityLabel(r.Availability),
-        verification = VerificationLabel(r),
+        status = resourceStatuses[r.Id],
         updated = (r.UpdatedAtUtc ?? r.CreatedAtUtc).ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) + " UTC"
     }));
     var selectedPoint = Model?.Latitude is double lat && Model.Longitude is double lng
@@ -23,6 +25,7 @@
     var startLat = (selectedPoint ? Model!.Latitude!.Value : 58.1467).ToString(CultureInfo.InvariantCulture);
     var startLng = (selectedPoint ? Model!.Longitude!.Value : 7.9956).ToString(CultureInfo.InvariantCulture);
     var resourceIconUrls = new[] { "car", "excavator", "drone", "generator", "personnel", "toolbox", "unknown" }
+        .SelectMany(file => new[] { file, file + "-available", file + "-unavailable" })
         .ToDictionary(file => file, file => FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content($"~/images/resources/{file}.svg")));
 }
 @functions {
@@ -34,10 +37,6 @@
         HeimevernetInnlevering1.Models.ResourceAvailability.Allocated => "Tildelt",
         _ => "Ukjent"
     };
-    private static string VerificationLabel(HeimevernetInnlevering1.Models.MapSubmission resource) =>
-        HeimevernetInnlevering1.Models.WorkflowEligibility.HasCurrentApproval(resource, DateTime.UtcNow) ? "Verifisert" :
-        resource.VerificationStatus == HeimevernetInnlevering1.Models.ResourceVerificationStatus.Rejected ? "Avvist" :
-        resource.VerificationStatus == HeimevernetInnlevering1.Models.ResourceVerificationStatus.Approved ? "Verifisering utløpt" : "Venter på verifisering";
 }
 
 <link rel="stylesheet" href="~/css/workspace-map.css" asp-append-version="true" />
@@ -68,10 +67,10 @@
                     <button type="button" id="citySearchButton" class="btn-secondary">Søk</button>
                 </div>
                 <span id="citySearchStatus" role="status" aria-live="polite" aria-atomic="true"></span>
-                <small id="citySearchHelp">Lokale stedsforslag. Søk-knappen gjør et eksternt søk.</small>
+                <small id="citySearchHelp">Lokale forslag. Søk henter adresser eksternt.</small>
                 <details class="workspace-disclosure">
-                    <summary>Søk, personvern og kartdata</summary>
-                    <p>Lokale forslag søkes i nettleseren og dekker norske byer og tettsteder, ikke adresser. Trykk Søk for fullt søk hos OpenStreetMap. Når «Velg plassering» er aktivert, sender punktvalg koordinater til OpenStreetMap. Ikke send personlige eller fortrolige opplysninger. Kartfliser hentes fra OpenStreetMap.</p>
+                    <summary>Personvern og kartdata</summary>
+                    <p>Lokale forslag dekker norske byer og tettsteder. Søk og punktvalg bruker OpenStreetMap; unngå fortrolige opplysninger. Kartfliser: OpenStreetMap.</p>
                     <p>Stedsdata: <a href="https://www.geonames.org/">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> (utvalg og bearbeiding).</p>
                 </details>
             </div>
@@ -121,9 +120,9 @@
                             <span asp-validation-for="TransportRequirements" class="text-danger"></span>
                         </div>
                     </details>
-                    <button type="button" id="placementToggle" class="btn-secondary" aria-pressed="false" aria-describedby="placementHelp">Velg plassering</button>
-                    <p id="placementHelp">Aktiver for å velge punkt i kartet eller fra stedsøk. Ellers flytter søk bare kartet.</p>
-                    <p id="selectedPlace" class="workspace-location" role="status">@(selectedPoint ? Model?.LocationName : "Ingen plassering valgt.")</p>
+                    <button type="button" id="placementToggle" class="btn-secondary" aria-pressed="@(registrationOpen ? "true" : "false")" aria-describedby="placementHelp">Velg plassering</button>
+                    <p id="placementHelp">Klikk i kartet eller velg et sted. Slå av plassering for å utforske.</p>
+                    <p id="selectedPlace" class="workspace-location" role="status">@(selectedPoint ? Model?.LocationName : "")</p>
                     <input type="hidden" id="latitude" name="Latitude" value="@(selectedPoint ? startLat : "")" />
                     <input type="hidden" id="longitude" name="Longitude" value="@(selectedPoint ? startLng : "")" />
                     <span asp-validation-for="Latitude" class="text-danger"></span>
@@ -141,20 +140,19 @@
                         <option value="@type">@type</option>
                     }
                 </select>
-                <p id="resourceResultsStatus" class="workspace-muted" role="status">@(resources.Count == 0 ? "Ingen ressurser er registrert ennå." : "Velg en ressurs for detaljer.")</p>
+                <p id="resourceResultsStatus" class="workspace-muted" role="status">@(resources.Count == 0 ? "Ingen ressurser er registrert ennå." : "")</p>
                 <div class="workspace-resource-list">
             @foreach (var r in resources)
             {
+                var status = resourceStatuses[r.Id];
                 <details class="resource-card" id="resource-@r.Id"
                      data-resource-id="@r.Id"
                      data-resource-type="@r.ResourceType"
                      data-lat="@r.Latitude.ToString(CultureInfo.InvariantCulture)"
                      data-lng="@r.Longitude.ToString(CultureInfo.InvariantCulture)">
-                    <summary><img data-resource-icon="@r.ResourceType" alt="" width="32" height="32" /><span><strong>@r.ResourceName</strong><small>@r.ResourceType · @r.LocationName</small></span></summary>
+                    <summary><img data-resource-icon="@r.ResourceType" data-resource-status="@System.Text.Json.JsonSerializer.Serialize(status)" alt="" width="32" height="32" /><span><strong>@r.ResourceName</strong><small>@r.ResourceType · @r.LocationName</small><small data-resource-status-text="@r.Id">@status.StatusText</small></span></summary>
                     <div class="resource-detail">
                         <dl>
-                            <div><dt>Tilgjengelighet</dt><dd>@AvailabilityLabel(r.Availability)</dd></div>
-                            <div><dt>Verifisering</dt><dd>@VerificationLabel(r)</dd></div>
                             <div><dt>Sist oppdatert</dt><dd>@((r.UpdatedAtUtc ?? r.CreatedAtUtc).ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)) UTC</dd></div>
                             <div><dt>Koordinater</dt><dd>@r.Latitude.ToString("F5", CultureInfo.InvariantCulture), @r.Longitude.ToString("F5", CultureInfo.InvariantCulture)</dd></div>
                             @if (!string.IsNullOrEmpty(r.Capability))
@@ -181,7 +179,7 @@
             </section>
         </aside>
         <div class="workspace-map-region" id="mapRegion" aria-label="Ressurskart">
-            <p id="mapModeStatus" role="status" class="workspace-map-status">Utforsk kartet · velg en ressurs for detaljer</p>
+            <p id="mapModeStatus" role="status" class="workspace-map-status"></p>
             <div id="map" aria-label="Interaktivt kart over ressurser"></div>
         </div>
     </div>
@@ -208,6 +206,15 @@
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
+    if (typeof ResizeObserver !== 'undefined') {
+        const mapResizeObserver = new ResizeObserver(function (entries) {
+            if (entries.some(entry => entry.contentRect.width > 0 && entry.contentRect.height > 0)) {
+                map.invalidateSize?.({ pan: false });
+            }
+        });
+        mapResizeObserver.observe(document.getElementById('map'));
+    }
+
     const workspace = document.getElementById('mapWorkspace');
     const registrationPanel = document.getElementById('registrationPanel');
     const registrationToggle = document.getElementById('registrationToggle');
@@ -216,6 +223,8 @@
     const resourceCards = Array.from(document.querySelectorAll('.resource-card'));
     const visibleTypes = new Map();
     let placementActive = false;
+    let pointVersion = 0;
+    let pointController = null;
     registrationPanel.hidden = !registrationInitiallyOpen;
 
     function setMobileView(view) {
@@ -228,19 +237,20 @@
     document.getElementById('showList').addEventListener('click', () => setMobileView('list'));
 
     function setPlacement(active) {
+        if (!active) cancelPointLookup();
         placementActive = active;
         placementToggle.setAttribute('aria-pressed', String(active));
         document.getElementById('mapModeStatus').textContent = active
-            ? 'Velg plassering · klikk i kartet eller velg et sted fra søk'
-            : 'Utforsk kartet · velg en ressurs for detaljer';
+            ? 'Plassering aktiv · klikk i kartet eller søk'
+            : '';
         document.getElementById('map').classList[active ? 'add' : 'remove']('placement-active');
         if (active) setMobileView('map');
     }
     registrationToggle.addEventListener('click', function () {
         registrationPanel.hidden = !registrationPanel.hidden;
         registrationToggle.setAttribute('aria-expanded', String(!registrationPanel.hidden));
-        if (registrationPanel.hidden) setPlacement(false);
-        else document.getElementById('resourceName').focus();
+        setPlacement(!registrationPanel.hidden);
+        if (!registrationPanel.hidden) document.getElementById('resourceName').focus();
     });
     placementToggle.addEventListener('click', () => setPlacement(!registrationPanel.hidden && !placementActive));
 
@@ -257,27 +267,43 @@
         return div.innerHTML;
     }
 
-    // Markers for all stored resources, each with a small info box.
-    const savedMarkers = savedResources.filter(r => r.id !== editId).map(function (r) {
-        const savedMarker = L.marker([r.lat, r.lng], resourceMarkerOptions(r.type, false, map.getZoom())).addTo(map).bindPopup(
-            '<div class="resource-popup"><strong>' + escapeHtml(r.name) + '</strong>' +
+    function savedPopup(r) {
+        return '<div class="resource-popup"><strong>' + escapeHtml(r.name) + '</strong>' +
             'Type: ' + escapeHtml(r.type) + '<br>' +
             'Sted: ' + escapeHtml(r.location) + '<br>' +
-            'Tilgjengelighet: ' + escapeHtml(r.availability) + '<br>' +
-            'Verifisering: ' + escapeHtml(r.verification) + '<br>' +
+            'Operativ status: ' + escapeHtml(window.ResourceIcons.statusText(r.status)) + '<br>' +
             'Sist oppdatert: ' + escapeHtml(r.updated) + '<br>' +
             '<a href="#resource-' + r.id + '">Vis ressursdetaljer i listen</a><br>' +
-            r.lat.toFixed(5) + ', ' + r.lng.toFixed(5) + '</div>'
-        );
+            r.lat.toFixed(5) + ', ' + r.lng.toFixed(5) + '</div>';
+    }
+
+    // Markers for all stored resources, each with a small info box.
+    const savedMarkers = savedResources.filter(r => r.id !== editId).map(function (r) {
+        const savedMarker = L.marker([r.lat, r.lng], resourceMarkerOptions(r.type, false, map.getZoom(), r.status))
+            .addTo(map).bindPopup(savedPopup(r));
         savedMarker.on('click', () => selectResource(r.id));
         return { resource: r, marker: savedMarker };
     });
+    window.ResourceIcons.watchAvailability(function () {
+        savedMarkers.forEach(function (item) {
+            const options = resourceMarkerOptions(item.resource.type, false, map.getZoom(), item.resource.status);
+            item.marker.options.title = options.title;
+            item.marker.options.alt = options.alt;
+            item.marker.setIcon(options.icon);
+            const element = item.marker.getElement?.();
+            if (element) {
+                element.title = options.title;
+                element.alt = options.alt;
+            }
+            item.marker.bindPopup(savedPopup(item.resource));
+        });
+    }, savedMarkers.map(item => item.resource.status));
     const controls = MapControls.add(map, {
         onTypeChange(type, visible) {
             visibleTypes.set(type, visible);
             savedMarkers.filter(item => item.resource.type === type).forEach(function (item) {
                 if (visible) {
-                    item.marker.setIcon(resourceMarkerOptions(type, false, map.getZoom()).icon);
+                    item.marker.setIcon(resourceMarkerOptions(type, false, map.getZoom(), item.resource.status).icon);
                     item.marker.addTo(map);
                 } else {
                     map.removeLayer(item.marker);
@@ -309,7 +335,7 @@
 
     map.on('zoomend', function () {
         savedMarkers.forEach(function (item) {
-            item.marker.setIcon(resourceMarkerOptions(item.resource.type, false, map.getZoom()).icon);
+            item.marker.setIcon(resourceMarkerOptions(item.resource.type, false, map.getZoom(), item.resource.status).icon);
         });
         if (marker) marker.setIcon(resourceMarkerOptions(resourceType.value, true, map.getZoom()).icon);
     });
@@ -326,16 +352,21 @@
     if (focused) focusResource(focused);
 
     const selectedPlace = document.getElementById('selectedPlace');
-    let pointVersion = 0;
-    let pointController = null;
+
+    function cancelPointLookup() {
+        pointVersion++;
+        if (pointController) pointController.abort();
+        pointController = null;
+    }
 
     function showPlace(label) {
         selectedPlace.textContent = label;
+        placeSearch.setValue(label);
     }
 
     function setLocation(lat, lng, label, resolvePlace = true) {
-        const version = ++pointVersion;
-        if (pointController) pointController.abort();
+        cancelPointLookup();
+        const version = pointVersion;
         const coordinates = lat.toFixed(5) + ', ' + lng.toFixed(5);
         map.setView([lat, lng], map.getZoom());
         if (!marker) {
@@ -355,13 +386,15 @@
             { signal: controller.signal })
             .then(response => response.ok ? response.json() : null)
             .then(result => {
-                if (version === pointVersion && !controller.signal.aborted && result?.label) showPlace(result.label);
+                if (version === pointVersion && !controller.signal.aborted
+                    && typeof result?.label === 'string' && result.label.trim().length > 0
+                    && result.label.length <= 220 && !/[\u0000-\u001f\u007f]/.test(result.label)) {
+                    showPlace(result.label);
+                }
             })
             .catch(() => { /* Coordinates remain usable when lookup is unavailable. */ })
             .finally(() => clearTimeout(timeout));
     }
-
-    if (hasSelectedPoint) setLocation(startLat, startLng, selectedPlace.textContent, false);
 
     map.on('click', function (e) {
         if (placementActive) setLocation(e.latlng.lat, e.latlng.lng);
@@ -382,19 +415,22 @@
         });
     });
 
-    PlaceSearch.attach({
+    const placeSearch = PlaceSearch.attach({
         input: document.getElementById('citySearch'),
         list: document.getElementById('citySuggestions'),
         status: document.getElementById('citySearchStatus'),
         button: document.getElementById('citySearchButton'),
         searchUrl,
         localitiesUrl: @Json.Serialize(FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content("~/data/norway-localities.json"))),
+        onInput: cancelPointLookup,
         onSelect(place) {
             if (placementActive) setLocation(place.lat, place.lng, place.label);
             map.setView([place.lat, place.lng], 12);
             setMobileView('map');
         }
     });
+    setPlacement(registrationInitiallyOpen);
+    if (hasSelectedPoint) setLocation(startLat, startLng, selectedPlace.textContent, false);
     document.getElementById('map').addEventListener('click', function (event) {
         const link = event.target.closest?.('a[href^="#resource-"]');
         if (link) {

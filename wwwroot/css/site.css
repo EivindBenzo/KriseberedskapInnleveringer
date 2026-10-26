@@ -710,13 +710,10 @@ th {
     color: var(--accent);
 }
 
-.resource-marker {
-    filter: drop-shadow(0 0 0.75px #fff) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
-}
-
+.resource-marker,
 .map-legend img,
 img[data-resource-icon] {
-    filter: drop-shadow(0 0 0.5px #fff);
+    filter: drop-shadow(0 0 0.75px #fff) drop-shadow(0 1px 1px #0f172a);
 }
 
 img[data-resource-icon] {
@@ -724,15 +721,6 @@ img[data-resource-icon] {
     vertical-align: middle;
     object-fit: contain;
     flex-shrink: 0;
-}
-
-:root[data-theme="dark"] .map-legend img,
-:root[data-theme="dark"] img[data-resource-icon] {
-    filter: brightness(0) invert(1);
-}
-
-.resource-marker-preview {
-    opacity: 0.85;
 }
 
 .feature-card,
