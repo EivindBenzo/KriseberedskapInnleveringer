@@ -13,7 +13,7 @@ function element(value = '') {
         setAttribute(name, value) { this.attributes[name] = value; },
         removeAttribute(name) { delete this.attributes[name]; },
         get firstChild() { return this.children[0]; },
-        focus() {},
+        focus() { this.focused = true; },
         classList: { add: c => classes.add(c), remove: c => classes.delete(c) },
         addEventListener(name, callback) { this.handlers[name] = callback; },
         appendChild(child) { this.children.push(child); },
@@ -159,7 +159,9 @@ test('fresh create (including redirect after save) has only saved markers; type/
 
 test('opening registration activates placement without a preview; first click creates it independently of filters', () => {
     const p = page({ placement: true });
-    assert.equal(p.elements.placementToggle.attributes['aria-pressed'], 'true');
+    assert.equal(p.elements.registrationToggle.attributes['aria-expanded'], 'true');
+    assert.equal(p.elements.mapWorkspace.dataset.registrationOpen, 'true');
+    assert.match(p.elements.mapModeStatus.textContent, /Registrering/);
     assert.equal(p.markers.length, 1);
     p.map.events.click({ latlng: { lat: 59, lng: 9 } });
     assert.equal(p.markers.length, 2);
@@ -397,11 +399,11 @@ test('full city search requires explicit button/Enter, ignores outdated results 
     assert.equal(p.elements.citySuggestions.children.length, 0);
 });
 
-test('browse clicks and browse search only move the map; registration placement can be explicitly disabled', async () => {
+test('browse clicks and search only move the map, including after returning from registration', async () => {
     for (const register of [false, true]) {
         const p = page({ register });
         assert.equal(p.elements.registrationPanel.hidden, !register);
-        if (register) p.elements.placementToggle.handlers.click();
+        if (register) p.elements.registrationCancel.handlers.click();
         p.map.events.click({ latlng: { lat: 59, lng: 9 } });
         assert.equal(p.requests.length, 0);
         assert.equal(p.markers.length, 1);
@@ -418,24 +420,50 @@ test('browse clicks and browse search only move the map; registration placement 
     }
 });
 
-test('closing registration or disabling placement stops coordinate updates and retains chosen point', () => {
+test('returning to browsing stops placement, retains form values and restores toolbar focus', () => {
     const p = page({ placement: true });
-    assert.equal(p.elements.placementToggle.attributes['aria-pressed'], 'true');
+    p.elements.resourceName.value = 'Min ressurs';
     p.map.events.click({ latlng: { lat: 59, lng: 9 } });
-    p.elements.placementToggle.handlers.click();
-    assert.equal(p.elements.placementToggle.attributes['aria-pressed'], 'false');
+    p.elements.registrationCancel.handlers.click();
+    assert.equal(p.elements.registrationToggle.focused, true);
+    assert.equal(p.elements.mapWorkspace.dataset.registrationOpen, 'false');
+    assert.equal(p.elements.mapModeStatus.textContent, '');
     p.map.events.click({ latlng: { lat: 60, lng: 10 } });
     assert.equal(p.elements.latitude.value, 59);
-    p.elements.placementToggle.handlers.click();
-    p.elements.registrationToggle.handlers.click();
     assert.equal(p.elements.registrationPanel.hidden, true);
     assert.equal(p.elements.registrationToggle.attributes['aria-expanded'], 'false');
     p.map.events.click({ latlng: { lat: 61, lng: 11 } });
     assert.equal(p.elements.latitude.value, 59);
     assert.equal(p.requests.length, 1);
     p.elements.registrationToggle.handlers.click();
-    assert.equal(p.elements.placementToggle.attributes['aria-pressed'], 'true');
+    assert.equal(p.elements.registrationToggle.attributes['aria-expanded'], 'true');
+    assert.equal(p.elements.resourceName.value, 'Min ressurs');
+    assert.equal(p.elements.resourceType.value, 'Drone');
+    assert.equal(p.elements.resourceName.focused, true);
     assert.equal(p.markers.length, 2);
+    p.map.events.click({ latlng: { lat: 62, lng: 12 } });
+    assert.equal(p.elements.latitude.value, 62);
+    assert.equal(p.markers.length, 2);
+});
+
+test('registration toolbar is grouped with resources; obsolete controls are absent and attribution remains', () => {
+    const view = read('Views/Home/Map.cshtml');
+    const toolbar = view.slice(view.indexOf('<div class="workspace-toolbar"'), view.indexOf('@if (isEditing)'));
+    assert.match(toolbar, /id="registrationToggle" class="btn-submit"/);
+    assert.match(toolbar, /aria-controls="registrationPanel" aria-expanded=/);
+    assert.match(toolbar, /Ressurser og mine ressurser/);
+    assert.doesNotMatch(view, /placementToggle|Velg plassering|Personvern og kartdata/);
+    assert.match(view, /attribution: '&copy; OpenStreetMap contributors'/);
+    assert.match(view, /Søk og punktoppslag bruker OpenStreetMap/);
+    assert.match(view, /geonames.org/);
+    assert.match(view, /<legend>Ressursdetaljer<\/legend>/);
+    assert.match(view, /<legend>Plassering/);
+    assert.match(view, /Ingen plassering valgt ennå/);
+    const p = page({ register: true });
+    p.elements.showList.handlers.click();
+    p.elements.locationMapLink.handlers.click();
+    assert.equal(p.elements.mapWorkspace.dataset.mobileView, 'map');
+    assert.equal(p.markers.length, 1, 'going to the map never selects a location');
 });
 
 test('edit and invalid submission start in placement mode, preserving then moving existing coordinates', () => {

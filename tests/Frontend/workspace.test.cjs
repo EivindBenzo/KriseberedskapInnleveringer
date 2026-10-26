@@ -111,3 +111,27 @@ test('dashboard is permission-aware and resource overview separates eligibility 
     assert.doesNotMatch(resources, /Owner\?\.UserName/);
     assert.match(read('Views/Home/Delete.cshtml'), /name="version"/);
 });
+
+test('resource cards have bounded theme-aware surfaces, readable facts and separated destructive actions', () => {
+    const view = read('Views/Home/Verify.cshtml');
+    const css = read('wwwroot/css/workspace.css');
+    const tokens = read('wwwroot/css/site.css');
+    assert.match(view, /class="data-container resource-overview"/);
+    assert.match(view, /class="resource-facts"[\s\S]*?<dl>[\s\S]*?<dt>Sist oppdatert<\/dt>/);
+    assert.match(view, /class="resource-status"[\s\S]*?@status.Availability[\s\S]*?Godkjenning: @status.Verification/);
+    assert.match(view, /<details open>\s*<summary>Operativ vurdering<\/summary>\s*<p data-resource-status-text="@r.Id">@status.StatusText/);
+    assert.match(view, /ResourcePermissions.CanManage\(User, r.OwnerId\)[\s\S]*?class="resource-destructive-actions"[\s\S]*?asp-action="Delete"/);
+    assert.match(css, /\.resource-overview \{ max-width: 1240px/);
+    assert.match(css, /\.data-container \.resource-row \{[^}]*border: 1px solid var\(--border-strong\)[^}]*background: var\(--surface\)/);
+    assert.match(css, /\.resource-destructive-actions \{[^}]*border-top:/);
+    assert.equal((tokens.match(/--border-strong:/g) || []).length, 2, 'each theme defines a readable card outline');
+});
+
+test('registration layout widens without sacrificing responsive map and form controls', () => {
+    const css = read('wwwroot/css/workspace-map.css');
+    assert.match(css, /\[data-registration-open="true"\] \.workspace-grid \{\s*grid-template-columns: minmax\(340px, 400px\) minmax\(0, 1fr\)/);
+    assert.match(css, /\.registration-section \{[^}]*min-width: 0/);
+    assert.match(css, /#registrationToggle\[aria-expanded="true"\]/);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.workspace-grid \{\s*display: flex;\s*flex-direction: column/);
+    assert.match(css, /\.resource-card \{[^}]*border: 1px solid var\(--workspace-border\)/);
+});

@@ -9,6 +9,7 @@
     --accent: #1d4ed8;
     --accent-end: #2563eb;
     --border: #cbd5e1;
+    --border-strong: #94a3b8;
     --hover: #e2edff;
     --error: #b91c1c;
     --shadow: rgba(15, 23, 42, 0.12);
@@ -17,7 +18,7 @@
 
 :root[data-theme="dark"] {
     color-scheme: dark;
-    --page: #1e293b;
+    --page: #111c30;
     --surface: #1e293b;
     --surface-end: #334155;
     --text: #cbd5e1;
@@ -26,10 +27,11 @@
     --accent: #60a5fa;
     --accent-end: #93c5fd;
     --border: #475569;
+    --border-strong: #64748b;
     --hover: #2a3a52;
     --error: #fca5a5;
     --shadow: rgba(0, 0, 0, 0.4);
-    --wave: #1e293b;
+    --wave: #111c30;
 }
 
 * {
