@@ -1,3 +1,8 @@
+@{
+    var canUseOperations = User.Identity?.IsAuthenticated == true
+        && !string.IsNullOrEmpty(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
+        && (User.IsInRole("Bruker") || User.IsInRole("Admin"));
+}
 <!DOCTYPE html>
 <html lang="no">
 <head>
@@ -44,11 +49,17 @@
                         <li><a asp-controller="Home" asp-action="Map" class="nav-link">Kart</a></li>
                         <li><a asp-controller="Home" asp-action="Resources" class="nav-link">Ressurser</a></li>
                         <li><a asp-controller="Home" asp-action="Mine" class="nav-link">Mine ressurser</a></li>
-                        <li><a asp-controller="Operations" asp-action="Requests" class="nav-link">Forespørsler</a></li>
+                        @if (canUseOperations)
+                        {
+                            <li><a asp-controller="Operations" asp-action="Index" class="nav-link">Forespørsler</a></li>
+                        }
                         @if (User.IsInRole("Admin"))
                         {
-                            <li><a asp-controller="Operations" asp-action="Queue" class="nav-link">Verifisering</a></li>
-                            <li><a asp-controller="Operations" asp-action="Needs" class="nav-link">Behov</a></li>
+                            @if (canUseOperations)
+                            {
+                                <li><a asp-controller="Operations" asp-action="Index" asp-fragment="resources" class="nav-link">Verifisering</a></li>
+                                <li><a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="nav-link">Behov</a></li>
+                            }
                             <li><a asp-controller="Admin" asp-action="Index" class="nav-link">Brukere</a></li>
                         }
                     }
@@ -73,12 +84,19 @@
     <script>
         const menuToggle = document.getElementById('menuToggle');
         const navMenu = document.getElementById('navMenu');
-        document.querySelectorAll('#navMenu a').forEach(function (link) {
-            if (link.pathname.toLowerCase() === window.location.pathname.toLowerCase() ||
-                (link.pathname === '/' && window.location.pathname === '/Home/Index')) {
-                link.setAttribute('aria-current', 'page');
-            }
-        });
+        function updateCurrentNavigation() {
+            document.querySelectorAll('#navMenu a').forEach(function (link) {
+                const samePage = link.pathname.toLowerCase() === window.location.pathname.toLowerCase() ||
+                    (link.pathname === '/' && window.location.pathname === '/Home/Index');
+                if (samePage && link.hash === window.location.hash) {
+                    link.setAttribute('aria-current', 'page');
+                } else {
+                    link.removeAttribute('aria-current');
+                }
+            });
+        }
+        updateCurrentNavigation();
+        window.addEventListener('hashchange', updateCurrentNavigation);
 
         menuToggle.addEventListener('click', function () {
             const isOpen = navMenu.classList.toggle('open');

@@ -1,11 +1,12 @@
 .main-content:has(.map-workspace) {
     max-width: 1680px;
-    margin: 1.25rem auto;
+    margin: .75rem auto;
     padding: 0 1.25rem;
 }
 
 .map-workspace {
     --workspace-border: var(--border, #cbd5e1);
+    --workspace-height: calc(100dvh - 206px);
     color: var(--text);
 }
 
@@ -14,7 +15,7 @@
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
-    margin-bottom: 1rem;
+    margin-bottom: .6rem;
 }
 
 .map-workspace h1 {
@@ -30,24 +31,24 @@
 .map-workspace .workspace-grid {
     display: grid;
     grid-template-columns: 320px minmax(0, 1fr);
-    gap: 1rem;
+    gap: .75rem;
     align-items: start;
 }
 
 .map-workspace .workspace-sidebar {
-    max-height: calc(100dvh - 220px);
-    min-height: 480px;
+    max-height: var(--workspace-height);
+    min-height: 320px;
     overflow-y: auto;
     scrollbar-gutter: stable;
     border: 1px solid var(--workspace-border);
-    border-radius: 12px;
+    border-radius: 8px;
     background: var(--surface);
 }
 
 .map-workspace .workspace-search,
 .map-workspace .workspace-results,
 .map-workspace .registration-panel {
-    padding: .9rem;
+    padding: .75rem;
 }
 
 .map-workspace .workspace-search,
@@ -82,7 +83,7 @@
 .map-workspace .btn-danger,
 .map-workspace .btn-submit,
 .map-workspace .workspace-mobile-switch button {
-    min-height: 42px;
+    min-height: 44px;
     padding: .55rem .8rem;
     margin: 0;
     font: inherit;
@@ -209,12 +210,12 @@
 }
 
 .map-workspace #map {
-    height: calc(100dvh - 255px);
-    min-height: 480px;
+    height: calc(var(--workspace-height) - 28px);
+    min-height: 320px;
     margin: 0;
     box-shadow: none;
     border: 1px solid var(--workspace-border);
-    border-radius: 12px;
+    border-radius: 8px;
 }
 
 .map-workspace #map.placement-active {
@@ -247,6 +248,15 @@
 
 .map-workspace [hidden] {
     display: none !important;
+}
+
+@media (min-width: 761px) and (max-width: 1279px) {
+    .map-workspace { --workspace-height: calc(100dvh - 245px); }
+}
+
+@media (max-height: 600px) {
+    .map-workspace .workspace-sidebar { max-height: none; overflow: visible; }
+    .map-workspace .workspace-map-region { position: static; }
 }
 
 @media (max-width: 760px) {

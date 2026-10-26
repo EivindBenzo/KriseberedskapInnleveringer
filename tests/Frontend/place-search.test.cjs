@@ -16,6 +16,7 @@ function element(id = '') {
         removeAttribute(name) { delete this.attributes[name]; },
         addEventListener(name, handler) { this.handlers[name] = handler; },
         appendChild(child) { this.children.push(child); },
+        replaceChildren() { this.children = []; },
         get firstChild() { return this.children[0]; },
         set innerHTML(value) { assert.equal(value, ''); this.children = []; },
         contains(target) { return this === target || this.children.some(c => c.contains(target)); },
@@ -25,7 +26,7 @@ function element(id = '') {
 
 function setup() {
     const input = element('search'), list = element('suggestions'), status = element(), button = element();
-    const timers = new Map(), requests = [], selections = [];
+    const timers = new Map(), requests = [], selections = [], edits = [];
     let nextTimer = 0, outside;
     const context = {
         window: {}, AbortController,
@@ -40,12 +41,13 @@ function setup() {
         }
     };
     vm.runInNewContext(read('wwwroot/js/place-search.js'), context);
-    context.window.PlaceSearch.attach({
+    const api = context.window.PlaceSearch.attach({
         input, list, status, button, searchUrl: '/Home/SearchPlaces',
-        localitiesUrl: '/data/norway-localities.json?v=test', onSelect: place => selections.push(place)
+        localitiesUrl: '/data/norway-localities.json?v=test', onSelect: place => selections.push(place),
+        onInput: () => edits.push(input.value)
     });
     return {
-        input, list, status, button, requests, selections,
+        input, list, status, button, requests, selections, api, edits,
         type(value) { input.value = value; input.handlers.input(); },
         debounce() {
             for (const [id, timer] of timers) if (timer.delay === 250) {
@@ -227,4 +229,25 @@ test('bundled data is bounded, Norwegian, and supports accented name matching', 
     assert.match(markup, /role="listbox"/);
     assert.match(markup, /aria-live="polite"/);
     assert.match(markup, /FileVersionProvider.AddFileVersionToPath/);
+});
+
+test('programmatic location text cancels search without triggering suggestions, edits or selection', async () => {
+    const p = setup();
+    p.type('Be');
+    p.button.handlers.click();
+    const pending = p.requests[0];
+    p.api.setValue('<img src=x onerror=alert(1)>');
+    assert.equal(pending.options.signal.aborted, true);
+    pending.resolve(response([bergen]));
+    await settle();
+    p.debounce();
+    assert.equal(p.input.value, '<img src=x onerror=alert(1)>');
+    assert.equal(p.list.children.length, 0);
+    assert.equal(p.requests.length, 1);
+    assert.deepEqual(p.edits, ['Be']);
+    assert.equal(p.selections.length, 0);
+    let prevented = false;
+    p.input.handlers.keydown({ key: 'Enter', isComposing: true, preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(p.requests.length, 1);
 });

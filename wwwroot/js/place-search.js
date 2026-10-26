@@ -13,7 +13,7 @@
             && Number.isFinite(place.lng) && Math.abs(place.lng) <= 180;
     }
 
-    function attach({ input, list, status, button, searchUrl, localitiesUrl, onSelect }) {
+    function attach({ input, list, status, button, searchUrl, localitiesUrl, onSelect, onInput }) {
         let version = 0;
         let timer;
         let controller;
@@ -25,7 +25,7 @@
         function close() {
             results = [];
             active = -1;
-            list.innerHTML = '';
+            list.replaceChildren();
             list.classList.remove('open');
             input.setAttribute('aria-expanded', 'false');
             input.removeAttribute('aria-activedescendant');
@@ -168,6 +168,7 @@
 
         input.addEventListener('input', function () {
             cancel();
+            onInput?.();
             const query = queryValue();
             status.textContent = query ? '' : 'Skriv mellom 2 og 120 tegn for lokale forslag.';
             if (!query) return;
@@ -175,7 +176,10 @@
             timer = setTimeout(() => suggest(query, requestVersion), 250);
         });
         input.addEventListener('keydown', function (event) {
-            if (event.isComposing) return;
+            if (event.isComposing) {
+                if (event.key === 'Enter') event.preventDefault();
+                return;
+            }
             if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                 event.preventDefault();
                 if (results.length) {
@@ -198,6 +202,13 @@
         document.addEventListener('click', function (event) {
             if (!list.contains(event.target) && event.target !== input && event.target !== button) {
                 cancel();
+                status.textContent = '';
+            }
+        });
+        return Object.freeze({
+            setValue(label) {
+                cancel();
+                input.value = label;
                 status.textContent = '';
             }
         });

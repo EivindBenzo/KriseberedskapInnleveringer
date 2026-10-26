@@ -2,10 +2,11 @@
 @using System.Security.Claims
 @model OperationsViewModel
 @{
-    ViewData["Title"] = "Operativ samhandling";
+    ViewData["Title"] = "Forespørsler";
     var admin = User.IsInRole("Admin");
     var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier);
     var now = DateTime.UtcNow;
+    var eligibleResources = Model.Resources.Where(r => r.OwnerId != null && WorkflowEligibility.IsEligible(r, now)).ToList();
     string AvailabilityLabel(ResourceAvailability value) => value switch
     {
         ResourceAvailability.Available => "Tilgjengelig", ResourceAvailability.Unavailable => "Utilgjengelig",
@@ -29,8 +30,9 @@
         ResourceRequestStatus.Cancelled => "Avbrutt", _ => "Returnert – ny verifisering kreves"
     };
 }
-<h1>Operativ samhandling</h1>
-<p>Godkjenning og tilgjengelighet er uavhengige. Eier aksepterer og reserverer; administrator tildeler som koordinator. Alle beslutninger loggføres.</p>
+<section class="operations-workspace" aria-labelledby="operations-heading">
+<h1 id="operations-heading">Forespørsler</h1>
+<p>@(admin ? "Verifiser ressurser, opprett behov og koordiner tildeling. Eieren må akseptere først." : "Se forespørsler til dine ressurser. Du kan svare og oppdatere tilgjengelighet.")</p>
 @if (TempData["WorkflowError"] is string error)
 {
     <p role="alert">@error</p>
@@ -39,7 +41,11 @@
 {
     <p role="status">@success</p>
 }
-<h2>@(admin ? "Ressurser og verifiseringskø" : "Mine ressurser")</h2>
+<h2 id="resources">@(admin ? "Ressurser og verifisering" : "Mine ressurser")</h2>
+@if (Model.Resources.Count == 0)
+{
+    <p>@(admin ? "Ingen ressurser å verifisere." : "Du har ingen registrerte ressurser.")</p>
+}
 @foreach (var resource in Model.Resources)
 {
     <div class="workflow-item">
@@ -98,7 +104,11 @@
         <button type="submit">Opprett behov</button>
     </form>
 }
-<h2>Behov og fremdrift</h2>
+<h2 id="needs">Behov og fremdrift</h2>
+@if (Model.Needs.Count == 0)
+{
+    <p>@(admin ? "Ingen behov er opprettet." : "Ingen behov er knyttet til dine forespørsler.")</p>
+}
 @foreach (var need in Model.Needs)
 {
     <div class="workflow-item">
@@ -121,8 +131,12 @@
                 <button type="submit">Oppdater fremdrift</button>
             </form>
             <details>
-                <summary>Send ressursforespørsel (kun gyldig godkjente og tilgjengelige ressurser)</summary>
-                @foreach (var resource in Model.Resources.Where(r => r.OwnerId != null && WorkflowEligibility.IsEligible(r, now)))
+                <summary>Send ressursforespørsel</summary>
+                @if (eligibleResources.Count == 0)
+                {
+                    <p>Ingen tilgjengelige ressurser med gyldig godkjenning.</p>
+                }
+                @foreach (var resource in eligibleResources)
                 {
                     <form asp-action="CreateRequest" method="post">
                         <input type="hidden" name="needId" value="@need.Id" />
@@ -138,7 +152,11 @@
         }
     </div>
 }
-<h2>@(admin ? "Forespørsler og koordinering" : "Forespørsler til meg")</h2>
+<h2 id="requests">@(admin ? "Forespørsler og koordinering" : "Forespørsler til meg")</h2>
+@if (Model.Requests.Count == 0)
+{
+    <p>@(admin ? "Ingen forespørsler er sendt." : "Du har ingen innkommende forespørsler.")</p>
+}
 @foreach (var request in Model.Requests)
 {
     <div class="workflow-item">
@@ -187,6 +205,11 @@
 @if (admin)
 {
     <h2>Beslutningslogg (siste 100)</h2>
+    @if (Model.Audit.Count == 0)
+    {
+        <p>Ingen beslutninger er loggført.</p>
+    }
+    <div class="audit-scroll" tabindex="0" role="region" aria-label="Beslutningslogg">
     <table>
         <thead><tr><th>Tid (UTC)</th><th>Aktør-ID</th><th>Handling</th><th>Ressurs / behov / forespørsel</th><th>Begrunnelse</th></tr></thead>
         <tbody>
@@ -197,4 +220,6 @@
         }
         </tbody>
     </table>
+    </div>
 }
+</section>

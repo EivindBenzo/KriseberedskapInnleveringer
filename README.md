@@ -18,11 +18,11 @@ Forsiden er offentlig. Velg «Registrer» for å opprette en konto; nye kontoer 
 | Se alle behov | Nei | Ja |
 | Liste brukere og tildele/fjerne Admin | Nei | Ja |
 
-Primærmenyen viser Hjem, Kart, Ressurser, Mine ressurser og Forespørsler. Admin får også Verifisering, Behov og Brukere. `/Home/Resources` er oversikten; `/Home/Mine` begrenser til egne ressurser. Gamle `/Home/Data?type=...` og `/Home/Verify?type=...` videresendes til Ressurser med typefilteret beholdt. Verifisering er en egen Admin-beskyttet kø, ikke CRUD-oversikten. Eldre meldinger beholdes og vises bare til eier eller Admin; de blir ikke automatisk omgjort til operative behov. Det gamle kontaktskjemaet `/Home/Form` krever nå Admin. Sletting krever bekreftelse, versjonskontroll og POST med antiforgery-token; historikkførte/reserverte/tildelte ressurser må i stedet håndteres i arbeidsflyten.
+Primærmenyen viser Hjem, Kart, Ressurser og Mine ressurser. Bruker/Admin får Forespørsler på `/Operations`; tilbydere ser bare egne innkommende forespørsler. Admin får også Verifisering og Behov, som peker til seksjoner på samme arbeidsflate, samt Brukere. `/Home/Resources` er oversikten; `/Home/Mine` begrenser til egne ressurser. Gamle `/Home/Data?type=...` og `/Home/Verify?type=...` videresendes til Ressurser med typefilteret beholdt. Verifiseringshandlinger er Admin-beskyttet, ikke del av CRUD-oversikten. Eldre meldinger beholdes og vises bare til eier eller Admin; de blir ikke automatisk omgjort til operative behov. Det gamle kontaktskjemaet `/Home/Form` krever nå Admin. Sletting krever bekreftelse, versjonskontroll og POST med antiforgery-token; historikkførte/reserverte/tildelte ressurser må i stedet håndteres i arbeidsflyten.
 
 ## Arbeidsflyt og tilstandsmodell
 
-Dette er en studentprototype, ikke en offisiell tjeneste eller et sanntids-/offline-system. Admin er prosjektets betrodde koordinator, behovsmelder og verifikator. Ingen nye privilegerte roller opprettes, og offentlig registrering kan aldri gi slike rettigheter. Admin tilordnes bare gjennom eksisterende betrodd bootstrap eller brukeradministrasjon. To separate kontoer trengs for å registrere og godkjenne samme ressurs: en Admin kan ikke godkjenne sin egen registrering.
+Dette er en studentprototype, ikke en offisiell tjeneste eller et sanntids-/offline-system. Admin er prosjektets betrodde koordinator, behovsmelder og verifikator. Ingen nye privilegerte roller opprettes, og offentlig registrering kan aldri gi slike rettigheter. Admin tilordnes bare gjennom betrodd bootstrap, eksplisitt operatørkommando eller brukeradministrasjon. To separate kontoer trengs for å registrere og godkjenne samme ressurs: en Admin kan ikke godkjenne sin egen registrering.
 
 | Begrep | Tilstander og regel |
 | --- | --- |
@@ -49,7 +49,22 @@ Valgfritt, utført av operatøren lokalt:
 2. Kjør `docker compose up --build -d --force-recreate heimevernet`. Konto og roller opprettes i **din lokale MariaDB når appen starter**, ikke av cloud-agenten. Uten begge innstillinger opprettes ingen administrator; én manglende verdi stopper oppstart.
 3. Logg inn som Administrator. Fjern deretter begge bootstrap-verdier fra `.env` og gjenskap appcontaineren med samme kommando. Kontoen beholdes i databasen.
 
-En eksisterende vanlig konto blir **aldri** automatisk oppgradert: bootstrap stopper med feil. En eksisterende Admin beholdes uten passordendring. For å oppgradere en eksisterende konto må en innlogget administrator bruke «Administrer brukere». Hvis ingen Admin finnes, bootstrap først en separat, operatørkontrollert ny konto og bruk den til rolletildelingen. Ingen passord nullstilles, og registreringsskjemaet kan ikke tildele Admin. Cloud-agenten har ikke opprettet noen konto i brukerens lokale database eller hatt tilgang til den. Ikke legg ekte verdier i Git, logger eller skjermbilder.
+En eksisterende vanlig konto blir **aldri** automatisk oppgradert: bootstrap stopper med feil. En eksisterende Admin beholdes uten passordendring. En innlogget administrator kan bruke «Administrer brukere». Hvis ingen Admin er tilgjengelig, kan en betrodd operatør med terminal-/databasetilgang eksplisitt oppgradere en **eksisterende** konto med engangskommandoen nedenfor. Ingen passord nullstilles, og registreringsskjemaet kan ikke tildele Admin. Cloud-agenten har ikke opprettet noen konto i brukerens lokale database eller hatt tilgang til den. Ikke legg ekte verdier i Git, logger eller skjermbilder.
+
+### Gjenopprett administrator på eksisterende konto
+
+Kontroller riktig database og konto først, og ta vanlig databasebackup. Kommandoen krever ingen `ADMIN_EMAIL`/`ADMIN_PASSWORD`, oppretter ingen konto og kjører verken migreringer, bootstrap eller HTTP-server. Databaseskjemaet må allerede være initialisert av normal oppstart. Erstatt eksempeladressen med kontoen du kontrollerer:
+
+```sh
+# Lokalt fra prosjektmappen, med eksisterende ConnectionStrings__DefaultConnection
+# eller MARIADB_* miljøvariabler satt (dotnet laster ikke .env automatisk):
+dotnet run --project HeimevernetInnlevering1.csproj -- --promote-admin operator@example.test
+
+# I en allerede kjørende appcontainer, etter bygg/utrulling av denne versjonen:
+docker compose exec heimevernet dotnet HeimevernetInnlevering1.dll --promote-admin operator@example.test
+```
+
+Prosessen avsluttes etter operasjonen: kode `0` ved suksess (også dersom kontoen allerede er Admin), `1` ved manglende/tvetydig konto eller databasefeil, `2` ved ugyldige argumenter. Konto-ID, eksisterende roller, passord og ressurser bevares. Første oppgradering fornyer sikkerhetsstempelet i samme transaksjon som rolletildelingen; eksisterende innlogginger avvises ved neste forespørsel. Logg inn på nytt og velg Administrator. Gjentakelse endrer ikke passord eller sikkerhetsstempel. Kommandoen skriver ikke kontoopplysninger, men e-postargumentet kan vises i prosesslisten og shellhistorikk; bruk en betrodd terminal og følg lokale rutiner for historikk. Dette er ikke et offentlig endepunkt eller en automatisk oppgradering via miljøvariabler. Ikke slett database- eller nøkkelvolum.
 
 Passord lagres som Identity-hasher i databasen. Gjentatte mislykkede innlogginger utløser midlertidig låsing. Informasjonskapsler er HttpOnly/SameSite; HTTPS gir Secure-cookie, mens HTTP fungerer i lokal Docker-utvikling. Bruk HTTPS i produksjon.
 
@@ -61,6 +76,8 @@ Passord lagres som Identity-hasher i databasen. Gjentatte mislykkede innlogginge
 ## Kartikoner og tema
 
 Kartet viser egne, lokalt lagrede, ensfargede SVG-silhuetter uten sirkelmerker for Kjøretøy (bil), Maskin (gravemaskin), Drone, Generator, Personell og Utstyr (verktøykasse), samt ukjent type. Dette er originaltegnede symboler, ikke kopiert referanse-/vannmerkekunst. Symbolene er normalt 32px (zoom 12), begrenset til 28–36px, med sentrert anker og diskret kontrastskygge. Markører, forhåndsvisning, tegnforklaring, kort og Verifiser bruker samme mapping og innholdsversjonerte SVG-adresser, slik at gamle sirkelikoner ikke blir liggende i nettleserens hurtigbuffer etter utrulling. Ingen nye koordinater eller forhåndsvisning velges ved oppstart eller etter innsending. Klikk i kartet eller velg et søkeresultat først. Forhåndsvisningen oppdateres når du velger ressurstype, uten popup eller tekst over markøren; valgt sted vises i eksisterende oppsummering. Typevalg alene lager aldri en markør. Ukjent/ikke valgt type kan vises med spørsmålstegn etter eksplisitt plassering. Lagrede ressurser beholder informative popuper ved klikk.
+
+Grønn silhuett betyr at ressursen har kjent type, en eksisterende eier, tilgjengelighet `Available` og gjeldende `Approved`-verifisering: godkjenningstidspunktet må være nå eller tidligere, og utløpstiden må ligge strengt frem i tid. Ventende, avvist eller utløpt verifisering, `Unavailable`, `Reserved`, `Allocated`, ukjente verdier, manglende lagret status og manglende eier gir rødt symbol, med tekst som forklarer årsaken. Utløp oppdateres også mens siden står åpen. Ulagret plasseringsforhåndsvisning og typeforklaring er nøytrale, ikke et løfte om tilgjengelighet. En ventende forespørsel reserverer ikke ressursen; først eierens aksept setter `Reserved`.
 
 Symbolene skaleres ved zoomendring, med mindre ikoner på oversiktsnivå og begrenset minimum/maksimum. Tegnforklaringen nederst til venstre bruker samme ikoner, med seks avkrysningsbokser som kun skjuler/viser lagrede markører. Alle kan slås av; verken databasen eller valgt forhåndsvisning endres. Valget beholdes ved zoom/fullskjerm. «Vis på kart» gjenaktiverer ressursens type ved behov. Tegnforklaringen er større kun i fullskjerm og kan foldes sammen på mobil. Firehjørnesymbolet nederst til høyre bruker nettleserens Fullscreen API, med CSS-reserve. Trykk knappen igjen eller Esc for å avslutte. Kontrollene følger temaet og støtter tastatur.
 
@@ -87,7 +104,7 @@ Focused frontend checks use Node.js's built-in test runner (no npm packages):
 ```sh
 node --test tests/Frontend/*.test.cjs
 dotnet build
-dotnet test tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj --filter 'FullyQualifiedName!~MariaDbPersistenceTests&FullyQualifiedName!~WorkflowTests'
+dotnet test tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj --filter 'FullyQualifiedName!~MariaDbPersistenceTests&FullyQualifiedName!~WorkflowTests&FullyQualifiedName!~AdminPromotionTests'
 ```
 
 Fokuserte tester dekker tema/ARIA, zoom/felles ikonmapping, logoens proporsjoner, popupfri forhåndsvisning, samt lokal debounce/minimumslengde, hurtigbuffer, utdaterte svar, tastaturvalg, tekstescaping og nettverksfeil. Eksisterende tester beholdes; faktiske resultater og nettleser-/Docker-begrensninger oppgis i PR-en.
@@ -239,7 +256,7 @@ Review and commit the generated migration and model snapshot. The app applies co
 
 ## Integration smoke tests
 
-The opt-in test project exercises migrations and real MariaDB persistence, including Identity users/roles, resource ownership, Norwegian characters, nullable form locations, map coordinates and timestamps, and map-resource create/read/update/delete. Workflow tests additionally exercise decisions, expiry, owner access, allocation conflicts and return/reverification. Its source is excluded from the web project's compile glob. Tests without MariaDB can run using the filtered command above; run the complete suite only against an isolated test database with the documented MariaDB environment variables.
+The opt-in test project exercises migrations and real MariaDB persistence, including Identity users/roles, resource ownership, Norwegian characters, nullable form locations, map coordinates and timestamps, and map-resource create/read/update/delete. Workflow tests additionally exercise decisions, expiry, owner access, allocation conflicts and return/reverification. Administrator recovery tests cover explicit opt-in versus bootstrap/public signup, missing accounts, repeat invocation, password/resource preservation, transactional security-stamp failure and CLI exit without HTTP hosting. Its source is excluded from the web project's compile glob. Tests without MariaDB can run using the filtered command above; run the complete suite only against an isolated test database with the documented MariaDB environment variables.
 
 Run against a new, isolated Compose project name to exercise an empty database and fresh schema without touching the normal application volume. If `heimevernet-smoke` was used before, choose a different project name; Compose keeps named volumes after `down`.
 

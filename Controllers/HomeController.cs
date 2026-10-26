@@ -342,7 +342,9 @@ public class HomeController : Controller
             var now = DateTime.UtcNow;
             resources = resources.Where(r => r.Availability == ResourceAvailability.Available &&
                 r.VerificationStatus == ResourceVerificationStatus.Approved &&
-                r.VerifiedAtUtc <= now && r.VerificationExpiresAtUtc > now);
+                r.VerifiedAtUtc <= now && r.VerificationExpiresAtUtc > now &&
+                r.OwnerId != null && r.OwnerId.Trim() != "" &&
+                MapSubmissionViewModel.ResourceTypes.Contains(r.ResourceType));
         }
         return new DataPageViewModel
         {

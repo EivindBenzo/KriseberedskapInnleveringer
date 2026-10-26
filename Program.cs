@@ -5,6 +5,12 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
+if (args.Any(arg => arg.StartsWith("--promote-admin", StringComparison.Ordinal)))
+{
+    Environment.ExitCode = await AdminPromotionCommand.RunAsync(args);
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
