@@ -319,32 +319,35 @@ function eligibleStatus(overrides = {}) {
     };
 }
 
-test('only a known, explicitly eligible, currently verified available resource is green; preview stays neutral', () => {
+test('only availability determines icon color; preview stays neutral', () => {
     const api = loadResourceIcons();
     const eligible = eligibleStatus();
     assert.equal(api.get('Drone', eligible).url, '/images/resources/drone-available.svg?v=availability-20261026');
     assert.equal(api.get('Drone', eligible, true).url, api.get('Drone').url);
     assert.equal(api.markerOptions('Drone', true, 12, eligible).title, 'Ny ressurs (ikke lagret): Drone');
     for (const overrides of [
-        { isEligible: false }, { isEligible: 'true' }, { availability: 'Utilgjengelig' },
-        { availability: 'Reservert' }, { availability: 'Tildelt' }, { availability: 'Ukjent' },
+        { isEligible: false }, { isEligible: 'true' }, { isEligible: undefined },
         { verification: 'Venter på verifisering' }, { verification: 'Avvist' },
         { verification: 'Ukjent verifiseringsstatus' }, { verifiedAtUtc: null },
         { verifiedAtUtc: '2098-01-01T00:00:00Z' }, { verificationExpiresAtUtc: null },
         { verificationExpiresAtUtc: 'invalid' }, { verificationExpiresAtUtc: '2020-01-01T00:00:00Z' }
     ]) {
         const status = eligibleStatus(overrides);
-        assert.equal(api.get('Drone', status).state, 'unavailable', JSON.stringify(overrides));
-        assert.match(api.get('Drone', status).url, /drone-unavailable\.svg/);
+        assert.equal(api.get('Drone', status).state, 'available', JSON.stringify(overrides));
+        assert.match(api.get('Drone', status).url, /drone-available\.svg/);
     }
-    assert.equal(api.get('unknown', eligible).state, 'unavailable');
+    for (const availability of ['Utilgjengelig', 'Reservert', 'Tildelt', 'Ukjent']) {
+        assert.equal(api.get('Drone', eligibleStatus({ availability })).state, 'unavailable');
+    }
+    assert.equal(api.get('Drone', { availability: 'Tilgjengelig' }).state, 'available');
+    assert.equal(api.get('unknown', eligible).state, 'available');
     assert.equal(api.get('Drone', {}).state, 'unavailable');
     assert.match(api.markerOptions('Drone').icon.iconUrl, /drone-unavailable\.svg/, 'missing saved state fails closed');
     assert.equal(api.get('Drone').state, 'neutral', 'type legends have no operational status');
     assert.match(api.markerOptions('Drone', false, 12, eligible).alt, /Kan forespørres nå/);
 });
 
-test('expiry boundary changes to red and keeps an explicit accessible reason without reloading', () => {
+test('expiry boundary keeps availability color and updates the accessible reason without reloading', () => {
     const calls = [];
     let now = Date.parse('2026-10-26T12:00:00Z');
     class Clock extends Date { static now() { return now; } }
@@ -359,7 +362,7 @@ test('expiry boundary changes to red and keeps an explicit accessible reason wit
     assert.equal(calls.length, 1);
     assert.equal(calls[0].delay, 1001);
     now += 1000;
-    assert.equal(api.get('Drone', status).state, 'unavailable');
+    assert.equal(api.get('Drone', status).state, 'available');
     assert.match(api.markerOptions('Drone', false, 12, status).alt, /Godkjenning utløpt/);
     calls[0].callback();
     assert.equal(refreshes, 1);
@@ -386,7 +389,7 @@ test('availability variants retain the exact transparent silhouette and local ca
     assert.equal(api.get('Drone', eligibleStatus()).url, urls['drone-available']);
 });
 
-test('cards and overview images refresh both silhouette and visible reason at approval expiry', () => {
+test('cards and overview images keep availability color while refreshing the reason at approval expiry', () => {
     let now = Date.parse('2026-10-26T12:00:00Z');
     class Clock extends Date { static now() { return now; } }
     const callbacks = [];
@@ -416,9 +419,35 @@ test('cards and overview images refresh both silhouette and visible reason at ap
     assert.match(automaticImage.alt, /Kan forespørres nå/);
     now += 1001;
     callbacks[0]();
-    assert.match(image.src, /drone-unavailable\.svg/);
-    assert.equal(image.dataset.resourceState, 'unavailable');
+    assert.match(image.src, /drone-available\.svg/);
+    assert.equal(image.dataset.resourceState, 'available');
     assert.match(text.textContent, /Godkjenning utløpt/);
     assert.match(automaticImage.alt, /Godkjenning utløpt/);
     assert.equal(image.alt, '', 'adjacent visible status carries the decorative image meaning');
+});
+
+test('mixed list items render green for available and red for unavailable regardless of verification', () => {
+    const images = [
+        ['Drone', 'Tilgjengelig', 'Venter på verifisering'],
+        ['Generator', 'Utilgjengelig', 'Godkjent'],
+        ['Utstyr', 'Tilgjengelig', 'Avvist'],
+        ['Kjøretøy', 'Utilgjengelig', 'Venter på verifisering']
+    ].map(([type, availability, verification]) => ({
+        dataset: {
+            resourceIcon: type,
+            resourceStatus: JSON.stringify({ availability, verification, isEligible: false })
+        },
+        hasAttribute: () => false
+    }));
+    loadResourceIcons({
+        document: {
+            currentScript: { dataset: { iconBase: '/images/resources/' } },
+            querySelectorAll: () => images
+        }
+    });
+    for (const [index, file] of ['drone', 'generator', 'toolbox', 'car'].entries()) {
+        const state = index % 2 === 0 ? 'available' : 'unavailable';
+        assert.equal(images[index].dataset.resourceState, state);
+        assert.match(images[index].src, new RegExp(`/${file}-${state}\\.svg`));
+    }
 });
