@@ -108,12 +108,18 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
     public Task<IActionResult> Availability(int id, ResourceAvailability availability, string token, string reason) =>
         Run(() => workflow.UpdateResourceAvailabilityAsync(id, availability, token, User, reason));
 
+    private IActionResult Back()
+    {
+        var returnUrl = Request.Form["returnUrl"].ToString();
+        return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToAction(nameof(Index));
+    }
+
     private async Task<IActionResult> Run(Func<Task> action)
     {
         if (!ModelState.IsValid)
         {
             TempData["WorkflowError"] = "Ugyldige opplysninger. Kontroller feltene og prøv igjen.";
-            return RedirectToAction(nameof(Index));
+            return Back();
         }
         try
         {
@@ -124,6 +130,6 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
         {
             TempData["WorkflowError"] = exception.Message;
         }
-        return RedirectToAction(nameof(Index));
+        return Back();
     }
 }

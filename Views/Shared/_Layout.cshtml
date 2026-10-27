@@ -56,11 +56,17 @@
                     <li><a asp-controller="Home" asp-action="Index" class="nav-link">Hjem</a></li>
                     @if (User.Identity?.IsAuthenticated == true)
                     {
+                        <li><a asp-controller="Home" asp-action="Dashboard" class="nav-link">Oversikt</a></li>
                         <li><a asp-controller="Home" asp-action="Map" class="nav-link">Kart</a></li>
                         <li><a asp-controller="Home" asp-action="Resources" class="nav-link">Ressurser</a></li>
                         @if (canUseOperations)
                         {
-                            <li><a asp-controller="Operations" asp-action="Index" class="nav-link">Forespørsler</a></li>
+                            @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Ressursleverandor)
+                                || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.DispatchTeam)
+                                || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
+                            {
+                                <li><a asp-controller="Operations" asp-action="Index" class="nav-link">Forespørsler</a></li>
+                            }
                         }
                         @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
                         {

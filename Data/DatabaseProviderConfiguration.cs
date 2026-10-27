@@ -9,6 +9,9 @@ public static class DatabaseProviderConfiguration
     public static readonly ServerVersion MariaDbServerVersion =
         new MariaDbServerVersion(new Version(10, 11, 19));
 
+    // Detection opens a connection, so do it once per connection string rather than for every DbContext.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, ServerVersion> DetectedVersions = new();
+
     public static string GetRequiredConnectionString(IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection");
@@ -61,10 +64,30 @@ public static class DatabaseProviderConfiguration
             : value;
     }
 
+    /// <summary>
+    /// Uses <paramref name="serverVersion"/> (for example "8.4.0-mysql" or "10.11.19-mariadb") when given,
+    /// otherwise detects the version from the server so both MariaDB and MySQL 8 work.
+    /// </summary>
     public static DbContextOptionsBuilder Configure(
         DbContextOptionsBuilder options,
-        string connectionString)
+        string connectionString,
+        string? serverVersion = null)
     {
-        return options.UseMySql(connectionString, MariaDbServerVersion);
+        return options.UseMySql(connectionString, ResolveServerVersion(connectionString, serverVersion));
+    }
+
+    public static ServerVersion ResolveServerVersion(string connectionString, string? serverVersion)
+    {
+        if (string.IsNullOrWhiteSpace(serverVersion))
+            return DetectedVersions.GetOrAdd(connectionString, ServerVersion.AutoDetect);
+        try
+        {
+            return ServerVersion.Parse(serverVersion.Trim());
+        }
+        catch (Exception exception) when (exception is ArgumentException or FormatException or InvalidOperationException)
+        {
+            throw new InvalidOperationException(
+                "DATABASE_SERVER_VERSION is invalid. Use for example 8.4.0-mysql or 10.11.19-mariadb.");
+        }
     }
 }

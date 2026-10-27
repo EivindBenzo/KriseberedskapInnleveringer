@@ -166,3 +166,19 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+
+.dashboard h2 { margin: 2rem 0 .75rem; font-size: 1.25rem; color: var(--heading); }
+.dashboard .section-head { margin-top: 2rem; }
+.dashboard .section-head h2 { margin: 0; }
+.dashboard .inline-form { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem .75rem; margin-top: .5rem; }
+.dashboard .inline-form label { display: grid; gap: .25rem; flex: 1 1 14rem; }
+.dashboard-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; margin: 1rem 0; }
+.dashboard-stats div { padding: .85rem 1rem; border: 1px solid var(--border); border-radius: .6rem; }
+.dashboard-stats strong { display: block; font-size: 1.6rem; color: var(--heading); }
+.dashboard-stats span { color: var(--muted); font-size: .9rem; }
+.timeline ol { margin: .25rem 0 0; padding-left: 1.1rem; }
+.timeline li span { display: block; color: var(--muted); font-size: .85rem; }
+.progress-steps { display: flex; flex-wrap: wrap; gap: .5rem; margin: .5rem 0; padding: 0; list-style: none; }
+.progress-steps li { padding: .2rem .65rem; border: 1px solid var(--border); border-radius: 1rem; color: var(--muted); font-size: .85rem; }
+.progress-steps li.done { color: var(--heading); border-color: var(--accent); background: var(--hover); }
+.progress-steps li[aria-current="step"] { font-weight: 700; }

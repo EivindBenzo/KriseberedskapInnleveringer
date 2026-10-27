@@ -264,12 +264,38 @@ public class AdminPromotionTests
     }
 
     [Theory]
-    [InlineData("Kriseledelse")]
+    [InlineData("OffentligAktor")]
+    [InlineData("Ressursleverandor")]
     [InlineData("DispatchTeam")]
+    [InlineData("Kriseledelse")]
     [InlineData("Verifiseringsansvarlig")]
+    public async Task RegistrationAcceptsEachOfTheFiveAccountTypes(string role)
+    {
+        await using var test = await Scenario.Create();
+        var email = $"{Guid.NewGuid():N}@example.test";
+        var context = new DefaultHttpContext();
+        var controller = new AccountController(test.Users, test.Services.GetRequiredService<SignInManager<IdentityUser>>())
+        {
+            ControllerContext = new ControllerContext { HttpContext = context },
+            TempData = new TempDataDictionary(context, new EmptyTempDataProvider())
+        };
+        var result = await controller.Register(new RegisterViewModel
+        {
+            Email = email, Password = Scenario.Password, ConfirmPassword = Scenario.Password, Role = role
+        });
+        Assert.IsType<RedirectToActionResult>(result);
+        var user = await test.Users.FindByEmailAsync(email);
+        Assert.NotNull(user);
+        Assert.Equal(new[] { role }, await test.Users.GetRolesAsync(user));
+        await test.Db.Users.Where(u => u.Id == user.Id).ExecuteDeleteAsync();
+    }
+
+    [Theory]
     [InlineData("Admin")]
+    [InlineData("Bruker")]
+    [InlineData("Observer")]
     [InlineData("")]
-    public async Task RegistrationRejectsRolesThatOnlyKriseledelseMayAssign(string role)
+    public async Task RegistrationRejectsUnknownAccountTypes(string role)
     {
         await using var test = await Scenario.Create();
         var email = $"{Guid.NewGuid():N}@example.test";

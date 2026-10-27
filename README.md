@@ -4,7 +4,7 @@ ASP.NET Core MVC-applikasjon (`net10.0`) med ASP.NET Core Identity, roller, beho
 
 ## Innlogging og tilgang
 
-Forsiden er offentlig. Velg «Registrer» for å opprette en konto; du kan velge `OffentligAktor` eller `Ressursleverandor`. De øvrige rollene tildeles bare av Kriseledelse under «Brukere», gjennom `ADMIN_EMAIL`-bootstrap eller operatørkommandoen. Hver konto har én rolle, og alle handlinger kontrolleres på serveren; uten gyldig rolle nektes tilgang.
+Forsiden er offentlig. Velg «Registrer» for å opprette en konto og velg en av de fem kontotypene (`OffentligAktor`, `Ressursleverandor`, `DispatchTeam`, `Kriseledelse`, `Verifiseringsansvarlig`). Kriseledelse kan endre en brukers rolle senere under «Brukere». Rollene kan også settes gjennom `ADMIN_EMAIL`-bootstrap eller operatørkommandoen. Hver konto har én rolle.
 
 | Rolle | Kan | Kan ikke |
 | --- | --- | --- |
@@ -16,7 +16,17 @@ Forsiden er offentlig. Velg «Registrer» for å opprette en konto; du kan velge
 
 Det finnes ingen egen Administrator-rolle. Eldre `Admin`-kontoer blir `Kriseledelse` og eldre `Bruker`-kontoer blir `Ressursleverandor` ved oppstart; de gamle rollene fjernes.
 
-Primærmenyen viser Hjem, Kart og Ressurser. «Mine ressurser» er et utvalg inne i Ressurser. Kriseledelse får også Brukere. Liste og kart bruker samme filtrering (`ResourceQueries`), slik at antall og markører samsvarer; tomt stedsfilter betyr ingen stedsfilter. Eldre ressurser uten eier kan ikke lenger endres. Sletting krever bekreftelse, versjonskontroll og POST med antiforgery-token.
+Etter innlogging åpnes **Oversikt** (`/Home/Dashboard`), som viser det rollen skal gjøre videre med ekte data:
+
+| Rolle | Oversikten viser |
+| --- | --- |
+| `Ressursleverandor` | Egne ressurser med verifiseringsstatus og historikk, innkommende forespørsler med «Godta og reserver» / «Avslå» |
+| `Verifiseringsansvarlig` | Køen «Venter på verifisering» med «Godkjenn» og «Avvis» (begrunnelse kreves ved avvisning) |
+| `DispatchTeam` | Åpne behov med verifiserte ressurser og «Send forespørsel», forespørsler med «Opprett tildeling», aktive tildelinger med fremdrift (Bekreftet, På vei, Fremme, Fullført) |
+| `Kriseledelse` | Behov etter prioritet og status, aktive tildelinger, brukere per rolle og lenke til rolleadministrasjon |
+| `OffentligAktor` | Egne behov og skjema for å registrere nye |
+
+Menyen viser Oversikt, Kart og Ressurser for alle roller. Forespørsler vises for Ressursleverandør, DispatchTeam og Kriseledelse, og Brukere bare for Kriseledelse. Ressurser, forespørsler og tildelinger har en kort historikk (hvem verifiserte, forespurte og tildelte, med tidspunkt). Liste og kart bruker samme filtrering (`ResourceQueries`), slik at antall og markører samsvarer. Tomt bysøk betyr ingen filtrering.
 
 ### Nullstill kartplasseringer
 
@@ -44,6 +54,34 @@ MariaDB-transaksjoner og applikasjonsstyrte optimistiske versjonstoken beskytter
 ### Kartarbeidsflate
 
 Kartet åpnes i **utforskingsmodus**. Søk flytter utsnittet; kartklikk registrerer ikke noe. «Registrer ressurs» i verktøylinjen ved ressurslisten åpner skjemaet og aktiverer punktvalg: klikk i kartet eller velg et stedsforslag. «Tilbake til kartvisning» lukker skjemaet og stopper punktvalg uten å lagre; feltene beholdes til du forlater siden. Redigering og ugyldige innsendinger beholder felt og valgte koordinater. Forhåndsvisning åpner aldri popup automatisk. På mobil velges Kart/Liste; «Gå til kartet» viser kartet fra skjemaet, og detaljer kan utvides. Lokale forslag og eksplisitt eksternt søk beholder personvern-/attribusjonsreglene nedenfor.
+
+### Demokontoer
+
+Med `SEED_DEMO_ACCOUNTS=true` oppretter appen ved oppstart én konto per rolle, bekrefter e-posten og gir riktig rolle, samt et lite sett demodata (tre behov, fire ressurser der én venter på verifisering, to forespørsler og én aktiv tildeling). Seedingen er idempotent: manglende kontoer opprettes, eksisterende kontoer får aldri nytt passord, og demodata opprettes bare én gang.
+
+| E-post | Rolle | Passord |
+| --- | --- | --- |
+| `offentlig@gmail.com` | `OffentligAktor` | `Dragoncool22!` |
+| `ressurs@gmail.com` | `Ressursleverandor` | `Dragoncool22!` |
+| `dispatch@gmail.com` | `DispatchTeam` | `Dragoncool22!` |
+| `kriseledelse@gmail.com` | `Kriseledelse` | `Dragoncool22!` |
+| `verifisering@gmail.com` | `Verifiseringsansvarlig` | `Dragoncool22!` |
+
+- `SEED_DEMO_ACCOUNTS` (`true`/`false`, standard `false`) er slått på i `docker-compose.yml` og `appsettings.Development.json`.
+- `DEMO_ACCOUNT_PASSWORD` overstyrer passordet for kontoer som opprettes; uten verdi brukes `Dragoncool22!`. Passordet oppfyller Identity-kravene (minst 12 tegn, store og små bokstaver, tall og spesialtegn).
+- **Render:** sett miljøvariabelen `SEED_DEMO_ACCOUNTS=true` manuelt i tjenesten (valgfritt også `DEMO_ACCOUNT_PASSWORD`) og start tjenesten på nytt. Tjenesten bruker Aiven MySQL 8.4; versjonen oppdages automatisk, eller sett `DATABASE_SERVER_VERSION` (for eksempel `8.4.0-mysql` eller `10.11.19-mariadb`).
+- **Etter demodagen:** sett `SEED_DEMO_ACCOUNTS=false` og slett demokontoene under «Brukere» eller direkte i databasen. Kontoene har kjent passord og skal ikke brukes i drift.
+- `ADMIN_EMAIL`/`ADMIN_PASSWORD` fungerer som før og gir rollen Kriseledelse.
+
+### Manuell testgjennomgang
+
+1. Logg inn som `ressurs@gmail.com`, registrer en ressurs via «Registrer ressurs». Den får status «Venter på verifisering» og vises ikke for dispatch.
+2. Logg inn som `verifisering@gmail.com`, godkjenn ressursen (prøv først å avvise uten begrunnelse: det avvises).
+3. Logg inn som `dispatch@gmail.com`: ressursen vises nå under «Verifiserte ressurser» på et åpent behov. Send forespørsel.
+4. Som `ressurs@gmail.com`: godta forespørselen. Som `dispatch@gmail.com`: opprett tildeling og sett den til På vei, Fremme og Fullført.
+5. Som `kriseledelse@gmail.com`: se behov etter prioritet og aktive tildelinger, og endre en brukers rolle under «Brukere».
+6. Som `offentlig@gmail.com`: registrer et nytt behov og se det i «Mine behov».
+7. Kartet: panelet «Ressurstyper» flyttes ved å dra i overskriften og kan ikke endre størrelse.
 
 ### Første administrator
 
@@ -251,7 +289,7 @@ The project targets `net10.0`. Pomelo's published `9.0.0` compatibility document
 - [Pomelo 9.0.0 NuGet package](https://www.nuget.org/packages/Pomelo.EntityFrameworkCore.MySql/9.0.0)
 - [MariaDB 10.11 Docker image tags](https://hub.docker.com/_/mariadb)
 
-Compose pins `mariadb:10.11.19`; the EF provider's `MariaDbServerVersion` is pinned to the same server version. The initial migration creates the two existing submission tables with integer identity keys, existing string bounds and nullability, `double` coordinates, `datetime(6)` timestamps, and `utf8mb4` text storage.
+Compose pins `mariadb:10.11.19`; the EF provider detects the server version at startup (`ServerVersion.AutoDetect`), so MariaDB and MySQL 8 both work. Set `DATABASE_SERVER_VERSION` (for example `8.4.0-mysql`) to skip detection. If the database cannot be reached after ten attempts, startup fails with the underlying connection error. The initial migration creates the two existing submission tables with integer identity keys, existing string bounds and nullability, `double` coordinates, `datetime(6)` timestamps, and `utf8mb4` text storage.
 
 Create future schema changes as EF migrations rather than using `EnsureCreated` or hand-written startup DDL. Install the EF tool matching the EF design package, set `ConnectionStrings__DefaultConnection` to a valid MariaDB connection string, then run:
 

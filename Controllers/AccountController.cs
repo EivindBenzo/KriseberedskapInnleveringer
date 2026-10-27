@@ -35,7 +35,7 @@ public class AccountController(UserManager<IdentityUser> users, SignInManager<Id
         }
 
         await signIn.SignInAsync(user, isPersistent: false);
-        return Url.IsLocalUrl(model.ReturnUrl) ? LocalRedirect(model.ReturnUrl!) : RedirectToAction("Index", "Home");
+        return Url.IsLocalUrl(model.ReturnUrl) ? LocalRedirect(model.ReturnUrl!) : RedirectToAction("Dashboard", "Home");
     }
 
     [AllowAnonymous, HttpGet]

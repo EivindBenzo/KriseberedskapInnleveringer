@@ -33,6 +33,8 @@ services:
       MARIADB_APP_PASSWORD: ${MARIADB_APP_PASSWORD:?Set MARIADB_APP_PASSWORD in .env}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SEED_DEMO_ACCOUNTS: "true"
+      DEMO_ACCOUNT_PASSWORD: ${DEMO_ACCOUNT_PASSWORD:-}
       DataProtection__KeyPath: /app/keys
     volumes:
       - identity-keys:/app/keys

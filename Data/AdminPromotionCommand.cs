@@ -23,7 +23,8 @@ public static class AdminPromotionCommand
             builder.Logging.ClearProviders();
             var connection = DatabaseProviderConfiguration.GetRequiredConnectionString(builder.Configuration);
             builder.Services.AddDbContext<AppDbContext>(options =>
-                DatabaseProviderConfiguration.Configure(options, connection));
+                DatabaseProviderConfiguration.Configure(options, connection,
+                    builder.Configuration["DATABASE_SERVER_VERSION"]));
             builder.Services.AddIdentityCore<IdentityUser>(options => options.User.RequireUniqueEmail = true)
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>();
