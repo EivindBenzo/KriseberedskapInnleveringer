@@ -160,6 +160,6 @@ test('placement bounce has a smaller second lift and honors reduced motion witho
     assert.match(css, /22% \{ transform: translateY\(-9px\); \}/);
     assert.match(css, /60% \{ transform: translateY\(-3px\); \}/);
     assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.resource-marker-placed > img \{ animation: none;/);
-    assert.match(css, /\.map-legend-handles button \{[^}]*touch-action: none;/);
+    assert.match(css, /\.map-legend summary \{[^}]*touch-action: none;/);
     assert.match(css, /\.map-legend ul \{[^}]*overflow-y: auto;[^}]*overscroll-behavior: contain;/);
 });

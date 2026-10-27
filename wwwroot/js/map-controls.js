@@ -141,9 +141,8 @@
             }
             let details;
             let list;
-            let dragHandle;
-            let resizeHandle;
             let gesture;
+            let suppressClick = false;
             function bounds() {
                 return container.getBoundingClientRect();
             }
@@ -155,60 +154,51 @@
                 details.style.left = Math.max(0, Math.min(left, Math.max(0, area.width - panel.width))) + 'px';
                 details.style.top = Math.max(0, Math.min(top, Math.max(0, area.height - panel.height))) + 'px';
             }
-            function resizePanel(height) {
-                const area = bounds();
-                const panel = details.getBoundingClientRect();
-                const current = list.getBoundingClientRect().height;
-                const available = Math.max(0, Math.min(360, area.height - (panel.height - current)));
-                const next = Math.max(Math.min(28, available), Math.min(height, available));
-                list.style.height = next + 'px';
-                list.style.maxHeight = next + 'px';
-                resizeHandle.setAttribute('aria-description', 'Listehøyde: ' + Math.round(next) + ' piksler');
-                movePanel(panel.left - area.left, panel.top - area.top + current - next);
+            function dragMove(event) {
+                if (!gesture || event.pointerId !== gesture.id) return;
+                const dx = event.clientX - gesture.x;
+                const dy = event.clientY - gesture.y;
+                if (!gesture.active && Math.hypot(dx, dy) < 4) return;
+                gesture.active = true;
+                event.preventDefault();
+                movePanel(gesture.left + dx, gesture.top + dy);
             }
-            function addHandle(handle, mode) {
-                handle.type = 'button';
-                handle.className = 'map-legend-' + mode;
-                handle.textContent = mode === 'drag' ? 'Flytt' : 'Endre høyde';
-                handle.setAttribute('aria-label', mode === 'drag'
-                    ? 'Flytt ressurstyper med piltastene' : 'Endre høyden på ressurstyper med opp- og nedpil');
-                if (mode === 'resize') handle.setAttribute('aria-controls', 'mapLegendTypes');
-                listen(handle, 'click', event => { event.preventDefault(); event.stopPropagation(); });
-                listen(handle, 'pointerdown', event => {
-                    if (event.button !== 0 || event.isPrimary === false) return;
+            function dragEnd(event) {
+                if (!gesture || event.pointerId !== gesture.id) return;
+                suppressClick = gesture.active;
+                gesture = null;
+                doc.removeEventListener('pointermove', dragMove);
+                doc.removeEventListener('pointerup', dragEnd);
+                doc.removeEventListener('pointercancel', dragEnd);
+                if (suppressClick) setTimeout(() => { suppressClick = false; });
+            }
+            function dragStart(event) {
+                if (event.button !== 0 || event.isPrimary === false || gesture) return;
+                const panel = details.getBoundingClientRect();
+                const area = bounds();
+                gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, active: false,
+                    left: panel.left - area.left, top: panel.top - area.top };
+                doc.addEventListener('pointermove', dragMove);
+                doc.addEventListener('pointerup', dragEnd);
+                doc.addEventListener('pointercancel', dragEnd);
+            }
+            function addDragHeader(header) {
+                header.title = 'Dra for å flytte';
+                listen(header, 'pointerdown', dragStart);
+                listen(header, 'click', event => {
+                    if (!suppressClick) return;
+                    suppressClick = false;
                     event.preventDefault();
-                    event.stopPropagation();
-                    const panel = details.getBoundingClientRect();
-                    const area = bounds();
-                    movePanel(panel.left - area.left, panel.top - area.top);
-                    gesture = { mode, x: event.clientX, y: event.clientY, left: panel.left - area.left,
-                        top: panel.top - area.top, height: list.getBoundingClientRect().height };
-                    handle.setPointerCapture(event.pointerId);
                 });
-                listen(handle, 'pointermove', event => {
-                    if (!gesture || gesture.mode !== mode) return;
-                    event.preventDefault();
-                    if (mode === 'drag') movePanel(gesture.left + event.clientX - gesture.x, gesture.top + event.clientY - gesture.y);
-                    else resizePanel(gesture.height + gesture.y - event.clientY);
-                });
-                const stop = () => { gesture = null; };
-                listen(handle, 'pointerup', stop);
-                listen(handle, 'pointercancel', stop);
-                listen(handle, 'lostpointercapture', stop);
-                listen(handle, 'keydown', event => {
+                listen(header, 'keydown', event => {
                     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
                     event.preventDefault();
                     event.stopPropagation();
                     const step = event.shiftKey ? 40 : 10;
-                    if (mode === 'resize') {
-                        if (event.key === 'ArrowUp' || event.key === 'ArrowDown')
-                            resizePanel(list.getBoundingClientRect().height + (event.key === 'ArrowUp' ? step : -step));
-                    } else {
-                        const panel = details.getBoundingClientRect();
-                        const area = bounds();
-                        movePanel(panel.left - area.left + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0),
-                            panel.top - area.top + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0));
-                    }
+                    const panel = details.getBoundingClientRect();
+                    const area = bounds();
+                    movePanel(panel.left - area.left + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0),
+                        panel.top - area.top + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0));
                 });
             }
             legend.onAdd = function () {
@@ -217,15 +207,7 @@
                 details.open = !media.matches;
                 const summary = doc.createElement('summary');
                 summary.textContent = 'Ressurstyper';
-                const handles = doc.createElement('span');
-                handles.className = 'map-legend-handles';
-                dragHandle = doc.createElement('button');
-                resizeHandle = doc.createElement('button');
-                addHandle(dragHandle, 'drag');
-                addHandle(resizeHandle, 'resize');
-                handles.appendChild(dragHandle);
-                handles.appendChild(resizeHandle);
-                summary.appendChild(handles);
+                addDragHeader(summary);
                 details.appendChild(summary);
                 list = doc.createElement('ul');
                 list.id = 'mapLegendTypes';
@@ -271,7 +253,6 @@
             }
             function keepInMap() {
                 if (!details.classList.contains('map-legend-positioned')) return;
-                resizePanel(list.getBoundingClientRect().height);
                 const panel = details.getBoundingClientRect();
                 const area = bounds();
                 movePanel(panel.left - area.left, panel.top - area.top);
@@ -281,6 +262,9 @@
             map.on('unload', function () {
                 if (fallback) leaveFallback();
                 cleanups.forEach(cleanup => cleanup());
+                doc.removeEventListener('pointermove', dragMove);
+                doc.removeEventListener('pointerup', dragEnd);
+                doc.removeEventListener('pointercancel', dragEnd);
                 if (details.parentNode === container) details.remove();
             });
             return { setTypeVisible };

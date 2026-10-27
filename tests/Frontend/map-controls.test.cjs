@@ -108,6 +108,7 @@ function controls({ mobile = false, native = false, rejected = false, onTypeChan
         };
     }
     const added = [];
+    const timers = [];
     const map = {
         events: {}, invalidations: 0,
         getContainer: () => container,
@@ -118,6 +119,7 @@ function controls({ mobile = false, native = false, rejected = false, onTypeChan
     const api = icons();
     const context = {
         window: { ResourceIcons: api, matchMedia: () => media },
+        setTimeout: callback => timers.push(callback),
         requestAnimationFrame: callback => callback(),
         L: {
             control(options) {
@@ -137,7 +139,7 @@ function controls({ mobile = false, native = false, rejected = false, onTypeChan
     };
     vm.runInNewContext(read('wwwroot/js/map-controls.js'), context);
     const controller = context.window.MapControls.add(map, { onTypeChange });
-    return { document, container, map, added, media, api, controller, button: added[0].element.children[0], legend: added[1].element };
+    return { document, container, map, added, media, api, controller, timers, button: added[0].element.children[0], legend: added[1].element };
 }
 
 test('legend uses all six shared icons, is bottom-left and collapses on mobile', () => {
@@ -354,55 +356,76 @@ test('single bulk toggle uses exact dynamic labels for checkbox and programmatic
     page.legend.children[1].children.forEach(item => assert.equal(item.children[0].children[0].checked, true));
 });
 
-test('first pointer drag and resize reparent before capture and preserve the gesture on later moves', () => {
-    for (const mode of ['drag', 'resize']) {
-        const page = controls();
-        const handle = page.legend.children[0].children[0].children[mode === 'drag' ? 0 : 1];
-        const capture = handle.setPointerCapture;
-        handle.setPointerCapture = function (id) {
-            assert.equal(page.legend.parentNode, page.container, 'reparent before pointer capture');
-            capture.call(this, id);
-        };
-        const event = values => ({ button: 0, pointerId: 3, clientX: 0, clientY: 0,
-            preventDefault() {}, stopPropagation() {}, ...values });
-        handle.handlers.pointerdown(event());
-        handle.handlers.pointermove(event({ clientX: 20, clientY: 20 }));
-        handle.handlers.pointermove(event({ clientX: 40, clientY: 40 }));
-        assert.equal(handle.capturedPointer, 3);
-        if (mode === 'drag') assert.equal(page.legend.style.left, '40px');
-        else assert.equal(page.legend.children[1].style.height, '140px');
-    }
+test('legend header is the only drag surface: no Flytt or Endre høyde buttons and no resize handle', () => {
+    const page = controls();
+    const summary = page.legend.children[0];
+    assert.equal(summary.tagName, 'summary');
+    assert.equal(summary.children.length, 0);
+    assert.equal(summary.textContent, 'Ressurstyper');
+    assert.equal(typeof summary.handlers.pointerdown, 'function');
+    const source = read('wwwroot/js/map-controls.js');
+    assert.doesNotMatch(source, /Flytt|Endre høyde|resizePanel|map-legend-resize/);
+    assert.doesNotMatch(read('wwwroot/css/map-controls.css'), /map-legend-(?:handles|resize|drag)/);
+    assert.match(read('wwwroot/css/map-controls.css'), /\.map-legend summary\s*\{[^}]*touch-action: none;/);
 });
 
-test('legend top handles support bounded pointer drag, resize and keyboard adjustments with cleanup', () => {
+test('dragging the header repositions the legend within the map, and a drag does not toggle the panel', () => {
     const page = controls();
-    const [drag, resize] = page.legend.children[0].children[0].children;
-    assert.match(drag.attributes['aria-label'], /piltastene/);
-    assert.equal(resize.attributes['aria-controls'], page.legend.children[1].id);
-    const event = values => ({ button: 0, pointerId: 1, clientX: 0, clientY: 0,
-        preventDefault() {}, stopPropagation() {}, ...values });
-    drag.handlers.pointerdown(event());
-    assert.equal(drag.capturedPointer, 1);
-    drag.handlers.pointermove(event({ clientX: 900, clientY: 900 }));
-    drag.handlers.pointerup();
+    const summary = page.legend.children[0];
+    const event = values => ({ button: 0, pointerId: 1, clientX: 0, clientY: 0, preventDefault() {}, ...values });
+    summary.handlers.pointerdown(event());
+    assert.equal(page.legend.parentNode, undefined, 'a plain press does not reposition or reparent the panel');
+    page.document.handlers.pointermove(event({ clientX: 2, clientY: 1 }));
+    assert.equal(page.legend.style.left, undefined, 'movement below the threshold is a click');
+    page.document.handlers.pointermove(event({ clientX: 900, clientY: 900 }));
     assert.equal(page.legend.parentNode, page.container);
     assert.equal(page.legend.style.left, '600px');
     assert.equal(page.legend.style.top, '320px');
-    drag.handlers.keydown(event({ key: 'ArrowLeft' }));
-    assert.equal(page.legend.style.left, '590px');
-    resize.handlers.pointerdown(event({ clientY: 200 }));
-    resize.handlers.pointermove(event({ clientY: 300 }));
-    resize.handlers.pointerup();
-    const list = page.legend.children[1];
-    assert.equal(list.style.height, '80px');
-    assert.equal(page.legend.style.top, '420px', 'top handle keeps the lower edge stable');
-    resize.handlers.keydown(event({ key: 'ArrowUp' }));
-    assert.equal(list.style.height, '90px');
-    resize.handlers.pointerdown(event());
-    resize.handlers.pointercancel();
-    resize.handlers.pointermove(event({ clientY: -900 }));
-    assert.equal(list.style.height, '90px');
+    page.document.handlers.pointerup(event({ clientX: 900, clientY: 900 }));
+    assert.equal(page.document.handlers.pointermove, undefined);
+    let prevented = false;
+    summary.handlers.click({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, true, 'click after a drag keeps the panel open or closed');
+    prevented = false;
+    summary.handlers.click({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, false, 'a later genuine click toggles normally');
+    page.document.handlers.pointerdown?.(event());
+    summary.handlers.pointerdown(event());
+    page.document.handlers.pointermove(event({ clientX: 50 }));
+    page.document.handlers.pointerup(event({ clientX: 50 }));
+    page.timers.forEach(callback => callback());
+    prevented = false;
+    summary.handlers.click({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, false, 'a drag released outside the header does not swallow the next click');
+});
+
+test('a press without drag leaves the native summary click alone; secondary buttons and other pointers are ignored', () => {
+    const page = controls();
+    const summary = page.legend.children[0];
+    const event = values => ({ button: 0, pointerId: 1, clientX: 5, clientY: 5, preventDefault() {}, ...values });
+    summary.handlers.pointerdown(event({ button: 2 }));
+    assert.equal(page.document.handlers.pointermove, undefined);
+    summary.handlers.pointerdown(event());
+    page.document.handlers.pointermove(event({ pointerId: 2, clientX: 400 }));
+    assert.equal(page.legend.parentNode, undefined);
+    page.document.handlers.pointerup(event());
+    let prevented = false;
+    summary.handlers.click({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, false);
+});
+
+test('legend header supports keyboard movement and cleans up on unload', () => {
+    const page = controls();
+    const summary = page.legend.children[0];
+    const event = values => ({ preventDefault() {}, stopPropagation() {}, ...values });
+    summary.handlers.keydown(event({ key: 'ArrowRight' }));
+    assert.equal(page.legend.style.left, '10px');
+    summary.handlers.keydown(event({ key: 'ArrowDown', shiftKey: true }));
+    assert.equal(page.legend.style.top, '40px');
+    let prevented = false;
+    summary.handlers.keydown(event({ key: 'Enter', preventDefault() { prevented = true; } }));
+    assert.equal(prevented, false, 'Enter and Space keep toggling the panel');
     page.map.events.unload();
     assert.equal(page.legend.parentNode, null);
-    assert.equal(drag.handlers.pointerdown, undefined);
+    assert.equal(summary.handlers.pointerdown, undefined);
 });

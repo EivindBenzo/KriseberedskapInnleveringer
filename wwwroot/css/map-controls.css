@@ -68,17 +68,11 @@ button.city-suggestion-item[aria-selected="true"] {
     pointer-events: auto;
 }
 
-.map-legend-handles,
 .map-legend-actions {
     display: flex;
     gap: .25rem;
 }
 
-.map-legend-handles {
-    margin-top: .3rem;
-}
-
-.map-legend-handles button,
 .map-legend-actions button {
     min-height: 32px;
     padding: .25rem .4rem;
@@ -91,13 +85,6 @@ button.city-suggestion-item[aria-selected="true"] {
     cursor: pointer;
 }
 
-.map-legend-handles button {
-    touch-action: none;
-}
-
-.map-legend-drag { cursor: move !important; }
-.map-legend-resize { cursor: ns-resize !important; }
-.map-legend:not([open]) .map-legend-resize { display: none; }
 .map-legend-actions { padding: 0 .5rem .5rem; }
 .map-legend button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 
@@ -124,8 +111,10 @@ button.city-suggestion-item[aria-selected="true"] {
 .map-legend summary {
     padding: 0.5rem 0.75rem;
     min-height: 44px;
-    cursor: pointer;
+    cursor: grab;
     font-weight: 600;
+    touch-action: none;
+    user-select: none;
 }
 
 .map-legend ul {
