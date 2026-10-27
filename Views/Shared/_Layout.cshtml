@@ -1,7 +1,7 @@
 @{
     var canUseOperations = User.Identity?.IsAuthenticated == true
         && !string.IsNullOrEmpty(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
-        && (User.IsInRole("Bruker") || User.IsInRole("Admin"));
+        && HeimevernetInnlevering1.Models.AppRoles.HasAny(User);
 }
 <!DOCTYPE html>
 <html lang="no">
@@ -62,7 +62,7 @@
                         {
                             <li><a asp-controller="Operations" asp-action="Index" class="nav-link">Forespørsler</a></li>
                         }
-                        @if (User.IsInRole("Admin"))
+                        @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
                         {
                             <li><a asp-controller="Admin" asp-action="Index" class="nav-link">Brukere</a></li>
                         }

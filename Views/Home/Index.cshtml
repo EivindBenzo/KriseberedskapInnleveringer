@@ -2,7 +2,8 @@
     ViewData["Title"] = "Hjem";
     var canUseOperations = User.Identity?.IsAuthenticated == true
         && !string.IsNullOrEmpty(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
-        && (User.IsInRole("Bruker") || User.IsInRole("Admin"));
+        && HeimevernetInnlevering1.Models.AppRoles.HasAny(User);
+    var canRegister = User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Ressursleverandor);
 }
 <link rel="stylesheet" href="~/css/home.css" asp-append-version="true" />
 <div class="home-page">
@@ -15,7 +16,10 @@
                 <p class="home-lead">Få oversikt over ressurser i området, eller sett din egen ressurs på kartet.</p>
                 <div class="home-actions">
                     <a asp-action="Map" class="btn-submit">Finn ressurser i kartet <span aria-hidden="true">→</span></a>
-                    <a asp-action="Map" asp-route-register="true" class="btn-secondary">Registrer en ressurs</a>
+                    @if (canRegister)
+                    {
+                        <a asp-action="Map" asp-route-register="true" class="btn-secondary">Registrer en ressurs</a>
+                    }
                 </div>
             }
             else
@@ -52,13 +56,13 @@
             <li>
                 <h3>Hold bidraget ditt relevant</h3>
                 <p>Under «Mine ressurser» kan du endre detaljer og tilgjengelighet når noe endrer seg.</p>
-                @if (User.Identity?.IsAuthenticated == true)
+                @if (canRegister)
                 {
                     <a asp-action="Resources" asp-route-mine="true">Se mine ressurser <span aria-hidden="true">→</span></a>
                 }
                 @if (canUseOperations)
                 {
-                    <a asp-controller="Operations" asp-action="Index">@(User.IsInRole("Admin") ? "Følg opp forespørsler og tildeling" : "Svar på forespørsler til dine ressurser") <span aria-hidden="true">→</span></a>
+                    <a asp-controller="Operations" asp-action="Index">@(canRegister ? "Svar på forespørsler til dine ressurser" : "Følg opp behov, forespørsler og tildeling") <span aria-hidden="true">→</span></a>
                 }
             </li>
         </ol>

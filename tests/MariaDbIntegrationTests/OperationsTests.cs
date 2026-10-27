@@ -28,11 +28,11 @@ namespace MariaDbIntegrationTests;
 public class OperationsTests(OperationsTests.Site site) : IClassFixture<OperationsTests.Site>
 {
     [Theory]
-    [InlineData("Bruker")]
-    [InlineData("Admin")]
+    [InlineData(AppRoles.Ressursleverandor)]
+    [InlineData(AppRoles.Kriseledelse)]
     public async Task ResourcesOverlayRendersExistingPermissionAwareViewsWithoutApplicationChrome(string role)
     {
-        using var client = site.Client(role == "Admin" ? site.AdminId : site.OwnerId, role);
+        using var client = site.Client(role == AppRoles.Kriseledelse ? site.LeaderId : site.OwnerId, role);
         var response = await client.GetAsync("/Home/Resources?overlay=true");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
@@ -45,23 +45,24 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
         Assert.DoesNotContain("<!DOCTYPE", html);
         Assert.DoesNotContain("class=\"navbar\"", html);
         Assert.DoesNotContain("<script", html);
-        Assert.Contains($"href=\"/Home/Edit/{site.OwnResource.Id}\"", html);
-        Assert.Contains($"href=\"/Home/Delete/{site.OwnResource.Id}\"", html);
         Assert.DoesNotContain("target=\"_blank\"", html);
         Assert.DoesNotContain("ny fane", html);
-        Assert.Contains("class=\"resource-delete-dialog\"", html);
-        Assert.Contains("data-resource-delete=", html);
-        Assert.Contains("name=\"__RequestVerificationToken\"", html);
-        if (role == "Admin")
+        Assert.DoesNotContain($"href=\"/Home/Edit/{site.OtherResource.Id}\"", html);
+        Assert.DoesNotContain($"href=\"/Home/Delete/{site.OtherResource.Id}\"", html);
+        if (role == AppRoles.Kriseledelse)
         {
-            Assert.Contains($"href=\"/Home/Edit/{site.OtherResource.Id}\"", html);
+            Assert.DoesNotContain($"href=\"/Home/Edit/{site.OwnResource.Id}\"", html);
+            Assert.DoesNotContain($"href=\"/Home/Delete/{site.OwnResource.Id}\"", html);
             Assert.Contains("action=\"/Home/ResetMap\"", html);
             Assert.Contains("name=\"__RequestVerificationToken\"", html);
         }
         else
         {
-            Assert.DoesNotContain($"href=\"/Home/Edit/{site.OtherResource.Id}\"", html);
-            Assert.DoesNotContain($"href=\"/Home/Delete/{site.OtherResource.Id}\"", html);
+            Assert.Contains($"href=\"/Home/Edit/{site.OwnResource.Id}\"", html);
+            Assert.Contains($"href=\"/Home/Delete/{site.OwnResource.Id}\"", html);
+            Assert.Contains("class=\"resource-delete-dialog\"", html);
+            Assert.Contains("data-resource-delete=", html);
+            Assert.Contains("name=\"__RequestVerificationToken\"", html);
             Assert.DoesNotContain("action=\"/Home/ResetMap\"", html);
             Assert.DoesNotContain("Koordiner", html);
         }
@@ -75,7 +76,8 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
         var controller = typeof(OperationsController);
         var authorization = Assert.IsType<AuthorizeAttribute>(
             Attribute.GetCustomAttribute(controller, typeof(AuthorizeAttribute)));
-        Assert.Equal(new[] { "Admin", "Bruker" }, authorization.Roles!.Split(',').OrderBy(role => role));
+        Assert.Equal(AppRoles.All.OrderBy(role => role), authorization.Roles!.Split(',').OrderBy(role => role));
+        Assert.DoesNotContain("Admin", authorization.Roles!.Split(','));
         Assert.NotNull(Attribute.GetCustomAttribute(controller, typeof(AutoValidateAntiforgeryTokenAttribute)));
         var index = controller.GetMethod(nameof(OperationsController.Index))!;
         Assert.NotNull(Attribute.GetCustomAttribute(index, typeof(HttpGetAttribute)));
@@ -87,7 +89,7 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
     [InlineData("/Operations/Index")]
     public async Task ProviderRouteRendersOnlyOwnedRequestsAndRelatedNeeds(string route)
     {
-        using var client = site.Client(site.OwnerId, "Bruker");
+        using var client = site.Client(site.OwnerId, AppRoles.Ressursleverandor);
         var response = await client.GetAsync(route);
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
@@ -104,18 +106,17 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
         Assert.DoesNotContain("action=\"/Operations/CreateNeed\"", html);
         Assert.DoesNotContain("action=\"/Operations/Allocate\"", html);
         Assert.DoesNotContain("action=\"/Operations/Verify\"", html);
+        Assert.DoesNotContain("action=\"/Operations/NeedStatus\"", html);
         Assert.Contains("href=\"/Operations\"", html);
-        Assert.DoesNotContain("href=\"/Operations#resources\"", html);
-        Assert.DoesNotContain("href=\"/Operations#needs\"", html);
         Assert.DoesNotContain("/Operations/Requests", html);
         Assert.DoesNotContain("/Operations/Queue", html);
         Assert.DoesNotContain("/Operations/Needs", html);
     }
 
     [Fact]
-    public async Task AdminSeesGlobalCoordinationAndNavigationTargetsRealSections()
+    public async Task KriseledelseSeesGlobalOverviewButCannotRegisterNeedsOrVerify()
     {
-        using var client = site.Client(site.AdminId, "Admin");
+        using var client = site.Client(site.LeaderId, AppRoles.Kriseledelse);
         var response = await client.GetAsync("/Operations");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
@@ -123,26 +124,70 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
                      site.OwnNeed.Description, site.OtherNeed.Description, site.UnrelatedNeed.Description,
                      site.OwnRequest.Reason, site.OtherRequest.Reason, site.Audit.Reason })
             Assert.Contains(text, html);
-        Assert.Contains("href=\"/Operations#resources\"", html);
-        Assert.Contains("href=\"/Operations#needs\"", html);
+        Assert.Contains("href=\"#resources\"", html);
+        Assert.Contains("href=\"#needs\"", html);
         Assert.Contains("id=\"resources\"", html);
         Assert.Contains("id=\"needs\"", html);
-        Assert.Contains("action=\"/Operations/CreateNeed\"", html);
-        Assert.Contains("action=\"/Operations/Verify\"", html);
-        Assert.Contains("<div class=\"audit-scroll\" tabindex=\"0\" role=\"region\" aria-label=\"Beslutningslogg\">", html);
+        Assert.Contains("action=\"/Operations/NeedStatus\"", html);
+        Assert.Contains("action=\"/Operations/Prioritize\"", html);
+        Assert.DoesNotContain("action=\"/Operations/CreateNeed\"", html);
+        Assert.DoesNotContain("action=\"/Operations/Verify\"", html);
+        Assert.DoesNotContain("action=\"/Operations/Allocate\"", html);
         Assert.DoesNotContain("action=\"/Operations/Respond\"", html);
+        Assert.Contains("<div class=\"audit-scroll\" tabindex=\"0\" role=\"region\" aria-label=\"Beslutningslogg\">", html);
+    }
+
+    [Fact]
+    public async Task OffentligAktorRegistersNeedsAndSeesNoResourcesRequestsOrAudit()
+    {
+        using var client = site.Client(site.PublicId, AppRoles.OffentligAktor);
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Operations"));
+        Assert.Contains("action=\"/Operations/CreateNeed\"", html);
+        Assert.Contains(site.OwnNeed.Description, html);
+        Assert.DoesNotContain(site.OwnResource.ResourceName, html);
+        Assert.DoesNotContain(site.OwnRequest.Reason, html);
+        Assert.DoesNotContain(site.Audit.Reason, html);
+        Assert.DoesNotContain("action=\"/Operations/NeedStatus\"", html);
+    }
+
+    [Fact]
+    public async Task VerifierSeesQueueWithVerifyFormsAndNoAllocationOrNeedControls()
+    {
+        using var client = site.Client(site.VerifierId, AppRoles.Verifiseringsansvarlig);
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Operations"));
+        Assert.Contains(site.PendingResource.ResourceName, html);
+        Assert.Contains("action=\"/Operations/Verify\"", html);
+        Assert.DoesNotContain(site.OwnResource.ResourceName, html);
+        Assert.DoesNotContain(site.OwnRequest.Reason, html);
+        Assert.DoesNotContain("action=\"/Operations/Allocate\"", html);
+        Assert.DoesNotContain("action=\"/Operations/CreateNeed\"", html);
+        Assert.DoesNotContain(site.Audit.Reason, html);
+    }
+
+    [Fact]
+    public async Task DispatchSeesOnlyVerifiedAvailableResources()
+    {
+        using var client = site.Client(site.DispatchId, AppRoles.DispatchTeam);
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Operations"));
+        Assert.Contains(site.OwnResource.ResourceName, html);
+        Assert.DoesNotContain(site.PendingResource.ResourceName, html);
+        Assert.DoesNotContain("action=\"/Operations/Verify\"", html);
+        Assert.DoesNotContain(site.Audit.Reason, html);
+        var overlay = WebUtility.HtmlDecode(await client.GetStringAsync("/Home/Resources?overlay=true"));
+        Assert.Contains(site.OwnResource.ResourceName, overlay);
+        Assert.DoesNotContain(site.PendingResource.ResourceName, overlay);
     }
 
     [Fact]
     public async Task UnrelatedProviderGetsMeaningfulEmptyStateWithoutDisclosure()
     {
-        using var client = site.Client("unrelated-provider", "Bruker");
+        using var client = site.Client("unrelated-provider", AppRoles.Ressursleverandor);
         var response = await client.GetAsync("/Operations");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
         Assert.Contains("Du har ingen innkommende forespørsler.", html);
-        Assert.Contains("Du har ingen registrerte ressurser.", html);
-        Assert.Contains("Ingen behov er knyttet til dine forespørsler.", html);
+        Assert.Contains("Ingen ressurser å vise.", html);
+        Assert.Contains("Ingen behov å vise.", html);
         Assert.DoesNotContain(site.OwnResource.ResourceName, html);
         Assert.DoesNotContain(site.OtherResource.ResourceName, html);
         Assert.DoesNotContain(site.OwnNeed.Description, html);
@@ -152,22 +197,23 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
     }
 
     [Theory]
-    [InlineData("Bruker", 1)]
-    [InlineData("Admin", 1)]
-    public async Task HomeCardsLinkToAuthorizedOperationsRoutes(string role, int expectedCards)
+    [InlineData(AppRoles.OffentligAktor)]
+    [InlineData(AppRoles.Ressursleverandor)]
+    [InlineData(AppRoles.DispatchTeam)]
+    [InlineData(AppRoles.Kriseledelse)]
+    [InlineData(AppRoles.Verifiseringsansvarlig)]
+    public async Task HomeCardsLinkToAuthorizedOperationsRoutes(string role)
     {
-        using var client = site.Client(role == "Admin" ? site.AdminId : site.OwnerId, role);
+        using var client = site.Client(site.IdFor(role), role);
         var html = await client.GetStringAsync("/");
         var guide = Regex.Match(html, "<ol class=\"home-steps\">[\\s\\S]*?</ol>").Value;
         var cards = Regex.Matches(guide, "<a\\b[^>]*>")
             .Select(m => m.Value).Where(a => a.Contains("href=\"/Operations")).ToList();
-        Assert.Equal(expectedCards, cards.Count);
+        Assert.Single(cards);
         Assert.DoesNotContain("/Operations/Requests", html);
         Assert.DoesNotContain("/Operations/Queue", html);
         Assert.DoesNotContain("/Operations/Needs", html);
         Assert.Contains(cards, a => a.Contains("href=\"/Operations\""));
-        Assert.DoesNotContain("href=\"/Operations#resources\"", html);
-        Assert.DoesNotContain("href=\"/Operations#needs\"", html);
         foreach (var card in cards)
         {
             var href = Regex.Match(card, "href=\"([^\"]+)\"").Groups[1].Value;
@@ -179,9 +225,9 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
     [InlineData("/Home/Resources", false)]
     [InlineData("/Home/Resources?query=no-resource-reset-rendering-fixture", true)]
     [InlineData("/Home/Resources?mine=true", true)]
-    public async Task AdminResourceWorkspaceHasOneGlobalResetEvenWhenListIsEmpty(string route, bool empty)
+    public async Task KriseledelseResourceWorkspaceHasOneGlobalResetEvenWhenListIsEmpty(string route, bool empty)
     {
-        using var client = site.Client(site.AdminId, "Admin");
+        using var client = site.Client(site.LeaderId, AppRoles.Kriseledelse);
         var response = await client.GetAsync(route);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
@@ -210,7 +256,7 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
     [Fact]
     public async Task ProviderResourceWorkspaceHasNoGlobalReset()
     {
-        using var client = site.Client(site.OwnerId, "Bruker");
+        using var client = site.Client(site.OwnerId, AppRoles.Ressursleverandor);
         var html = await client.GetStringAsync("/Home/Resources");
         Assert.Contains(site.OwnResource.ResourceName, html);
         Assert.DoesNotContain("action=\"/Home/ResetMap\"", html);
@@ -220,6 +266,8 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
     [InlineData(null, null, HttpStatusCode.Unauthorized)]
     [InlineData("roleless", null, HttpStatusCode.Forbidden)]
     [InlineData("unknown-role", "Observer", HttpStatusCode.Forbidden)]
+    [InlineData("legacy-admin", "Admin", HttpStatusCode.Forbidden)]
+    [InlineData("legacy-user", "Bruker", HttpStatusCode.Forbidden)]
     public async Task UnauthorizedUsersCannotLoadPageOrSeeNavigation(string? id, string? role, HttpStatusCode status)
     {
         using var client = site.Client(id, role);
@@ -236,42 +284,35 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
     [Fact]
     public async Task RoleWithoutActorIdIsForbiddenWithoutLoadingData()
     {
-        using var client = site.Client("", "Admin");
+        using var client = site.Client("", AppRoles.Kriseledelse);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/Operations")).StatusCode);
         Assert.DoesNotContain("href=\"/Operations", await client.GetStringAsync("/"));
     }
 
     [Theory]
-    [InlineData("Verify")]
-    [InlineData("CreateNeed")]
-    [InlineData("NeedStatus")]
-    [InlineData("CreateRequest")]
-    [InlineData("Allocate")]
-    [InlineData("Cancel")]
-    public async Task CoordinatorActionsRejectProvidersAndUnauthenticatedUsers(string action)
+    [InlineData("Verify", AppRoles.Verifiseringsansvarlig)]
+    [InlineData("CreateNeed", AppRoles.OffentligAktor)]
+    [InlineData("NeedStatus", AppRoles.Kriseledelse)]
+    [InlineData("Prioritize", AppRoles.Kriseledelse)]
+    [InlineData("CreateRequest", AppRoles.DispatchTeam)]
+    [InlineData("Allocate", AppRoles.DispatchTeam)]
+    [InlineData("Cancel", AppRoles.DispatchTeam)]
+    [InlineData("Assignment", AppRoles.DispatchTeam)]
+    [InlineData("Respond", AppRoles.Ressursleverandor)]
+    [InlineData("Availability", AppRoles.Ressursleverandor)]
+    public async Task ActionsAreOpenOnlyToTheirOwnRoleAndRequireAntiforgery(string action, string allowed)
     {
-        using var provider = site.Client(site.OwnerId, "Bruker");
-        using var anonymous = site.Client();
-        using var roleless = site.Client("roleless");
-        Assert.Equal(HttpStatusCode.Forbidden,
-            (await provider.PostAsync($"/Operations/{action}", new FormUrlEncodedContent([]))).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized,
-            (await anonymous.PostAsync($"/Operations/{action}", new FormUrlEncodedContent([]))).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden,
-            (await roleless.PostAsync($"/Operations/{action}", new FormUrlEncodedContent([]))).StatusCode);
-    }
-
-    [Theory]
-    [InlineData("Respond")]
-    [InlineData("Return")]
-    [InlineData("Availability")]
-    public async Task OwnerActionsRequireAuthenticationRoleAndAntiforgery(string action)
-    {
-        using var provider = site.Client(site.OwnerId, "Bruker");
+        foreach (var role in AppRoles.All.Append("Admin").Where(role => role != allowed))
+        {
+            using var wrong = site.Client(site.IdFor(role), role);
+            Assert.Equal(HttpStatusCode.Forbidden,
+                (await wrong.PostAsync($"/Operations/{action}", new FormUrlEncodedContent([]))).StatusCode);
+        }
+        using var right = site.Client(site.IdFor(allowed), allowed);
         using var anonymous = site.Client();
         using var roleless = site.Client("roleless");
         Assert.Equal(HttpStatusCode.BadRequest,
-            (await provider.PostAsync($"/Operations/{action}", new FormUrlEncodedContent([]))).StatusCode);
+            (await right.PostAsync($"/Operations/{action}", new FormUrlEncodedContent([]))).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized,
             (await anonymous.PostAsync($"/Operations/{action}", new FormUrlEncodedContent([]))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
@@ -281,10 +322,10 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
     [Fact]
     public async Task TamperedOwnerActionsCannotChangeAnotherProvidersResourceOrRequest()
     {
-        using var provider = site.Client(site.OwnerId, "Bruker");
+        using var provider = site.Client(site.OwnerId, AppRoles.Ressursleverandor);
         await using var db = site.Db();
         var auditsBefore = await db.WorkflowAudits.CountAsync(a => a.ResourceId == site.OtherResource.Id);
-        foreach (var action in new[] { "Respond", "Return", "Availability" })
+        foreach (var action in new[] { "Respond", "Availability" })
         {
             var response = await Post(provider, action, new()
             {
@@ -307,26 +348,25 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
     }
 
     [Fact]
-    public async Task OwnerAcceptsAdminAllocatesAndOwnerReturnsThroughRealRoutes()
+    public async Task OwnerAcceptsDispatchAllocatesAndProgressesAssignmentThroughRealRoutes()
     {
-        using var owner = site.Client(site.OwnerId, "Bruker");
-        using var admin = site.Client(site.AdminId, "Admin");
+        using var owner = site.Client(site.OwnerId, AppRoles.Ressursleverandor);
+        using var dispatch = site.Client(site.DispatchId, AppRoles.DispatchTeam);
+        using var leader = site.Client(site.LeaderId, AppRoles.Kriseledelse);
         await using var db = site.Db();
-        var request = await db.ResourceRequests.AsNoTracking().SingleAsync(r => r.Id == site.OwnRequest.Id);
-        var forbiddenResponse = await Post(admin, "Respond", new()
+        var request = await db.ResourceRequests.AsNoTracking().SingleAsync(r => r.Id == site.FlowRequest.Id);
+        var early = await Post(dispatch, "Allocate", new()
         {
-            ["id"] = request.Id.ToString(), ["token"] = request.ConcurrencyToken,
-            ["accept"] = "true", ["reason"] = "Administrator er ikke eier"
+            ["id"] = request.Id.ToString(), ["token"] = request.ConcurrencyToken, ["reason"] = "For tidlig"
         });
-        Assert.Equal(HttpStatusCode.Redirect, forbiddenResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, early.StatusCode);
         Assert.Equal(ResourceRequestStatus.Pending,
             (await db.ResourceRequests.AsNoTracking().SingleAsync(r => r.Id == request.Id)).Status);
 
         foreach (var step in new[]
                  {
                      (Client: owner, Action: "Respond", Status: ResourceRequestStatus.Accepted),
-                     (Client: admin, Action: "Allocate", Status: ResourceRequestStatus.Allocated),
-                     (Client: owner, Action: "Return", Status: ResourceRequestStatus.Returned)
+                     (Client: dispatch, Action: "Allocate", Status: ResourceRequestStatus.Allocated)
                  })
         {
             request = await db.ResourceRequests.AsNoTracking().SingleAsync(r => r.Id == request.Id);
@@ -340,9 +380,42 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
             Assert.Equal(step.Status,
                 (await db.ResourceRequests.AsNoTracking().SingleAsync(r => r.Id == request.Id)).Status);
         }
-        var resource = await db.MapSubmissions.AsNoTracking().SingleAsync(r => r.Id == site.OwnResource.Id);
-        Assert.Equal(ResourceAvailability.Available, resource.Availability);
+        var assignment = await db.ResourceAssignments.AsNoTracking().SingleAsync(a => a.RequestId == request.Id);
+        Assert.Equal(AssignmentStatus.Confirmed, assignment.Status);
+        var skip = await Post(dispatch, "Assignment", new()
+        {
+            ["id"] = assignment.Id.ToString(), ["token"] = assignment.ConcurrencyToken,
+            ["status"] = nameof(AssignmentStatus.Completed), ["reason"] = "Hopper over"
+        });
+        Assert.Equal(HttpStatusCode.Redirect, skip.StatusCode);
+        Assert.Equal(AssignmentStatus.Confirmed,
+            (await db.ResourceAssignments.AsNoTracking().SingleAsync(a => a.Id == assignment.Id)).Status);
+        foreach (var next in new[] { AssignmentStatus.EnRoute, AssignmentStatus.Arrived, AssignmentStatus.Completed })
+        {
+            assignment = await db.ResourceAssignments.AsNoTracking().SingleAsync(a => a.Id == assignment.Id);
+            var response = await Post(dispatch, "Assignment", new()
+            {
+                ["id"] = assignment.Id.ToString(), ["token"] = assignment.ConcurrencyToken,
+                ["status"] = next.ToString(), ["reason"] = "Fremdrift i rutetest"
+            });
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Equal(next, (await db.ResourceAssignments.AsNoTracking().SingleAsync(a => a.Id == assignment.Id)).Status);
+        }
+        var resource = await db.MapSubmissions.AsNoTracking().SingleAsync(r => r.Id == site.FlowResource.Id);
+        Assert.Equal(ResourceAvailability.Returned, resource.Availability);
         Assert.Equal(ResourceVerificationStatus.Pending, resource.VerificationStatus);
+        Assert.Equal(ResourceRequestStatus.Returned,
+            (await db.ResourceRequests.AsNoTracking().SingleAsync(r => r.Id == request.Id)).Status);
+        var need = await db.OperationalNeeds.AsNoTracking().SingleAsync(n => n.Id == site.FlowNeed.Id);
+        Assert.Equal(NeedStatus.Assigned, need.Status);
+        var closed = await Post(leader, "NeedStatus", new()
+        {
+            ["id"] = need.Id.ToString(), ["token"] = need.ConcurrencyToken,
+            ["status"] = nameof(NeedStatus.Completed), ["reason"] = "Behovet er løst"
+        });
+        Assert.Equal(HttpStatusCode.Redirect, closed.StatusCode);
+        Assert.Equal(NeedStatus.Completed,
+            (await db.OperationalNeeds.AsNoTracking().SingleAsync(n => n.Id == need.Id)).Status);
     }
 
     private static async Task<HttpResponseMessage> Post(HttpClient client, string action, Dictionary<string, string> fields)
@@ -361,9 +434,26 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
         private readonly string marker = Guid.NewGuid().ToString("N");
         public string OwnerId => $"operations-owner-{marker}";
         public string OtherId => $"operations-other-{marker}";
-        public string AdminId => $"operations-admin-{marker}";
+        public string DispatchId => $"operations-dispatch-{marker}";
+        public string LeaderId => $"operations-leader-{marker}";
+        public string VerifierId => $"operations-verifier-{marker}";
+        public string PublicId => $"operations-public-{marker}";
+        private string[] ActorIds => [OwnerId, OtherId, DispatchId, LeaderId, VerifierId, PublicId];
+        public string IdFor(string role) => role switch
+        {
+            AppRoles.Ressursleverandor => OwnerId,
+            AppRoles.DispatchTeam => DispatchId,
+            AppRoles.Kriseledelse => LeaderId,
+            AppRoles.Verifiseringsansvarlig => VerifierId,
+            AppRoles.OffentligAktor => PublicId,
+            _ => $"operations-legacy-{marker}"
+        };
         public MapSubmission OwnResource { get; private set; } = null!;
         public MapSubmission OtherResource { get; private set; } = null!;
+        public MapSubmission PendingResource { get; private set; } = null!;
+        public MapSubmission FlowResource { get; private set; } = null!;
+        public OperationalNeed FlowNeed { get; private set; } = null!;
+        public ResourceRequest FlowRequest { get; private set; } = null!;
         public OperationalNeed OwnNeed { get; private set; } = null!;
         public OperationalNeed OtherNeed { get; private set; } = null!;
         public OperationalNeed UnrelatedNeed { get; private set; } = null!;
@@ -394,25 +484,30 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
             await using (var db = Db())
             {
                 await db.Database.MigrateAsync();
-                db.Users.AddRange(new IdentityUser { Id = OwnerId, UserName = $"{OwnerId}@example.test" },
-                    new IdentityUser { Id = OtherId, UserName = $"{OtherId}@example.test" },
-                    new IdentityUser { Id = AdminId, UserName = $"{AdminId}@example.test" });
+                db.Users.AddRange(ActorIds.Select(id => new IdentityUser { Id = id, UserName = $"{id}@example.test" }));
                 OwnResource = Resource(OwnerId);
                 OtherResource = Resource(OtherId);
+                PendingResource = Resource(OtherId, "Venter");
+                PendingResource.VerificationStatus = ResourceVerificationStatus.Pending;
+                PendingResource.VerifiedAtUtc = null;
+                PendingResource.VerificationExpiresAtUtc = null;
                 OwnNeed = Need("Eiers behov");
                 OtherNeed = Need("Annen eiers behov");
                 UnrelatedNeed = Need("Behov uten forespørsler");
-                db.MapSubmissions.AddRange(OwnResource, OtherResource);
-                db.OperationalNeeds.AddRange(OwnNeed, OtherNeed, UnrelatedNeed);
+                FlowResource = Resource(OwnerId, "Flyt");
+                FlowNeed = Need("Behov i arbeidsflyt");
+                db.MapSubmissions.AddRange(OwnResource, OtherResource, PendingResource, FlowResource);
+                db.OperationalNeeds.AddRange(OwnNeed, OtherNeed, UnrelatedNeed, FlowNeed);
                 await db.SaveChangesAsync();
                 OwnRequest = Request(OwnResource, OwnNeed);
                 OtherRequest = Request(OtherResource, OtherNeed);
                 Audit = new WorkflowAudit
                 {
-                    ActorId = AdminId, Action = "Test", Reason = $"Intern beslutning {marker}",
+                    ActorId = LeaderId, Action = "Test", Reason = $"Intern beslutning {marker}",
                     OccurredAtUtc = DateTime.UtcNow, ResourceId = OtherResource.Id
                 };
-                db.ResourceRequests.AddRange(OwnRequest, OtherRequest);
+                FlowRequest = Request(FlowResource, FlowNeed);
+                db.ResourceRequests.AddRange(OwnRequest, OtherRequest, FlowRequest);
                 db.WorkflowAudits.Add(Audit);
                 await db.SaveChangesAsync();
             }
@@ -445,9 +540,9 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
             await app.StartAsync();
         }
 
-        private MapSubmission Resource(string owner) => new()
+        private MapSubmission Resource(string owner, string prefix = "Ressurs") => new()
         {
-            OwnerId = owner, ResourceName = $"Ressurs {owner}", ResourceType = "Utstyr", LocationName = "Oslo",
+            OwnerId = owner, ResourceName = $"{prefix} {owner}", ResourceType = "Utstyr", LocationName = "Oslo",
             Latitude = 59.91, Longitude = 10.75, CreatedAtUtc = DateTime.UtcNow,
             VerificationStatus = ResourceVerificationStatus.Approved, VerifiedAtUtc = DateTime.UtcNow.AddDays(-1),
             VerificationExpiresAtUtc = DateTime.UtcNow.AddDays(1)
@@ -455,12 +550,12 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
 
         private OperationalNeed Need(string description) => new()
         {
-            Description = $"{description} {marker}", Place = "Oslo", CreatedById = AdminId, CreatedAtUtc = DateTime.UtcNow
+            Description = $"{description} {marker}", Place = "Oslo", CreatedById = PublicId, CreatedAtUtc = DateTime.UtcNow, Status = NeedStatus.InProgress
         };
 
         private ResourceRequest Request(MapSubmission resource, OperationalNeed need) => new()
         {
-            ResourceId = resource.Id, NeedId = need.Id, CreatedById = AdminId,
+            ResourceId = resource.Id, NeedId = need.Id, CreatedById = DispatchId,
             CreatedAtUtc = DateTime.UtcNow, Reason = $"Privat forespørsel {resource.OwnerId}"
         };
 
@@ -468,11 +563,13 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
         {
             if (app != null) await app.DisposeAsync();
             await using var db = Db();
-            await db.WorkflowAudits.Where(a => a.ActorId == AdminId || a.ActorId == OwnerId).ExecuteDeleteAsync();
-            await db.ResourceRequests.Where(r => r.CreatedById == AdminId).ExecuteDeleteAsync();
-            await db.OperationalNeeds.Where(n => n.CreatedById == AdminId).ExecuteDeleteAsync();
+            var actors = ActorIds;
+            await db.WorkflowAudits.Where(a => actors.Contains(a.ActorId)).ExecuteDeleteAsync();
+            await db.ResourceAssignments.Where(a => a.CreatedById == DispatchId).ExecuteDeleteAsync();
+            await db.ResourceRequests.Where(r => r.CreatedById == DispatchId).ExecuteDeleteAsync();
+            await db.OperationalNeeds.Where(n => n.CreatedById == PublicId).ExecuteDeleteAsync();
             await db.MapSubmissions.Where(r => r.OwnerId == OwnerId || r.OwnerId == OtherId).ExecuteDeleteAsync();
-            await db.Users.Where(u => u.Id == OwnerId || u.Id == OtherId || u.Id == AdminId).ExecuteDeleteAsync();
+            await db.Users.Where(u => actors.Contains(u.Id)).ExecuteDeleteAsync();
         }
     }
 

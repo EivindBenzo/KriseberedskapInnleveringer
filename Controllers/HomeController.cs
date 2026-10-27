@@ -9,11 +9,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HeimevernetInnlevering1.Controllers;
 
-[Authorize]
+[Authorize(Roles = AppRoles.Any)]
 public class HomeController : Controller
 {
     private readonly AppDbContext _db;
     private readonly IPlaceGeocoder _geocoder;
+    private ResourceFilter? _mapFilter;
 
     public HomeController(AppDbContext db, IPlaceGeocoder geocoder)
     {
@@ -34,14 +35,14 @@ public class HomeController : Controller
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = AppRoles.OffentligAktor)]
     public IActionResult Form() => View(new FormSubmissionViewModel
     {
         Email = User.Identity?.Name ?? string.Empty
     });
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = AppRoles.OffentligAktor)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Form(FormSubmissionViewModel model)
     {
@@ -80,8 +81,10 @@ public class HomeController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Map()
+    public async Task<IActionResult> Map(string? type = null, string? query = null, string? city = null, bool mine = false, bool eligible = false)
     {
+        _mapFilter = ResourceFilter.For(User, type, query, city, mine, eligible);
+        ViewBag.MapFilter = _mapFilter;
         await LoadResourcesAsync();
         return View(new MapSubmissionViewModel());
     }
@@ -103,6 +106,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
+    [Authorize(Roles = AppRoles.Ressursleverandor)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Map(MapSubmissionViewModel model)
     {
@@ -155,6 +159,7 @@ public class HomeController : Controller
     }
 
     [HttpGet]
+    [Authorize(Roles = AppRoles.Ressursleverandor)]
     public async Task<IActionResult> Edit(int id)
     {
         var resource = await _db.MapSubmissions.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id);
@@ -177,6 +182,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
+    [Authorize(Roles = AppRoles.Ressursleverandor)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, MapSubmissionViewModel model)
     {
@@ -184,8 +190,8 @@ public class HomeController : Controller
         if (resource is null) return NotFound();
         if (!ResourcePermissions.CanManage(User, resource.OwnerId)) return Forbid();
         await ValidateResourceAsync(model);
-        if (resource.Availability is ResourceAvailability.Reserved or ResourceAvailability.Allocated)
-            ModelState.AddModelError("", "Ressursen er reservert eller tildelt. Avslutt forespørselen før du redigerer.");
+        if (resource.Availability is ResourceAvailability.Reserved or ResourceAvailability.Allocated or ResourceAvailability.InUse)
+            ModelState.AddModelError("", "Ressursen er forespurt, tildelt eller i bruk. Avslutt forespørselen før du redigerer.");
         if (string.IsNullOrEmpty(model.Version) || model.Version != resource.ConcurrencyToken)
         {
             ModelState.AddModelError("", "Ressursen er endret av en annen bruker. Dine felt er beholdt. Kontroller gjeldende status før du lagrer på nytt.");
@@ -223,7 +229,7 @@ public class HomeController : Controller
         {
             ActorId = User.FindFirstValue(ClaimTypes.NameIdentifier)!,
             Action = materialChange ? "ResourceEditedReverificationRequired" : "AvailabilityChanged",
-            Reason = "Eier eller administrator oppdaterte ressursopplysningene.",
+            Reason = "Eieren oppdaterte ressursopplysningene.",
             ResourceId = resource.Id,
             OccurredAtUtc = DateTime.UtcNow
         });
@@ -250,6 +256,7 @@ public class HomeController : Controller
     }
 
     [HttpGet]
+    [Authorize(Roles = AppRoles.Ressursleverandor)]
     public async Task<IActionResult> Delete(int id)
     {
         var resource = await _db.MapSubmissions.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id);
@@ -259,6 +266,7 @@ public class HomeController : Controller
     }
 
     [HttpPost, ActionName("Delete")]
+    [Authorize(Roles = AppRoles.Ressursleverandor)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id, string? version = null)
     {
@@ -286,7 +294,7 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = AppRoles.Kriseledelse)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ResetMap(bool confirmed = false)
     {
@@ -317,7 +325,7 @@ public class HomeController : Controller
     [HttpGet]
     public async Task<IActionResult> Resources(string? type, string? query, bool mine = false, bool eligible = false, bool overlay = false, string? city = null, bool fragment = false, bool history = false)
     {
-        if (history && !User.IsInRole(IdentitySeeder.AdminRole)) return Forbid();
+        if (history && !User.IsInRole(AppRoles.Kriseledelse)) return Forbid();
         ViewBag.SelectedType = type;
         ViewBag.Query = query;
         ViewBag.Mine = mine;
@@ -349,11 +357,8 @@ public class HomeController : Controller
 
     protected virtual async Task LoadResourcesAsync()
     {
-        ViewBag.Resources = await _db.MapSubmissions
-            .AsNoTracking()
-            .Where(r => r.IsOnMap)
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .ToListAsync();
+        ViewBag.Resources = await ResourceQueries.LoadAsync(_db,
+            _mapFilter ?? ResourceFilter.For(User, null, null, null, false, false), DateTime.UtcNow, onMapOnly: true);
     }
 
     private async Task ValidateResourceAsync(MapSubmissionViewModel model)
@@ -380,34 +385,16 @@ public class HomeController : Controller
     private async Task<DataPageViewModel> BuildDataModelAsync(string? type, string? query, bool mine, bool eligible, string? city)
     {
         var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        var reports = _db.FormSubmissions.AsNoTracking()
-            .Where(s => User.IsInRole("Admin") || s.OwnerId == ownerId);
-        var resources = _db.MapSubmissions.AsNoTracking().AsQueryable();
-        if (mine) resources = resources.Where(r => r.OwnerId == ownerId);
-        var scopedResources = await resources.OrderByDescending(r => r.CreatedAtUtc).ToListAsync();
-        var cities = ResourceCity.Aggregate(scopedResources);
-        if (!string.IsNullOrEmpty(type))
-            resources = resources.Where(r => r.ResourceType == type);
-        if (!string.IsNullOrWhiteSpace(query))
-            resources = resources.Where(r => r.ResourceName.Contains(query) || r.LocationName.Contains(query));
-        if (eligible)
-        {
-            var now = DateTime.UtcNow;
-            resources = resources.Where(r => r.Availability == ResourceAvailability.Available &&
-                r.VerificationStatus == ResourceVerificationStatus.Approved &&
-                r.VerifiedAtUtc <= now && r.VerificationExpiresAtUtc > now &&
-                r.OwnerId != null && r.OwnerId.Trim() != "" &&
-                MapSubmissionViewModel.ResourceTypes.Contains(r.ResourceType));
-        }
-        var filtered = await resources.OrderByDescending(x => x.CreatedAtUtc).ToListAsync();
-        if (!string.IsNullOrWhiteSpace(city))
-            filtered = filtered.Where(r => string.Equals(ResourceCity.FromLocation(r.LocationName),
-                ResourceCity.Normalize(city), StringComparison.OrdinalIgnoreCase)).ToList();
+        var allReports = User.IsInRole(AppRoles.Kriseledelse);
+        var reports = _db.FormSubmissions.AsNoTracking().Where(s => allReports || s.OwnerId == ownerId);
+        var now = DateTime.UtcNow;
+        var filter = ResourceFilter.For(User, type, query, city, mine, eligible);
+        var cityScope = filter with { Type = null, Query = null, City = null, Eligible = AppRoles.DispatchOnly(User) };
         return new DataPageViewModel
         {
-            Cities = cities,
+            Cities = ResourceCity.Aggregate(await ResourceQueries.LoadAsync(_db, cityScope, now)),
             FormSubmissions = await reports.OrderByDescending(x => x.CreatedAtUtc).ToListAsync(),
-            MapSubmissions = filtered
+            MapSubmissions = await ResourceQueries.LoadAsync(_db, filter, now)
         };
     }
 }

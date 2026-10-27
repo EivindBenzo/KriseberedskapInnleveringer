@@ -17,13 +17,6 @@
         <label asp-for="Password"></label>
         <input asp-for="Password" autocomplete="current-password" required />
         <span asp-validation-for="Password"></span>
-        <fieldset class="access-options">
-            <legend>Velg tilgang</legend>
-            <label><input asp-for="Access" type="radio" value="Bruker" /> Bruker</label>
-            <label><input asp-for="Access" type="radio" value="Admin" /> Administrator (full tilgang)</label>
-        </fieldset>
-        <span asp-validation-for="Access"></span>
-        <p class="account-hint">Administratortilgang krever at kontoen har administratorrollen.</p>
         <button class="account-button" type="submit">Logg inn</button>
     </form>
     <p class="account-links">Ny her? <a asp-action="Register">Registrer bruker</a></p>

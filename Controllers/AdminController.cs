@@ -1,4 +1,3 @@
-using HeimevernetInnlevering1.Data;
 using HeimevernetInnlevering1.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -7,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HeimevernetInnlevering1.Controllers;
 
-[Authorize(Roles = IdentitySeeder.AdminRole)]
+[Authorize(Roles = AppRoles.Kriseledelse)]
 public class AdminController(UserManager<IdentityUser> users) : Controller
 {
     [HttpGet]
@@ -16,26 +15,30 @@ public class AdminController(UserManager<IdentityUser> users) : Controller
         var accounts = await users.Users.OrderBy(user => user.Email).ToListAsync();
         var model = new List<AdminUserViewModel>();
         foreach (var user in accounts)
+        {
+            var assigned = await users.GetRolesAsync(user);
             model.Add(new AdminUserViewModel(user.Id, user.Email ?? user.UserName ?? "Ukjent bruker",
-                await users.IsInRoleAsync(user, IdentitySeeder.AdminRole)));
+                AppRoles.All.FirstOrDefault(assigned.Contains)));
+        }
         return View(model);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetAdmin(string id, bool grant)
+    public async Task<IActionResult> SetRole(string id, string role)
     {
         var user = await users.FindByIdAsync(id ?? string.Empty);
-        if (user == null || (!grant && users.GetUserId(User) == user.Id))
+        if (user == null || !AppRoles.All.Contains(role) || users.GetUserId(User) == user.Id)
         {
-            TempData["AdminError"] = "Kunne ikke endre rollen. Du kan ikke fjerne din egen administratortilgang.";
+            TempData["AdminError"] = "Kunne ikke endre rollen. Du kan ikke endre din egen rolle.";
             return RedirectToAction(nameof(Index));
         }
 
-        if (await users.IsInRoleAsync(user, IdentitySeeder.AdminRole) != grant)
+        var current = (await users.GetRolesAsync(user)).Where(AppRoles.All.Contains).ToList();
+        if (current.Count != 1 || current[0] != role)
         {
-            var result = grant
-                ? await users.AddToRoleAsync(user, IdentitySeeder.AdminRole)
-                : await users.RemoveFromRoleAsync(user, IdentitySeeder.AdminRole);
+            var stale = current.Where(existing => existing != role).ToList();
+            var result = stale.Count == 0 ? IdentityResult.Success : await users.RemoveFromRolesAsync(user, stale);
+            if (result.Succeeded && !current.Contains(role)) result = await users.AddToRoleAsync(user, role);
             if (!result.Succeeded || !(await users.UpdateSecurityStampAsync(user)).Succeeded)
             {
                 TempData["AdminError"] = "Kunne ikke endre rollen. Prøv igjen.";

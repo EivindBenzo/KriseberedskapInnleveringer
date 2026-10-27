@@ -198,6 +198,61 @@ namespace HeimevernetInnlevering1.Migrations
                     b.ToTable("OperationalNeeds");
                 });
 
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.ResourceAssignment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ActiveResourceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedById")
+                        .IsRequired()
+                        .HasMaxLength(127)
+                        .HasColumnType("varchar(127)");
+
+                    b.Property<int>("NeedId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RequestId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ResourceId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActiveResourceId")
+                        .IsUnique();
+
+                    b.HasIndex("NeedId");
+
+                    b.HasIndex("RequestId")
+                        .IsUnique();
+
+                    b.HasIndex("ResourceId");
+
+                    b.ToTable("ResourceAssignments");
+                });
+
             modelBuilder.Entity("HeimevernetInnlevering1.Models.ResourceRequest", b =>
                 {
                     b.Property<int>("Id")
@@ -511,6 +566,33 @@ namespace HeimevernetInnlevering1.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.ResourceAssignment", b =>
+                {
+                    b.HasOne("HeimevernetInnlevering1.Models.OperationalNeed", "Need")
+                        .WithMany()
+                        .HasForeignKey("NeedId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HeimevernetInnlevering1.Models.ResourceRequest", "Request")
+                        .WithMany()
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HeimevernetInnlevering1.Models.MapSubmission", "Resource")
+                        .WithMany()
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Need");
+
+                    b.Navigation("Request");
+
+                    b.Navigation("Resource");
                 });
 
             modelBuilder.Entity("HeimevernetInnlevering1.Models.ResourceRequest", b =>

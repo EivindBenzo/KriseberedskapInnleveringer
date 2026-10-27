@@ -1,10 +1,11 @@
 @model IReadOnlyList<HeimevernetInnlevering1.Models.AdminUserViewModel>
+@using HeimevernetInnlevering1.Models
 @{
     ViewData["Title"] = "Administrer brukere";
 }
 <section class="account-card admin-card" aria-labelledby="admin-heading">
     <h1 id="admin-heading">Administrer brukere</h1>
-    <p>Administratorer har full tilgang. Rolleendringer avslutter brukerens eksisterende innlogging.</p>
+    <p>Kriseledelsen tildeler roller. Rolleendringer avslutter brukerens eksisterende innlogging.</p>
     @if (TempData["AdminMessage"] is string message)
     {
         <p class="account-notice" role="status">@message</p>
@@ -19,14 +20,19 @@
             <article class="admin-user">
                 <div>
                     <h2>@user.Email</h2>
-                    <p>@(user.IsAdmin ? "Administrator (full tilgang)" : "Bruker")</p>
+                    <p>@(user.Role is null ? "Ingen rolle" : AppRoles.Label(user.Role))</p>
                 </div>
-                <form asp-action="SetAdmin" method="post">
+                <form asp-action="SetRole" method="post">
                     <input type="hidden" name="id" value="@user.Id" />
-                    <input type="hidden" name="grant" value="@(!user.IsAdmin ? "true" : "false")" />
-                    <button type="submit" class="account-button" aria-label="@(user.IsAdmin ? $"Fjern administratortilgang for {user.Email}" : $"Gi administratortilgang til {user.Email}")">
-                        @(user.IsAdmin ? "Fjern administrator" : "Gjør til administrator")
-                    </button>
+                    <label>Rolle
+                        <select name="role">
+                            @foreach (var role in AppRoles.All)
+                            {
+                                <option value="@role" selected="@(role == user.Role)">@AppRoles.Label(role)</option>
+                            }
+                        </select>
+                    </label>
+                    <button type="submit" class="account-button" aria-label="Lagre rolle for @user.Email">Lagre rolle</button>
                 </form>
             </article>
         }

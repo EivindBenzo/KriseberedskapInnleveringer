@@ -49,7 +49,7 @@ public class ResourcesOverlayTests
                     HttpContext = new DefaultHttpContext
                     {
                         User = new ClaimsPrincipal(new ClaimsIdentity(
-                            [new Claim(ClaimTypes.NameIdentifier, "owner"), new Claim(ClaimTypes.Role, "Bruker")], "test"))
+                            [new Claim(ClaimTypes.NameIdentifier, "owner"), new Claim(ClaimTypes.Role, AppRoles.Ressursleverandor)], "test"))
                     }
                 }
             };
@@ -112,9 +112,9 @@ public class ResourcesOverlayTests
                 await controller.Resources(null, null, mine: true, overlay: true));
             Assert.Equal(1, Assert.Single(Assert.IsType<DataPageViewModel>(partial.Model).Cities).Count);
             controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
-                [new Claim(ClaimTypes.NameIdentifier, "other"), new Claim(ClaimTypes.Role, "Admin")], "test"));
-            Assert.True(ResourcePermissions.CanManage(controller.User, unavailable.OwnerId));
-            Assert.IsType<ViewResult>(await controller.Edit(unavailable.Id));
+                [new Claim(ClaimTypes.NameIdentifier, "other"), new Claim(ClaimTypes.Role, AppRoles.Kriseledelse)], "test"));
+            Assert.False(ResourcePermissions.CanManage(controller.User, unavailable.OwnerId));
+            Assert.IsType<ForbidResult>(await controller.Edit(unavailable.Id));
             var history = Assert.IsType<ViewResult>(await controller.Resources(null, null, history: true));
             var entry = Assert.Single(Assert.IsType<DataPageViewModel>(history.Model).History);
             Assert.Equal("ResourceDeleted", entry.Action);

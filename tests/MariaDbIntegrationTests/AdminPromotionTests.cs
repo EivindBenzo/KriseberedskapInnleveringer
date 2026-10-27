@@ -40,13 +40,12 @@ public class AdminPromotionTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             IdentitySeeder.SeedAsync(test.Services, bootstrap));
-        Assert.False(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.AdminRole));
+        Assert.False(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.BootstrapRole));
         Assert.Equal(originalStamp, test.User.SecurityStamp);
 
         bootstrap["ADMIN_PASSWORD"] = Scenario.Password;
         await IdentitySeeder.SeedAsync(test.Services, bootstrap);
-        Assert.True(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.AdminRole));
-        Assert.True(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.UserRole));
+        Assert.True(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.BootstrapRole));
         Assert.NotEqual(originalStamp, test.User.SecurityStamp);
         Assert.Equal(originalHash, test.User.PasswordHash);
         Assert.True(await test.Users.CheckPasswordAsync(test.User, Scenario.Password));
@@ -77,7 +76,7 @@ public class AdminPromotionTests
     }
 
     [Fact]
-    public async Task EnvironmentBootstrapCreatesAdministratorWhoCanUseNormalPasswordLogin()
+    public async Task EnvironmentBootstrapCreatesKriseledelseWhoCanUseNormalPasswordLogin()
     {
         await using var test = await Scenario.Create();
         var email = $"{Guid.NewGuid():N}@example.test";
@@ -91,9 +90,7 @@ public class AdminPromotionTests
             await IdentitySeeder.SeedAsync(test.Services, configuration);
             var admin = await test.Users.FindByEmailAsync(email);
             Assert.NotNull(admin);
-            Assert.True(await test.Users.IsInRoleAsync(admin, IdentitySeeder.AdminRole));
-            Assert.True(await test.Users.IsInRoleAsync(admin, IdentitySeeder.UserRole));
-            Assert.True(AccountLoginRules.CanUseChoice(nameof(LoginAccess.Admin), true));
+            Assert.True(await test.Users.IsInRoleAsync(admin, IdentitySeeder.BootstrapRole));
             var login = test.Services.GetRequiredService<SignInManager<IdentityUser>>();
             Assert.True((await login.CheckPasswordSignInAsync(admin, Scenario.Password, true)).Succeeded);
             Assert.False((await login.CheckPasswordSignInAsync(admin, Scenario.Password + "-wrong", true)).Succeeded);
@@ -116,7 +113,7 @@ public class AdminPromotionTests
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             AdminPromotionCommand.PromoteAsync(test.Services, missing));
         Assert.Null(await test.Users.FindByEmailAsync(missing));
-        Assert.False(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.AdminRole));
+        Assert.False(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.BootstrapRole));
         Assert.Equal(stamp, test.User.SecurityStamp);
     }
 
@@ -133,7 +130,7 @@ public class AdminPromotionTests
         test.Db.ChangeTracker.Clear();
         var stored = await test.Users.FindByIdAsync(test.User.Id);
         Assert.NotNull(stored);
-        Assert.False(await test.Users.IsInRoleAsync(stored, IdentitySeeder.AdminRole));
+        Assert.False(await test.Users.IsInRoleAsync(stored, IdentitySeeder.BootstrapRole));
         Assert.Equal(originalStamp, stored.SecurityStamp);
         Assert.Equal(originalHash, stored.PasswordHash);
     }
@@ -150,7 +147,7 @@ public class AdminPromotionTests
         test.Db.ChangeTracker.Clear();
         var stored = await test.Users.FindByIdAsync(test.User.Id);
         Assert.NotNull(stored);
-        Assert.True(await test.Users.IsInRoleAsync(stored, IdentitySeeder.AdminRole));
+        Assert.True(await test.Users.IsInRoleAsync(stored, IdentitySeeder.BootstrapRole));
         var stamp = stored.SecurityStamp;
         result = await RunCliAsync("--promote-admin", test.User.Email!);
         Assert.Equal(0, result.ExitCode);
@@ -170,7 +167,7 @@ public class AdminPromotionTests
         Assert.Equal(1, result.ExitCode);
         Assert.DoesNotContain(missing, result.Output + result.Error);
         Assert.Null(await test.Users.FindByEmailAsync(missing));
-        Assert.False(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.AdminRole));
+        Assert.False(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.BootstrapRole));
     }
 
     [Theory]
@@ -219,13 +216,75 @@ public class AdminPromotionTests
     }
 
     [Fact]
-    public async Task PublicSignupCannotRequestAdministratorRole()
+    public async Task PublicSignupCannotRequestPrivilegedRole()
     {
         await using var test = await Scenario.Create(registerViaController: true);
-        Assert.True(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.UserRole));
-        Assert.False(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.AdminRole));
+        Assert.True(await test.Users.IsInRoleAsync(test.User, AppRoles.OffentligAktor));
+        Assert.False(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.BootstrapRole));
         await IdentitySeeder.SeedAsync(test.Services, new ConfigurationBuilder().Build());
-        Assert.False(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.AdminRole));
+        Assert.False(await test.Users.IsInRoleAsync(test.User, IdentitySeeder.BootstrapRole));
+    }
+
+    [Fact]
+    public async Task SeedingCreatesTheFiveRolesAndMovesLegacyAccountsToTheNewRoles()
+    {
+        await using var test = await Scenario.Create();
+        var roles = test.Services.GetRequiredService<RoleManager<IdentityRole>>();
+        foreach (var legacy in new[] { "Admin", "Bruker" })
+            if (!await roles.RoleExistsAsync(legacy)) Assert.True((await roles.CreateAsync(new IdentityRole(legacy))).Succeeded);
+        var legacyAdmin = new IdentityUser { UserName = $"{Guid.NewGuid():N}@example.test" };
+        legacyAdmin.Email = legacyAdmin.UserName;
+        var legacyUser = new IdentityUser { UserName = $"{Guid.NewGuid():N}@example.test" };
+        legacyUser.Email = legacyUser.UserName;
+        try
+        {
+            Assert.True((await test.Users.CreateAsync(legacyAdmin, Scenario.Password)).Succeeded);
+            Assert.True((await test.Users.CreateAsync(legacyUser, Scenario.Password)).Succeeded);
+            Assert.True((await test.Users.AddToRolesAsync(legacyAdmin, ["Admin", "Bruker"])).Succeeded);
+            Assert.True((await test.Users.AddToRoleAsync(legacyUser, "Bruker")).Succeeded);
+            var stamp = legacyUser.SecurityStamp;
+
+            await IdentitySeeder.SeedAsync(test.Services, new ConfigurationBuilder().Build());
+
+            foreach (var role in AppRoles.All)
+                Assert.True(await roles.RoleExistsAsync(role), role);
+            Assert.False(await roles.RoleExistsAsync("Admin"));
+            Assert.False(await roles.RoleExistsAsync("Bruker"));
+            test.Db.ChangeTracker.Clear();
+            var admin = (await test.Users.FindByIdAsync(legacyAdmin.Id))!;
+            var user = (await test.Users.FindByIdAsync(legacyUser.Id))!;
+            Assert.Equal(new[] { AppRoles.Kriseledelse, AppRoles.Ressursleverandor }, (await test.Users.GetRolesAsync(admin)).Order());
+            Assert.Equal(new[] { AppRoles.Ressursleverandor }, await test.Users.GetRolesAsync(user));
+            Assert.NotEqual(stamp, user.SecurityStamp);
+        }
+        finally
+        {
+            await test.Db.Users.Where(u => u.Id == legacyAdmin.Id || u.Id == legacyUser.Id).ExecuteDeleteAsync();
+        }
+    }
+
+    [Theory]
+    [InlineData("Kriseledelse")]
+    [InlineData("DispatchTeam")]
+    [InlineData("Verifiseringsansvarlig")]
+    [InlineData("Admin")]
+    [InlineData("")]
+    public async Task RegistrationRejectsRolesThatOnlyKriseledelseMayAssign(string role)
+    {
+        await using var test = await Scenario.Create();
+        var email = $"{Guid.NewGuid():N}@example.test";
+        var context = new DefaultHttpContext();
+        var controller = new AccountController(test.Users, test.Services.GetRequiredService<SignInManager<IdentityUser>>())
+        {
+            ControllerContext = new ControllerContext { HttpContext = context },
+            TempData = new TempDataDictionary(context, new EmptyTempDataProvider())
+        };
+        var result = await controller.Register(new RegisterViewModel
+        {
+            Email = email, Password = Scenario.Password, ConfirmPassword = Scenario.Password, Role = role
+        });
+        Assert.IsType<ViewResult>(result);
+        Assert.Null(await test.Users.FindByEmailAsync(email));
     }
 
     private sealed class Scenario : IAsyncDisposable
@@ -280,7 +339,7 @@ public class AdminPromotionTests
                     };
                     var result = await controller.Register(new RegisterViewModel
                     {
-                        Email = email, Password = Password, ConfirmPassword = Password
+                        Email = email, Password = Password, ConfirmPassword = Password, Role = AppRoles.OffentligAktor
                     });
                     Assert.IsType<RedirectToActionResult>(result);
                     test.User = (await test.Users.FindByEmailAsync(email))!;
@@ -289,7 +348,7 @@ public class AdminPromotionTests
                 {
                     test.User = new IdentityUser { UserName = email, Email = email };
                     Assert.True((await test.Users.CreateAsync(test.User, Password)).Succeeded);
-                    Assert.True((await test.Users.AddToRoleAsync(test.User, IdentitySeeder.UserRole)).Succeeded);
+                    Assert.True((await test.Users.AddToRoleAsync(test.User, AppRoles.Ressursleverandor)).Succeeded);
                 }
 
                 test.Resource = new MapSubmission

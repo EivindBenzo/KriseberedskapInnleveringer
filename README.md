@@ -4,40 +4,38 @@ ASP.NET Core MVC-applikasjon (`net10.0`) med ASP.NET Core Identity, roller, beho
 
 ## Innlogging og tilgang
 
-Forsiden er offentlig. Velg «Registrer» for å opprette en konto; nye kontoer får alltid rollen `Bruker`. På innloggingssiden velges «Bruker» eller «Administrator (full tilgang)». Begge krever gyldige innloggingsopplysninger. Administratorvalget kontrollerer rollen i databasen og gir aldri i seg selv ekstra rettigheter.
+Forsiden er offentlig. Velg «Registrer» for å opprette en konto; du kan velge `OffentligAktor` eller `Ressursleverandor`. De øvrige rollene tildeles bare av Kriseledelse under «Brukere», gjennom `ADMIN_EMAIL`-bootstrap eller operatørkommandoen. Hver konto har én rolle, og alle handlinger kontrolleres på serveren; uten gyldig rolle nektes tilgang.
 
-| Funksjon | Bruker | Admin |
+| Rolle | Kan | Kan ikke |
 | --- | --- | --- |
-| Se kart og ressursoversikt, filtrere på type | Ja | Ja |
-| Registrere ressurser | Ja | Ja |
-| Redigere/flytte/slette egne ressurser | Ja | Ja |
-| Redigere/slette andres eller eldre eierløse ressurser | Nei | Ja |
-| Svare på forespørsler / returnere egne tildelte ressurser | Ja | Ja |
-| Opprette operative behov, sende forespørsler og tildele ressurser | Nei | Ja |
-| Godkjenne/avvise ressurser (ikke egne) | Nei | Ja |
-| Se alle behov | Nei | Ja |
-| Liste brukere og tildele/fjerne Admin | Nei | Ja |
+| `OffentligAktor` | Registrere behov og se behov i eget omfang | Se ressurslister for disponering, forespørre eller tildele |
+| `Ressursleverandor` | Registrere ressurser, redigere/slette/sette tilgjengelighet på egne, svare på forespørsler om egne ressurser | Endre andres ressurser, verifisere, tildele |
+| `Verifiseringsansvarlig` | Se køen «Venter på verifisering», godkjenne eller avvise (avvisning krever begrunnelse; ikke egne ressurser) | Tildele eller endre ressurser |
+| `DispatchTeam` | Se bare verifiserte og tilgjengelige ressurser, sende forespørsler, tildele og oppdatere fremdrift | Verifisere, endre ressurser |
+| `Kriseledelse` | Overblikk og prioritering av behov, følge opp tildelinger og beslutningslogg, tildele roller, nullstille kartplasseringer | Redigere andres ressurser |
 
-Primærmenyen viser Hjem, Kart og Ressurser. «Mine ressurser» er et utvalg inne i Ressurser, med redigering, tilgjengelighet og sletting. Bruker/Admin får Forespørsler på `/Operations`; tilbydere ser bare egne innkommende forespørsler. Admin får også Brukere. Verifisering og Behov ligger som utvidbare seksjoner inne i Forespørsler, etter forespørslene som krever oppfølging; beslutningsloggen er også sammenfoldet. `/Home/Resources` er oversikten; `/Home/Mine` beholdes og begrenser til egne ressurser. Gamle `/Home/Data?type=...` og `/Home/Verify?type=...` videresendes til Ressurser med typefilteret beholdt. Verifiseringshandlinger er Admin-beskyttet, ikke del av CRUD-oversikten. Eldre meldinger beholdes og vises bare til eier eller Admin; de blir ikke automatisk omgjort til operative behov. Det gamle kontaktskjemaet `/Home/Form` krever nå Admin. Sletting krever bekreftelse, versjonskontroll og POST med antiforgery-token; historikkførte/reserverte/tildelte ressurser må i stedet håndteres i arbeidsflyten.
+Det finnes ingen egen Administrator-rolle. Eldre `Admin`-kontoer blir `Kriseledelse` og eldre `Bruker`-kontoer blir `Ressursleverandor` ved oppstart; de gamle rollene fjernes.
+
+Primærmenyen viser Hjem, Kart og Ressurser. «Mine ressurser» er et utvalg inne i Ressurser. Kriseledelse får også Brukere. Liste og kart bruker samme filtrering (`ResourceQueries`), slik at antall og markører samsvarer; tomt stedsfilter betyr ingen stedsfilter. Eldre ressurser uten eier kan ikke lenger endres. Sletting krever bekreftelse, versjonskontroll og POST med antiforgery-token.
 
 ### Nullstill kartplasseringer
 
-Admin åpner **Ressurser → Administrer kartplasseringer**, leser konsekvensene og krysser av bekreftelsen før «Nullstill alle kartplasseringer». Lenke finnes også fra kartet. Handlingen gjelder alle nåværende ressursmarkører, uavhengig av søk, typefilter eller «Mine ressurser». Den krever innlogging som Admin og POST med antiforgery-token; kartplasseringer og revisjonslogg oppdateres atomisk.
+Kriseledelse åpner **Ressurser → Administrer kartplasseringer**, leser konsekvensene og krysser av bekreftelsen før «Nullstill alle kartplasseringer». Lenke finnes også fra kartet. Handlingen gjelder alle nåværende ressursmarkører, uavhengig av søk, typefilter eller «Mine ressurser». Den krever innlogging som Kriseledelse og POST med antiforgery-token; kartplasseringer og revisjonslogg oppdateres atomisk.
 
 Ressursene slettes ikke: de vises fortsatt i oversikten med «Ikke på kartet». Koordinater, eierskap, tilgjengelighet, godkjenning, reservasjoner og forespørselshistorikk bevares. Etterpå vises resultatet i oversikten, og kartet er tomt ved neste åpning. Velg «Rediger / plasser på kart» og lagre for å plassere en ressurs igjen; dette krever ny verifisering. Reserverte/tildelte ressurser må frigjøres gjennom eksisterende forespørselsflyt før redigering. Den additive migreringen setter eksisterende og nye ressurser på kartet som standard; utrulling alene nullstiller ikke kartet og endrer ingen ressurser i en ekstern database.
 
 ## Arbeidsflyt og tilstandsmodell
 
-Dette er en studentprototype, ikke en offisiell tjeneste eller et sanntids-/offline-system. Admin er prosjektets betrodde koordinator, behovsmelder og verifikator. Ingen nye privilegerte roller opprettes, og offentlig registrering kan aldri gi slike rettigheter. Admin tilordnes bare gjennom betrodd bootstrap, eksplisitt operatørkommando eller brukeradministrasjon. To separate kontoer trengs for å registrere og godkjenne samme ressurs: en Admin kan ikke godkjenne sin egen registrering.
+Dette er en studentprototype, ikke en offisiell tjeneste eller et sanntids-/offline-system. Roller og eierskap håndheves på serveren. To separate kontoer trengs for å registrere og godkjenne samme ressurs.
 
 | Begrep | Tilstander og regel |
 | --- | --- |
-| Tilgjengelighet | `Available` / `Unavailable` settes av eier eller Admin. `Reserved` og `Allocated` settes bare gjennom forespørselsflyten. |
-| Verifisering | Nye **og eldre** ressurser starter `Pending`, uten oppdiktet historisk godkjenning. Admin godkjenner (`Approved`) eller avviser (`Rejected`) med begrunnelse og serverklokke. |
+| Ressurs | `VenterPåVerifisering` → `Tilgjengelig` → `Forespurt` → `Tildelt` → `IBruk` → `Returnert` → `Tilgjengelig` eller `Avvist` etter ny verifisering. Nye ressurser starter `VenterPåVerifisering`; DispatchTeam kan ikke tildele uverifiserte ressurser. |
+| Verifisering | Verifiseringsansvarlig godkjenner (`Approved`) eller avviser (`Rejected`, begrunnelse påkrevd). Siste verifiseringsresultat styrer tilgjengelighet. |
 | Gyldighet | Godkjenning har faktisk tidspunkt og utløpsdato. Utløpt er en beregnet tilstand, ikke en bakgrunnsjobb. `Workflow__VerificationValidityDays` er 30 som standard (tillatt 1–3650); endring gjelder nye beslutninger. |
-| Behov | Beskrivelse, sted, prioritet (`Low/Normal/High/Critical`) og livsløp (`Open/InProgress/Completed/Cancelled`) er separate felt. Kun Admin oppretter/koordinerer operative behov. |
-| Forespørsel | `Pending` er ikke en tildeling. Bare ressursens eier kan akseptere (`Accepted`, reserverer atomisk) eller avvise (`Rejected`). Admin tildeler deretter (`Allocated`) og kan avbryte ventende/aksepterte forespørsler (`Cancelled`). |
-| Retur | Eier eller Admin returnerer tildelt ressurs (`Returned`). Godkjenning nullstilles til `Pending`; inspeksjon/ny verifisering kreves før ny disponering. |
+| Behov | `Ny` → `Vurderes` → `Tildelt` → `Løst` (eller avbrutt). Hoppene styres av serveren; `Tildelt` settes bare ved tildeling. Prioritet: `Low/Normal/High/Critical`. |
+| Forespørsel og tildeling | Forespørsel: `Venter`, `Godtatt`, `Avslått`. Bare ressursens eier svarer. En tildeling (`ResourceAssignment`) opprettes fra en godtatt forespørsel av DispatchTeam og går `Bekreftet` → `PåVei` → `Fremme` → `Fullført`, ett steg om gangen. Dobbelttildeling hindres av transaksjon, samtidighetstokener og unik indeks; ved konflikt vises en melding og data forblir uendret. |
+| Retur | Fullført tildeling setter ressursen `Returnert` og nullstiller godkjenning; Verifiseringsansvarlig må godkjenne på nytt før ny bruk. |
 
 Bare **tilgjengelige ressurser med eier og gyldig godkjenning** kan forespørres. Vilkårene kontrolleres igjen ved eiers aksept og tildeling. Materielle endringer i navn, type, sted/koordinater, kapasitet eller transportbehov nullstiller godkjenning; en ren tilgjengelighetsendring gjør ikke det. Kapasitet/transport er valgfrie fritekstfelt, ikke oppdiktede standardenheter for alle kategorier.
 
@@ -53,13 +51,13 @@ Valgfritt, utført av operatøren lokalt:
 
 1. Bevar eksisterende `.env` og databasevolum. Sett både `ADMIN_EMAIL` og `ADMIN_PASSWORD` i lokal `.env`. For en ny konto: velg en ny, unik hemmelighet utenfor chat, minst 12 tegn med stor/liten bokstav, tall og spesialtegn. For en eksisterende vanlig konto må passordet samsvare med kontoens nåværende passord. Ikke gjenbruk passord delt i chat.
 2. Kjør `docker compose up --build -d --force-recreate heimevernet`. Konto og roller opprettes i **din lokale MariaDB når appen starter**, ikke av cloud-agenten. Uten begge innstillinger opprettes ingen administrator; én manglende verdi stopper oppstart.
-3. Logg inn som Administrator. Fjern deretter begge bootstrap-verdier fra `.env` og gjenskap appcontaineren med samme kommando. Kontoen beholdes i databasen.
+3. Logg inn (kontoen får rollen Kriseledelse). Fjern deretter begge bootstrap-verdier fra `.env` og gjenskap appcontaineren med samme kommando. Kontoen beholdes i databasen.
 
-En eksisterende vanlig konto oppgraderes bare når det konfigurerte passordet er kontrollert mot Identity-hashen; gamle innlogginger tilbakekalles. Feil passord stopper bootstrap uten rolletildeling. En eksisterende Admin beholdes uten passordendring. En innlogget administrator kan bruke «Administrer brukere». Hvis ingen Admin er tilgjengelig og passordet ikke er kjent, kan en betrodd operatør med terminal-/databasetilgang eksplisitt oppgradere en **eksisterende** konto med engangskommandoen nedenfor. Ingen passord nullstilles, og registreringsskjemaet kan ikke tildele Admin. Cloud-agenten har ikke opprettet noen konto i brukerens lokale database eller hatt tilgang til den. Ikke legg ekte verdier i Git, logger eller skjermbilder.
+En eksisterende vanlig konto oppgraderes bare når det konfigurerte passordet er kontrollert mot Identity-hashen; gamle innlogginger tilbakekalles. Feil passord stopper bootstrap uten rolletildeling. En eksisterende Kriseledelse-konto beholdes uten passordendring. Kriseledelse kan bruke «Administrer brukere». Hvis ingen Kriseledelse-konto er tilgjengelig og passordet ikke er kjent, kan en betrodd operatør med terminal-/databasetilgang eksplisitt oppgradere en **eksisterende** konto med engangskommandoen nedenfor. Ingen passord nullstilles, og registreringsskjemaet kan ikke tildele Kriseledelse. Cloud-agenten har ikke opprettet noen konto i brukerens lokale database eller hatt tilgang til den. Ikke legg ekte verdier i Git, logger eller skjermbilder.
 
 Ved lokal `dotnet run` må `ADMIN_EMAIL`, `ADMIN_PASSWORD` og databaseinnstillingene eksporteres som miljøvariabler (eller settes med .NET user-secrets); `.env` leses av Docker Compose, ikke av `dotnet run`. Oppstart kjører samme migreringer og administratorinitialisering i alle miljøer.
 
-Administratorer får fanen **Ressurshistorikk** under Ressurser, også i kartets ressurspanel. Den viser de siste 500 registreringene/slettingene med aktør og UTC-tid fra revisjonsloggen. Tilgangen kontrolleres på serveren. Eldre loggposter kan mangle ressurs-ID eller navn; manglende data fylles ikke ut med oppdiktet historikk.
+Kriseledelse får fanen **Ressurshistorikk** under Ressurser, også i kartets ressurspanel. Den viser de siste 500 registreringene/slettingene med aktør og UTC-tid fra revisjonsloggen. Tilgangen kontrolleres på serveren. Eldre loggposter kan mangle ressurs-ID eller navn; manglende data fylles ikke ut med oppdiktet historikk.
 
 ### Gjenopprett administrator på eksisterende konto
 
@@ -74,7 +72,7 @@ dotnet run --project HeimevernetInnlevering1.csproj -- --promote-admin operator@
 docker compose exec heimevernet dotnet HeimevernetInnlevering1.dll --promote-admin operator@example.test
 ```
 
-Prosessen avsluttes etter operasjonen: kode `0` ved suksess (også dersom kontoen allerede er Admin), `1` ved manglende/tvetydig konto eller databasefeil, `2` ved ugyldige argumenter. Konto-ID, eksisterende roller, passord og ressurser bevares. Første oppgradering fornyer sikkerhetsstempelet i samme transaksjon som rolletildelingen; eksisterende innlogginger avvises ved neste forespørsel. Logg inn på nytt og velg Administrator. Gjentakelse endrer ikke passord eller sikkerhetsstempel. Kommandoen skriver ikke kontoopplysninger, men e-postargumentet kan vises i prosesslisten og shellhistorikk; bruk en betrodd terminal og følg lokale rutiner for historikk. Dette er ikke et offentlig endepunkt eller en automatisk oppgradering via miljøvariabler. Ikke slett database- eller nøkkelvolum.
+Prosessen avsluttes etter operasjonen: kode `0` ved suksess (også dersom kontoen allerede er Kriseledelse), `1` ved manglende/tvetydig konto eller databasefeil, `2` ved ugyldige argumenter. Konto-ID, eksisterende roller, passord og ressurser bevares. Første oppgradering fornyer sikkerhetsstempelet i samme transaksjon som rolletildelingen; eksisterende innlogginger avvises ved neste forespørsel. Logg inn på nytt. Gjentakelse endrer ikke passord eller sikkerhetsstempel. Kommandoen skriver ikke kontoopplysninger, men e-postargumentet kan vises i prosesslisten og shellhistorikk; bruk en betrodd terminal og følg lokale rutiner for historikk. Dette er ikke et offentlig endepunkt eller en automatisk oppgradering via miljøvariabler. Ikke slett database- eller nøkkelvolum.
 
 Passord lagres som Identity-hasher i databasen. Gjentatte mislykkede innlogginger utløser midlertidig låsing. Informasjonskapsler er HttpOnly/SameSite; HTTPS gir Secure-cookie, mens HTTP fungerer i lokal Docker-utvikling. Bruk HTTPS i produksjon.
 
@@ -266,7 +264,7 @@ Review and commit the generated migration and model snapshot. The app applies co
 
 ## Integration smoke tests
 
-The opt-in test project exercises migrations and real MariaDB persistence, including Identity users/roles, resource ownership, Norwegian characters, nullable form locations, map coordinates and timestamps, and map-resource create/read/update/delete. Workflow tests additionally exercise decisions, expiry, owner access, allocation conflicts and return/reverification. Administrator recovery tests cover explicit opt-in versus bootstrap/public signup, missing accounts, repeat invocation, password/resource preservation, transactional security-stamp failure and CLI exit without HTTP hosting. Its source is excluded from the web project's compile glob. Tests without MariaDB can run using the filtered command above; run the complete suite only against an isolated test database with the documented MariaDB environment variables.
+The opt-in test project exercises migrations and real MariaDB persistence, including Identity users/roles, resource ownership, Norwegian characters, nullable form locations, map coordinates and timestamps, and map-resource create/read/update/delete. Workflow tests additionally exercise decisions, expiry, owner access, allocation conflicts and return/reverification. Kriseledelse recovery tests cover explicit opt-in versus bootstrap/public signup, missing accounts, repeat invocation, password/resource preservation, transactional security-stamp failure and CLI exit without HTTP hosting. Its source is excluded from the web project's compile glob. Tests without MariaDB can run using the filtered command above; run the complete suite only against an isolated test database with the documented MariaDB environment variables.
 
 Run against a new, isolated Compose project name to exercise an empty database and fresh schema without touching the normal application volume. If `heimevernet-smoke` was used before, choose a different project name; Compose keeps named volumes after `down`.
 

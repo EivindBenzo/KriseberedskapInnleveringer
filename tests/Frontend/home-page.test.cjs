@@ -35,9 +35,9 @@ test('home actions use existing authenticated and anonymous routes and retain th
     assert.doesNotMatch(anonymous, /asp-action="Map"|asp-controller="Operations"/);
     for (const state of [authenticated, anonymous])
         assert.equal((state.match(/class="btn-submit"/g) || []).length, 1);
-    assert.match(home, /canUseOperations = User.Identity\?\.IsAuthenticated == true\s*&& !string.IsNullOrEmpty\(User.FindFirst\(System.Security.Claims.ClaimTypes.NameIdentifier\)\?\.Value\)\s*&& \(User.IsInRole\("Bruker"\) \|\| User.IsInRole\("Admin"\)\)/);
+    assert.match(home, /canUseOperations = User.Identity\?\.IsAuthenticated == true\s*&& !string.IsNullOrEmpty\(User.FindFirst\(System.Security.Claims.ClaimTypes.NameIdentifier\)\?\.Value\)\s*&& HeimevernetInnlevering1.Models.AppRoles.HasAny\(User\)/);
     assert.match(home, /@if \(canUseOperations\)\s*\{\s*<a asp-controller="Operations" asp-action="Index">/);
-    assert.match(home, /@if \(User.Identity\?\.IsAuthenticated == true\)\s*\{\s*<a asp-action="Resources" asp-route-mine="true">/);
+    assert.match(home, /@if \(canRegister\)\s*\{\s*<a asp-action="Resources" asp-route-mine="true">/);
     assert.match(anonymous, /Studentprosjekt · prototype.*Ikke en offisiell tjeneste/);
 });
 
