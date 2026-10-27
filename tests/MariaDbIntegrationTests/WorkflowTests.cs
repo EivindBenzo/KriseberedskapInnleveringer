@@ -238,6 +238,39 @@ public class WorkflowTests
         await custom.VerifyAsync(test.ResourceId, false, test.ResourceToken(), test.Verifier, "Mangler dokumentasjon");
         Assert.Equal(ResourceVerificationStatus.Rejected, (await test.Resource()).VerificationStatus);
         Assert.Null((await test.Resource()).VerificationExpiresAtUtc);
+        var again = await Assert.ThrowsAsync<WorkflowException>(() => custom.VerifyAsync(test.ResourceId, false,
+            test.ResourceToken(), test.Verifier, "Samme avvisning"));
+        Assert.Equal("Ressursen er allerede avvist.", again.Message);
+    }
+
+    [Fact]
+    public async Task RejectingRequiresAReasonAndOnlyVerifiersMayVerify()
+    {
+        await using var test = await Scenario.Create();
+        var pending = new MapSubmission
+        {
+            ResourceName = $"Ny {test.OwnerId}", ResourceType = "Drone", LocationName = "Oslo",
+            Latitude = 59.91, Longitude = 10.75, CreatedAtUtc = DateTime.UtcNow, OwnerId = test.OwnerId
+        };
+        test.Db.MapSubmissions.Add(pending);
+        await test.Db.SaveChangesAsync();
+        try
+        {
+            Assert.Equal(ResourceVerificationStatus.Pending, pending.VerificationStatus);
+            var missing = await Assert.ThrowsAsync<WorkflowException>(() => test.Service.VerifyAsync(
+                pending.Id, false, pending.ConcurrencyToken, test.Verifier, "  "));
+            Assert.Equal("Oppgi en begrunnelse når en ressurs avvises.", missing.Message);
+            foreach (var actor in new[] { test.Owner, test.Dispatch, test.Leader, test.Public })
+                await Assert.ThrowsAsync<WorkflowException>(() => test.Service.VerifyAsync(
+                    pending.Id, true, pending.ConcurrencyToken, actor, "Forsøk"));
+            Assert.Equal(ResourceVerificationStatus.Pending, (await test.Db.MapSubmissions.AsNoTracking()
+                .SingleAsync(r => r.Id == pending.Id)).VerificationStatus);
+        }
+        finally
+        {
+            test.Db.ChangeTracker.Clear();
+            await test.Db.MapSubmissions.Where(r => r.Id == pending.Id).ExecuteDeleteAsync();
+        }
     }
 
     [Fact]

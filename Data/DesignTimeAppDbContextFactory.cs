@@ -14,7 +14,7 @@ public class DesignTimeAppDbContextFactory : IDesignTimeDbContextFactory<AppDbCo
         var connectionString =
             DatabaseProviderConfiguration.GetRequiredConnectionString(configuration);
         var options = new DbContextOptionsBuilder<AppDbContext>();
-        DatabaseProviderConfiguration.Configure(options, connectionString);
+        DatabaseProviderConfiguration.Configure(options, connectionString, configuration["DATABASE_SERVER_VERSION"]);
 
         return new AppDbContext(options.Options);
     }

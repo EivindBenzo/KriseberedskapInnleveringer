@@ -23,7 +23,7 @@ public class ResourcesOverlayTests
         var connection = new MySqlConnectionStringBuilder(DatabaseProviderConfiguration.GetRequiredConnectionString(
             new ConfigurationBuilder().AddEnvironmentVariables().Build()))
         {
-            Database = $"resources_overlay_{Guid.NewGuid():N}"
+            Database = $"overlay_{Guid.NewGuid():N}"
         };
         var options = new DbContextOptionsBuilder<AppDbContext>();
         DatabaseProviderConfiguration.Configure(options, connection.ConnectionString);

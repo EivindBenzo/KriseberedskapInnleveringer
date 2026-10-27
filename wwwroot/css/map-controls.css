@@ -117,6 +117,10 @@ button.city-suggestion-item[aria-selected="true"] {
     user-select: none;
 }
 
+.map-legend summary:active {
+    cursor: grabbing;
+}
+
 .map-legend ul {
     list-style: none;
     padding: 0 0.75rem 0.5rem;

@@ -154,3 +154,27 @@ public class OperationsViewModel
     public IReadOnlyList<ResourceAssignment> Assignments { get; set; } = [];
     public IReadOnlyList<WorkflowAudit> Audit { get; set; } = [];
 }
+
+public record TimelineEntry(string Label, string Actor, DateTime OccurredAtUtc);
+
+public static class WorkflowLabels
+{
+    public static string Action(string action) => action switch
+    {
+        "ResourceRegistered" => "Registrert",
+        "ResourceApproved" => "Verifisert",
+        "ResourceRejected" => "Avvist ved verifisering",
+        "ResourceEditedReverificationRequired" => "Endret, venter på ny verifisering",
+        "AvailabilityChanged" => "Tilgjengelighet endret",
+        "RequestCreated" => "Forespørsel sendt",
+        "RequestAccept" => "Godtatt av eier",
+        "RequestReject" => "Avslått av eier",
+        "RequestAllocate" => "Tildelt",
+        "RequestCancel" => "Forespørsel avbrutt",
+        "AssignmentEnRoute" => "På vei",
+        "AssignmentArrived" => "Fremme",
+        "AssignmentCompleted" => "Fullført",
+        "NeedCreated" => "Behov registrert",
+        _ => action
+    };
+}

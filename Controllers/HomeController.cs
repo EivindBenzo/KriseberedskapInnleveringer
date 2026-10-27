@@ -26,6 +26,10 @@ public class HomeController : Controller
     [AllowAnonymous]
     public IActionResult Index() => View();
 
+    [HttpGet]
+    public async Task<IActionResult> Dashboard([FromServices] DashboardService dashboard) =>
+        View(await dashboard.BuildAsync(User, DateTime.UtcNow));
+
     [AllowAnonymous]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()

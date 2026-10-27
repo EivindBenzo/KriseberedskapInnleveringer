@@ -1,0 +1,16 @@
+@model IReadOnlyList<HeimevernetInnlevering1.Models.TimelineEntry>
+@if (Model != null && Model.Count > 0)
+{
+    <div class="timeline">
+        <details>
+            <summary>Historikk</summary>
+            <ol>
+                @foreach (var entry in Model)
+                {
+                    var when = entry.OccurredAtUtc;
+                    <li><strong>@entry.Label</strong> <span>@entry.Actor · <time datetime="@when.ToString("o")">@when.ToString("dd.MM.yyyy HH:mm") UTC</time></span></li>
+                }
+            </ol>
+        </details>
+    </div>
+}

@@ -16,8 +16,8 @@ public static class AppRoles
     public static readonly IReadOnlyList<string> All =
         [OffentligAktor, Ressursleverandor, DispatchTeam, Kriseledelse, Verifiseringsansvarlig];
 
-    /// <summary>Roles a visitor may choose when registering. Operational roles are assigned by Kriseledelse.</summary>
-    public static readonly IReadOnlyList<string> SelfService = [OffentligAktor, Ressursleverandor];
+    /// <summary>Roles a visitor may choose when registering. Kriseledelse can change roles later.</summary>
+    public static readonly IReadOnlyList<string> SelfService = All;
 
     public static string Label(string role) => role switch
     {

@@ -22,7 +22,7 @@ public class RoleWorkflowTests
         Assert.DoesNotContain("Admin", AppRoles.All);
         Assert.DoesNotContain("Bruker", AppRoles.All);
         Assert.Equal(AppRoles.All.OrderBy(role => role), AppRoles.Any.Split(',').OrderBy(role => role));
-        Assert.Equal(new[] { AppRoles.OffentligAktor, AppRoles.Ressursleverandor }, AppRoles.SelfService.OrderBy(role => role));
+        Assert.Equal(AppRoles.All.OrderBy(role => role), AppRoles.SelfService.OrderBy(role => role));
     }
 
     [Theory]

@@ -418,6 +418,98 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
             (await db.OperationalNeeds.AsNoTracking().SingleAsync(n => n.Id == need.Id)).Status);
     }
 
+    [Fact]
+    public async Task ProviderDashboardShowsOwnResourcesAndIncomingRequestsOnly()
+    {
+        using var client = site.Client(site.OwnerId, AppRoles.Ressursleverandor);
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Home/Dashboard"));
+        Assert.Contains(site.OwnResource.ResourceName, html);
+        Assert.Contains(site.OwnRequest.Reason, html);
+        Assert.Contains("action=\"/Operations/Respond\"", html);
+        Assert.DoesNotContain(site.OtherResource.ResourceName, html);
+        Assert.DoesNotContain(site.OtherRequest.Reason, html);
+        Assert.DoesNotContain("action=\"/Operations/Verify\"", html);
+        Assert.DoesNotContain("action=\"/Operations/CreateRequest\"", html);
+        Assert.DoesNotContain(site.Audit.Reason, html);
+    }
+
+    [Fact]
+    public async Task VerifierDashboardListsOnlyResourcesWaitingForVerification()
+    {
+        using var client = site.Client(site.VerifierId, AppRoles.Verifiseringsansvarlig);
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Home/Dashboard"));
+        Assert.Contains(site.PendingResource.ResourceName, html);
+        Assert.Contains("action=\"/Operations/Verify\"", html);
+        Assert.Contains("Begrunnelse (kreves ved avvisning)", html);
+        Assert.DoesNotContain(site.OwnResource.ResourceName, html);
+        Assert.DoesNotContain("action=\"/Operations/CreateRequest\"", html);
+        Assert.DoesNotContain("action=\"/Operations/Respond\"", html);
+    }
+
+    [Fact]
+    public async Task DispatchDashboardOffersVerifiedResourcesForOpenNeeds()
+    {
+        using var client = site.Client(site.DispatchId, AppRoles.DispatchTeam);
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Home/Dashboard"));
+        Assert.Contains(site.OwnNeed.Description, html);
+        Assert.Contains("action=\"/Operations/CreateRequest\"", html);
+        Assert.Contains(site.OwnResource.ResourceName, html);
+        Assert.DoesNotContain(site.PendingResource.ResourceName, html);
+        Assert.DoesNotContain("action=\"/Operations/Verify\"", html);
+        Assert.DoesNotContain("action=\"/Operations/Respond\"", html);
+        Assert.DoesNotContain("action=\"/Operations/CreateNeed\"", html);
+    }
+
+    [Fact]
+    public async Task LeaderDashboardShowsNeedsAndUserManagementWithoutOperationalForms()
+    {
+        using var client = site.Client(site.LeaderId, AppRoles.Kriseledelse);
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Home/Dashboard"));
+        Assert.Contains(site.OwnNeed.Description, html);
+        Assert.Contains("href=\"/Admin\"", html);
+        Assert.DoesNotContain("action=\"/Operations/Verify\"", html);
+        Assert.DoesNotContain("action=\"/Operations/CreateRequest\"", html);
+        Assert.DoesNotContain("action=\"/Operations/CreateNeed\"", html);
+    }
+
+    [Fact]
+    public async Task PublicActorDashboardShowsOwnNeedsAndTheRegistrationForm()
+    {
+        using var client = site.Client(site.PublicId, AppRoles.OffentligAktor);
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/Home/Dashboard"));
+        Assert.Contains("action=\"/Operations/CreateNeed\"", html);
+        Assert.Contains(site.OwnNeed.Description, html);
+        Assert.DoesNotContain(site.OwnResource.ResourceName, html);
+        Assert.DoesNotContain("action=\"/Operations/Respond\"", html);
+        Assert.DoesNotContain("action=\"/Operations/CreateRequest\"", html);
+    }
+
+    [Theory]
+    [InlineData(null, null, HttpStatusCode.Unauthorized)]
+    [InlineData("roleless", null, HttpStatusCode.Forbidden)]
+    [InlineData("legacy-admin", "Admin", HttpStatusCode.Forbidden)]
+    public async Task DashboardRequiresADomainRole(string? id, string? role, HttpStatusCode status)
+    {
+        using var client = site.Client(id, role);
+        Assert.Equal(status, (await client.GetAsync("/Home/Dashboard")).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/Home/Dashboard", "/Home/Dashboard")]
+    [InlineData("https://evil.example/", "/Operations")]
+    [InlineData("//evil.example/", "/Operations")]
+    public async Task ActionsReturnToTheDashboardOnlyForLocalUrls(string returnUrl, string expected)
+    {
+        using var provider = site.Client(site.OwnerId, AppRoles.Ressursleverandor);
+        var response = await Post(provider, "Respond", new()
+        {
+            ["id"] = site.OtherRequest.Id.ToString(), ["token"] = site.OtherRequest.ConcurrencyToken,
+            ["reason"] = "Feil eier", ["accept"] = "true", ["returnUrl"] = returnUrl
+        });
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(expected, response.Headers.Location?.OriginalString);
+    }
+
     private static async Task<HttpResponseMessage> Post(HttpClient client, string action, Dictionary<string, string> fields)
     {
         var html = await client.GetStringAsync("/Operations");
@@ -531,6 +623,7 @@ public class OperationsTests(OperationsTests.Site site) : IClassFixture<Operatio
                 DatabaseProviderConfiguration.Configure(o, DatabaseProviderConfiguration.GetRequiredConnectionString(configuration)));
             builder.Services.Configure<WorkflowOptions>(_ => { });
             builder.Services.AddScoped<WorkflowService>();
+            builder.Services.AddScoped<DashboardService>();
             builder.Services.AddSingleton<IPlaceGeocoder>(new PlaceGeocoder(new HttpClient(), Options.Create(new GeocodingOptions())));
             app = builder.Build();
             app.UseDeveloperExceptionPage();

@@ -16,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.Configure<HeimevernetInnlevering1.Models.WorkflowOptions>(builder.Configuration.GetSection("Workflow"));
 builder.Services.AddScoped<WorkflowService>();
+builder.Services.AddScoped<DashboardService>();
 builder.Services.Configure<GeocodingOptions>(builder.Configuration.GetSection("Geocoding"));
 builder.Services.AddSingleton<IPlaceGeocoder>(services => new PlaceGeocoder(
     new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }),
@@ -49,26 +50,31 @@ builder.Services.AddDataProtection()
 var connectionString = DatabaseProviderConfiguration.GetRequiredConnectionString(builder.Configuration);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    DatabaseProviderConfiguration.Configure(options, connectionString));
+    DatabaseProviderConfiguration.Configure(options, connectionString,
+        builder.Configuration["DATABASE_SERVER_VERSION"]));
 
 var app = builder.Build();
 
-// Wait briefly for MariaDB during container startup, then initialize the schema from migrations.
+// Wait briefly for the database during container startup, then initialize the schema from migrations.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     const int maximumAttempts = 10;
     var connected = false;
 
+    string? lastError = null;
+
     for (var attempt = 1; attempt <= maximumAttempts; attempt++)
     {
         try
         {
             connected = await db.Database.CanConnectAsync();
+            if (!connected) lastError = "The database did not accept the connection.";
         }
-        catch (DbException)
+        catch (Exception exception) when (exception is DbException or InvalidOperationException)
         {
             connected = false;
+            lastError = exception.GetBaseException().Message;
         }
 
         if (connected)
@@ -79,9 +85,10 @@ using (var scope = app.Services.CreateScope())
         if (attempt < maximumAttempts)
         {
             app.Logger.LogWarning(
-                "MariaDB is not ready (attempt {Attempt} of {MaximumAttempts}); retrying in 2 seconds.",
+                "Database is not ready (attempt {Attempt} of {MaximumAttempts}): {Error}. Retrying in 2 seconds.",
                 attempt,
-                maximumAttempts);
+                maximumAttempts,
+                lastError);
             await Task.Delay(TimeSpan.FromSeconds(2));
         }
     }
@@ -89,7 +96,7 @@ using (var scope = app.Services.CreateScope())
     if (!connected)
     {
         throw new InvalidOperationException(
-            $"Could not connect to MariaDB after {maximumAttempts} attempts. Check the database connection configuration and availability.");
+            $"Could not connect to the database after {maximumAttempts} attempts. Last error: {lastError}");
     }
 
     await db.Database.MigrateAsync();

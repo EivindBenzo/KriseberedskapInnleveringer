@@ -129,6 +129,8 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             if (approve && resource.OwnerId == actorId)
                 throw new WorkflowException("Du kan ikke godkjenne din egen ressurs. En annen verifiseringsansvarlig må kontrollere den.");
             if (Busy(resource)) throw new WorkflowException("Reserverte eller tildelte ressurser må frigjøres først.");
+            if (!approve && resource.VerificationStatus == ResourceVerificationStatus.Rejected)
+                throw new WorkflowException("Ressursen er allerede avvist.");
             var days = options.Value.VerificationValidityDays;
             if (approve && (days is < 1 or > 3650))
                 throw new WorkflowException("Ugyldig konfigurasjon for godkjenningens varighet.");
