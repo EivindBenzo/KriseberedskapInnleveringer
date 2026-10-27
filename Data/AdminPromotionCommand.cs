@@ -30,7 +30,7 @@ public static class AdminPromotionCommand
             await using var services = builder.Services.BuildServiceProvider();
             await using var scope = services.CreateAsyncScope();
             await PromoteAsync(scope.ServiceProvider, args[1].Trim());
-            Console.WriteLine("Administrator access is configured. Sign in again to use it.");
+            Console.WriteLine("Kriseledelse access is configured. Sign in again to use it.");
             return 0;
         }
         catch (Exception)
@@ -58,9 +58,9 @@ public static class AdminPromotionCommand
             throw new InvalidOperationException("A unique existing account is required.");
 
         var user = matches[0];
-        if (!await users.IsInRoleAsync(user, IdentitySeeder.AdminRole))
+        if (!await users.IsInRoleAsync(user, IdentitySeeder.BootstrapRole))
         {
-            foreach (var role in new[] { IdentitySeeder.UserRole, IdentitySeeder.AdminRole })
+            foreach (var role in new[] { IdentitySeeder.BootstrapRole })
             {
                 if (!await roles.RoleExistsAsync(role))
                     EnsureSuccess(await roles.CreateAsync(new IdentityRole(role)));
@@ -78,6 +78,6 @@ public static class AdminPromotionCommand
     private static void EnsureSuccess(IdentityResult result)
     {
         if (!result.Succeeded)
-            throw new InvalidOperationException("Administrator promotion could not be completed.");
+            throw new InvalidOperationException("Role promotion could not be completed.");
     }
 }

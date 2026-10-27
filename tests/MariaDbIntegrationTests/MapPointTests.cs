@@ -208,7 +208,7 @@ public class MapPointTests
             TempData = new TempDataDictionary(new DefaultHttpContext(), new TestTempDataProvider())
         };
         controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, "owner")], "test"));
+            [new Claim(ClaimTypes.NameIdentifier, "owner"), new Claim(ClaimTypes.Role, AppRoles.Ressursleverandor)], "test"));
         return controller;
     }
 

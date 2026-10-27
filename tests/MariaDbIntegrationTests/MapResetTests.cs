@@ -22,12 +22,12 @@ namespace MariaDbIntegrationTests;
 public class MapResetTests
 {
     [Fact]
-    public void ResetRequiresAdminPostAntiforgeryAndExplicitConfirmation()
+    public void ResetRequiresKriseledelsePostAntiforgeryAndExplicitConfirmation()
     {
         var method = typeof(HomeController).GetMethod(nameof(HomeController.ResetMap))!;
         Assert.NotNull(Attribute.GetCustomAttribute(method, typeof(HttpPostAttribute)));
         Assert.NotNull(Attribute.GetCustomAttribute(method, typeof(ValidateAntiForgeryTokenAttribute)));
-        Assert.Equal("Admin", Assert.IsType<AuthorizeAttribute>(
+        Assert.Equal(AppRoles.Kriseledelse, Assert.IsType<AuthorizeAttribute>(
             Attribute.GetCustomAttribute(method, typeof(AuthorizeAttribute))).Roles);
         Assert.False(Assert.IsType<bool>(method.GetParameters().Single().DefaultValue));
         Assert.True(new MapSubmission().IsOnMap);
@@ -66,7 +66,7 @@ public class MapResetTests
         foreach (var actor in new[]
                  {
                      Principal("owner"), new ClaimsPrincipal(new ClaimsIdentity()),
-                     new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Role, "Admin")], "test"))
+                     new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "dispatch"), new Claim(ClaimTypes.Role, AppRoles.DispatchTeam)], "test"))
                  })
             await Assert.ThrowsAsync<WorkflowException>(() => test.Service.ResetMapAsync(actor, true));
         await Assert.ThrowsAsync<WorkflowException>(() => test.Service.ResetMapAsync(Principal("admin", true), false));
@@ -167,11 +167,14 @@ public class MapResetTests
     public async Task MapHidesOffMapResourcesButListingRetainsThemAndEditPlacesThemAgain()
     {
         await using var test = await Scenario.Create();
-        test.Db.MapSubmissions.Add(Resource("Editable"));
+        test.Db.Users.Add(new IdentityUser { Id = "owner", UserName = "owner" });
+        var editable = Resource("Editable");
+        editable.OwnerId = "owner";
+        test.Db.MapSubmissions.Add(editable);
         await test.Db.SaveChangesAsync();
         var resource = await test.Db.MapSubmissions.SingleAsync();
         await test.Service.ResetMapAsync(Principal("admin", true), true);
-        var controller = test.Controller();
+        var controller = test.Controller(Provider("owner"));
         await controller.Map();
         Assert.Empty(Assert.IsAssignableFrom<IEnumerable<MapSubmission>>(controller.ViewBag.Resources));
         var listing = Assert.IsType<DataPageViewModel>(
@@ -199,12 +202,14 @@ public class MapResetTests
     public async Task ServiceEditAlsoRestoresPlacementAndRequiresReverification()
     {
         await using var test = await Scenario.Create();
+        test.Db.Users.Add(new IdentityUser { Id = "owner", UserName = "owner" });
         var resource = Resource("Editable");
+        resource.OwnerId = "owner";
         resource.IsOnMap = false;
         test.Db.MapSubmissions.Add(resource);
         await test.Db.SaveChangesAsync();
         await test.Service.UpdateResourceAsync(resource.Id, Resource("Editable"), ResourceAvailability.Available,
-            resource.ConcurrencyToken, Principal("admin", true), "Place again");
+            resource.ConcurrencyToken, Provider("owner"), "Place again");
         test.Db.ChangeTracker.Clear();
         resource = await test.Db.MapSubmissions.SingleAsync();
         Assert.True(resource.IsOnMap);
@@ -220,9 +225,12 @@ public class MapResetTests
         VerifiedAtUtc = DateTime.UtcNow.AddDays(-1), VerificationExpiresAtUtc = DateTime.UtcNow.AddDays(10)
     };
 
+    private static ClaimsPrincipal Provider(string id) => new(new ClaimsIdentity(
+        [new Claim(ClaimTypes.NameIdentifier, id), new Claim(ClaimTypes.Role, AppRoles.Ressursleverandor)], "test"));
+
     private static ClaimsPrincipal Principal(string id, bool admin = false) => new(new ClaimsIdentity(
         admin
-            ? [new Claim(ClaimTypes.NameIdentifier, id), new Claim(ClaimTypes.Role, "Admin")]
+            ? [new Claim(ClaimTypes.NameIdentifier, id), new Claim(ClaimTypes.Role, AppRoles.Kriseledelse)]
             : [new Claim(ClaimTypes.NameIdentifier, id)], "test"));
 
     private sealed class Scenario : IAsyncDisposable
@@ -268,9 +276,9 @@ public class MapResetTests
             await Db.SaveChangesAsync();
         }
 
-        public HomeController Controller() => new(Db, new StubGeocoder())
+        public HomeController Controller(ClaimsPrincipal? user = null) => new(Db, new StubGeocoder())
         {
-            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = Principal("admin", true) } },
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user ?? Principal("admin", true) } },
             TempData = new TempDataDictionary(new DefaultHttpContext(), new TempDataProvider())
         };
 

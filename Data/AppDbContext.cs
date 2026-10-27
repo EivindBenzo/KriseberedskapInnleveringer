@@ -18,6 +18,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     public DbSet<MapSubmission> MapSubmissions => Set<MapSubmission>();
     public DbSet<OperationalNeed> OperationalNeeds => Set<OperationalNeed>();
     public DbSet<ResourceRequest> ResourceRequests => Set<ResourceRequest>();
+    public DbSet<ResourceAssignment> ResourceAssignments => Set<ResourceAssignment>();
     public DbSet<WorkflowAudit> WorkflowAudits => Set<WorkflowAudit>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -36,7 +37,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     {
         ChangeTracker.DetectChanges();
         foreach (var entry in ChangeTracker.Entries().Where(e => e.State == EntityState.Modified &&
-                     (e.Entity is MapSubmission or OperationalNeed or ResourceRequest)))
+                     (e.Entity is MapSubmission or OperationalNeed or ResourceRequest or ResourceAssignment)))
         {
             entry.Property("ConcurrencyToken").CurrentValue = Guid.NewGuid().ToString();
         }
@@ -75,6 +76,14 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         modelBuilder.Entity<ResourceRequest>().HasOne(r => r.Need).WithMany()
             .HasForeignKey(r => r.NeedId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<ResourceRequest>().HasIndex(r => new { r.ResourceId, r.Status });
+        modelBuilder.Entity<ResourceAssignment>().HasOne(a => a.Request).WithMany()
+            .HasForeignKey(a => a.RequestId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ResourceAssignment>().HasOne(a => a.Resource).WithMany()
+            .HasForeignKey(a => a.ResourceId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ResourceAssignment>().HasOne(a => a.Need).WithMany()
+            .HasForeignKey(a => a.NeedId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ResourceAssignment>().HasIndex(a => a.RequestId).IsUnique();
+        modelBuilder.Entity<ResourceAssignment>().HasIndex(a => a.ActiveResourceId).IsUnique();
         modelBuilder.Entity<WorkflowAudit>().HasIndex(a => new { a.ResourceId, a.OccurredAtUtc });
     }
 }

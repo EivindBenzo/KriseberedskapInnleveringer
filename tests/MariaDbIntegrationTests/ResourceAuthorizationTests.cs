@@ -7,15 +7,17 @@ namespace MariaDbIntegrationTests;
 public class ResourceAuthorizationTests
 {
     [Theory]
-    [InlineData("owner", "owner", false, true)]
-    [InlineData("other", "owner", false, false)]
-    [InlineData("other", "owner", true, true)]
-    [InlineData("owner", null, false, false)]
-    [InlineData("admin", null, true, true)]
-    public void OnlyOwnerOrAdminCanManage(string userId, string? ownerId, bool admin, bool expected)
+    [InlineData("owner", "owner", AppRoles.Ressursleverandor, true)]
+    [InlineData("other", "owner", AppRoles.Ressursleverandor, false)]
+    [InlineData("owner", null, AppRoles.Ressursleverandor, false)]
+    [InlineData("owner", "owner", AppRoles.OffentligAktor, false)]
+    [InlineData("owner", "owner", AppRoles.DispatchTeam, false)]
+    [InlineData("owner", "owner", AppRoles.Verifiseringsansvarlig, false)]
+    [InlineData("owner", "owner", AppRoles.Kriseledelse, false)]
+    [InlineData("owner", "owner", "Admin", false)]
+    public void OnlyTheProviderWhoOwnsTheResourceCanManageIt(string userId, string? ownerId, string role, bool expected)
     {
-        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, userId) };
-        if (admin) claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, userId), new(ClaimTypes.Role, role) };
         var user = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
         Assert.Equal(expected, ResourcePermissions.CanManage(user, ownerId));
     }
@@ -24,7 +26,7 @@ public class ResourceAuthorizationTests
     public void AnonymousCannotManageEvenWithMatchingClaim()
     {
         var user = new ClaimsPrincipal(new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, "owner"), new Claim(ClaimTypes.Role, "Admin")]));
+            [new Claim(ClaimTypes.NameIdentifier, "owner"), new Claim(ClaimTypes.Role, AppRoles.Ressursleverandor)]));
         Assert.False(ResourcePermissions.CanManage(user, "owner"));
     }
 }

@@ -8,7 +8,7 @@ namespace HeimevernetInnlevering1.Controllers;
 
 public class AccountController(UserManager<IdentityUser> users, SignInManager<IdentityUser> signIn) : Controller
 {
-    private const string LoginError = "Kunne ikke logge inn. Kontroller opplysningene og valgt tilgang, eller prøv igjen senere.";
+    private const string LoginError = "Kunne ikke logge inn. Kontroller opplysningene eller prøv igjen senere.";
 
     [AllowAnonymous, HttpGet]
     public IActionResult Login(string? returnUrl = null) =>
@@ -21,11 +21,8 @@ public class AccountController(UserManager<IdentityUser> users, SignInManager<Id
             return View(model);
 
         var user = await users.FindByEmailAsync(model.Email.Trim());
-        var isAdmin = user != null && await users.IsInRoleAsync(user, IdentitySeeder.AdminRole);
-        if (user == null || !AccountLoginRules.CanUseChoice(model.Access.ToString(), isAdmin))
+        if (user == null)
         {
-            if (user != null && !await users.IsLockedOutAsync(user))
-                await users.AccessFailedAsync(user);
             ModelState.AddModelError(string.Empty, LoginError);
             return View(model);
         }
@@ -47,6 +44,8 @@ public class AccountController(UserManager<IdentityUser> users, SignInManager<Id
     [AllowAnonymous, HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterViewModel model)
     {
+        if (ModelState.IsValid && !AppRoles.SelfService.Contains(model.Role))
+            ModelState.AddModelError(nameof(model.Role), "Velg en gyldig kontotype.");
         if (!ModelState.IsValid)
             return View(model);
 
@@ -55,10 +54,10 @@ public class AccountController(UserManager<IdentityUser> users, SignInManager<Id
         var result = await users.CreateAsync(user, model.Password);
         if (result.Succeeded)
         {
-            result = await users.AddToRoleAsync(user, IdentitySeeder.UserRole);
+            result = await users.AddToRoleAsync(user, model.Role);
             if (result.Succeeded)
             {
-                TempData["AccountMessage"] = "Kontoen er opprettet. Du kan nå logge inn som bruker.";
+                TempData["AccountMessage"] = "Kontoen er opprettet. Du kan nå logge inn.";
                 return RedirectToAction(nameof(Login));
             }
             await users.DeleteAsync(user);

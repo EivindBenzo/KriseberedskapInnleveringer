@@ -13,7 +13,7 @@ test('navigation exposes operational destinations, prototype identity and keyboa
     for (const view of [layout, read('Views/Home/Index.cshtml')]) {
         assert.match(view, /asp-controller="Operations" asp-action="Index"/);
         assert.doesNotMatch(view, /asp-controller="Operations" asp-action="(?:Requests|Queue|Needs)"/);
-        assert.match(view, /User.IsInRole\("Bruker"\) \|\| User.IsInRole\("Admin"\)/);
+        assert.match(view, /AppRoles.HasAny\(User\)/);
         assert.match(view, /ClaimTypes.NameIdentifier/);
         assert.match(view, /@if \(canUseOperations\)/);
     }
@@ -41,16 +41,16 @@ test('resources keep mine actions inside their context and reset outside filtere
     assert.equal((resources.match(/id="reset-map"/g) || []).length, 1);
     assert.ok(resources.indexOf('id="reset-map"') > resources.indexOf('\n        }\n    </div>'));
     assert.match(resources, /også utenfor valgt filter/);
-    assert.match(resources, /User.IsInRole\("Admin"\)[\s\S]*class="danger-zone"/);
+    assert.match(resources, /User.IsInRole\(AppRoles.Kriseledelse\)[\s\S]*class="danger-zone"/);
 });
 
 test('requests lead with actions and status while secondary work is expandable', () => {
     const operations = read('Views/Operations/Index.cshtml');
     assert.ok(operations.indexOf('<h2 id="requests"') < operations.indexOf('id="resources"'));
     for (const section of ['resources', 'needs'])
-        assert.match(operations, new RegExp(`<details class="workflow-section" id="${section}">`));
+        assert.match(operations, new RegExp(`<details class="workflow-section" id="${section}"`));
     assert.match(operations, /<details class="workflow-section">\s*<summary>Beslutningslogg/);
-    assert.match(operations, /value="true" type="submit" class="btn-submit">Aksepter/);
+    assert.match(operations, /value="true" type="submit" class="btn-submit">Godta og reserver/);
     assert.match(operations, /NeedPriority.Critical \? "status-critical"/);
     assert.match(operations, /<summary>Avbryt forespørsel/);
     const css = read('wwwroot/css/workspace.css');
@@ -117,7 +117,7 @@ test('home is permission-aware and resource overview keeps operational filtering
     const home = read('Views/Home/Index.cshtml');
     assert.match(home, /User.Identity\?\.IsAuthenticated/);
     assert.match(home, /Finn det som finnes/);
-    assert.match(home, /User.IsInRole\("Admin"\)/);
+    assert.match(home, /AppRoles.Ressursleverandor/);
     assert.doesNotMatch(home, /hero-title-big|hero-photo/);
     const resources = read('Views/Home/Verify.cshtml');
     assert.match(resources, /ResourceOperationalStatus.From/);
@@ -135,7 +135,7 @@ test('resource cards have bounded theme-aware surfaces, readable facts and separ
     const tokens = read('wwwroot/css/site.css');
     assert.match(view, /class="data-container resource-overview"/);
     assert.match(view, /class="resource-facts"[\s\S]*?<dl>[\s\S]*?<dt>Sist oppdatert<\/dt>/);
-    assert.match(view, /class="resource-status"[\s\S]*?@status.Availability[\s\S]*?Godkjenning: @status.Verification/);
+    assert.match(view, /class="resource-status"[\s\S]*?@status.Lifecycle[\s\S]*?Godkjenning: @status.Verification/);
     assert.doesNotMatch(view, /Operativ vurdering|data-resource-status-text/);
     assert.match(view, /ResourcePermissions.CanManage\(User, r.OwnerId\)[\s\S]*?class="resource-destructive-actions"[\s\S]*?asp-action="Delete"/);
     assert.match(css, /\.resource-overview \{ max-width: 1240px/);

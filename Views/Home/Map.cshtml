@@ -4,7 +4,8 @@
 @{
     ViewData["Title"] = "Kart";
     var isEditing = ViewBag.EditId != null;
-    var registrationOpen = isEditing || !ViewData.ModelState.IsValid || Context.Request.Query["register"] == "true";
+    var canRegister = User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Ressursleverandor);
+    var registrationOpen = canRegister && (isEditing || !ViewData.ModelState.IsValid || Context.Request.Query["register"] == "true");
     var resources = (ViewBag.Resources as List<HeimevernetInnlevering1.Models.MapSubmission>) ?? new();
     var statusTime = DateTime.UtcNow;
     var placedResourceId = TempData["MapPlacedResourceId"] is int placedId ? (int?)placedId : null;
@@ -36,6 +37,8 @@
         HeimevernetInnlevering1.Models.ResourceAvailability.Unavailable => "Utilgjengelig",
         HeimevernetInnlevering1.Models.ResourceAvailability.Reserved => "Reservert",
         HeimevernetInnlevering1.Models.ResourceAvailability.Allocated => "Tildelt",
+        HeimevernetInnlevering1.Models.ResourceAvailability.InUse => "I bruk",
+        HeimevernetInnlevering1.Models.ResourceAvailability.Returned => "Returnert",
         _ => "Ukjent"
     };
 }
@@ -46,9 +49,9 @@
         <div><span class="eyebrow">RESSURSOVERSIKT</span><h1 id="workspaceTitle">Ressurskart</h1></div>
     </div>
     <div class="workspace-toolbar" role="group" aria-label="Ressursverktøy">
-        <button type="button" id="registrationToggle" class="btn-submit" aria-controls="registrationPanel" aria-expanded="@(registrationOpen ? "true" : "false")">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</button>
+        <button type="button" id="registrationToggle" class="btn-submit" hidden="@(!canRegister)" aria-controls="registrationPanel" aria-expanded="@(registrationOpen ? "true" : "false")">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</button>
         <a asp-action="Resources" class="btn-secondary" id="resourcesOverlayOpen" aria-haspopup="dialog" aria-controls="resourcesDialog">Ressurser og mine ressurser</a>
-        @if (User.IsInRole("Admin"))
+        @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
         {
             <a asp-action="Resources" asp-fragment="reset-map" class="btn-secondary">Administrer kartplasseringer</a>
         }

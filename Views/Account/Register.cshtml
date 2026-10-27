@@ -1,15 +1,23 @@
 @model HeimevernetInnlevering1.Models.RegisterViewModel
+@using HeimevernetInnlevering1.Models
 @{
     ViewData["Title"] = "Registrer bruker";
 }
 <section class="account-card" aria-labelledby="account-heading">
     <h1 id="account-heading">Registrer bruker</h1>
-    <p>En ny konto får rollen Bruker, uten administratortilgang.</p>
+    <p>Velg hvordan du skal bruke portalen. Roller for dispatch, kriseledelse og verifisering tildeles av kriseledelsen.</p>
     <form asp-action="Register" method="post" class="account-form">
         <div asp-validation-summary="ModelOnly" role="alert"></div>
         <label asp-for="Email"></label>
         <input asp-for="Email" type="email" autocomplete="username" maxlength="254" required />
         <span asp-validation-for="Email"></span>
+        <label asp-for="Role"></label>
+        <select asp-for="Role" required>
+            <option value="">Velg kontotype</option>
+            <option value="@AppRoles.OffentligAktor" selected="@(Model.Role == AppRoles.OffentligAktor)">@AppRoles.Label(AppRoles.OffentligAktor)</option>
+            <option value="@AppRoles.Ressursleverandor" selected="@(Model.Role == AppRoles.Ressursleverandor)">@AppRoles.Label(AppRoles.Ressursleverandor)</option>
+        </select>
+        <span asp-validation-for="Role"></span>
         <label asp-for="Password"></label>
         <input asp-for="Password" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="password-rules" required />
         <span asp-validation-for="Password"></span>

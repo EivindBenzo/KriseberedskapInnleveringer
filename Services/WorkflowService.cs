@@ -19,10 +19,11 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         return actor.FindFirstValue(ClaimTypes.NameIdentifier)!;
     }
 
-    private static string Admin(ClaimsPrincipal actor)
+    private static string Require(ClaimsPrincipal actor, string role)
     {
         var id = Actor(actor);
-        if (!actor.IsInRole("Admin")) throw new WorkflowException("Kun administrator kan utføre dette.");
+        if (!actor.IsInRole(role))
+            throw new WorkflowException($"Kun {AppRoles.Label(role).ToLowerInvariant()} kan utføre dette.");
         return id;
     }
 
@@ -39,7 +40,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             throw new WorkflowException("Opplysningene er endret. Last siden på nytt.");
     }
 
-    private async Task Mutate(Func<Task> change)
+    private async Task Mutate(Func<Task> change, string? conflictMessage = null)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
         try
@@ -52,13 +53,13 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         {
             await transaction.RollbackAsync();
             db.ChangeTracker.Clear();
-            throw new WorkflowException("En annen bruker har endret opplysningene. Last siden på nytt.");
+            throw new WorkflowException(conflictMessage ?? "En annen bruker har endret opplysningene. Last siden på nytt.");
         }
         catch (DbUpdateException)
         {
             await transaction.RollbackAsync();
             db.ChangeTracker.Clear();
-            throw new WorkflowException("Endringen kunne ikke lagres. Last siden på nytt og prøv igjen.");
+            throw new WorkflowException(conflictMessage ?? "Endringen kunne ikke lagres. Last siden på nytt og prøv igjen.");
         }
         catch
         {
@@ -84,7 +85,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         db.Entry(need).Property(n => n.ConcurrencyToken).IsModified = true;
 
     private static bool Busy(MapSubmission resource) =>
-        resource.Availability is ResourceAvailability.Reserved or ResourceAvailability.Allocated;
+        resource.Availability is ResourceAvailability.Reserved or ResourceAvailability.Allocated or ResourceAvailability.InUse;
 
     private async Task<MapSubmission> Resource(int id) =>
         await db.MapSubmissions.SingleOrDefaultAsync(r => r.Id == id) ??
@@ -96,13 +97,13 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
 
     private static void Open(OperationalNeed need)
     {
-        if (need.Status is not (NeedStatus.Open or NeedStatus.InProgress))
+        if (!WorkflowTransitions.IsActive(need.Status))
             throw new WorkflowException("Behovet er avsluttet.");
     }
 
     public async Task<int> ResetMapAsync(ClaimsPrincipal actor, bool confirmed)
     {
-        var actorId = Admin(actor);
+        var actorId = Require(actor, AppRoles.Kriseledelse);
         if (!confirmed) throw new WorkflowException("Bekreft at alle ressursplasseringer skal fjernes fra kartet.");
         var count = 0;
         await Mutate(async () =>
@@ -112,30 +113,35 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             {
                 resource.IsOnMap = false;
                 Touch(resource);
-                Audit(actorId, "ResourceRemovedFromMap", "Administrator bekreftet nullstilling av kartet.", resource.Id);
+                Audit(actorId, "ResourceRemovedFromMap", "Kriseledelse bekreftet nullstilling av kartet.", resource.Id);
             }
             count = resources.Count;
         });
         return count;
     }
 
-    public Task VerifyAsync(int resourceId, bool approve, string expectedToken, ClaimsPrincipal actor, string reason) =>
+    public Task VerifyAsync(int resourceId, bool approve, string expectedToken, ClaimsPrincipal actor, string? reason) =>
         Mutate(async () =>
         {
-            var actorId = Admin(actor);
+            var actorId = Require(actor, AppRoles.Verifiseringsansvarlig);
             var resource = await Resource(resourceId);
             Version(resource.ConcurrencyToken, expectedToken);
             if (approve && resource.OwnerId == actorId)
-                throw new WorkflowException("Du kan ikke godkjenne din egen ressurs. En annen administrator må kontrollere den.");
+                throw new WorkflowException("Du kan ikke godkjenne din egen ressurs. En annen verifiseringsansvarlig må kontrollere den.");
             if (Busy(resource)) throw new WorkflowException("Reserverte eller tildelte ressurser må frigjøres først.");
             var days = options.Value.VerificationValidityDays;
             if (approve && (days is < 1 or > 3650))
                 throw new WorkflowException("Ugyldig konfigurasjon for godkjenningens varighet.");
+            if (!approve && string.IsNullOrWhiteSpace(reason))
+                throw new WorkflowException("Oppgi en begrunnelse når en ressurs avvises.");
             resource.VerificationStatus = approve ? ResourceVerificationStatus.Approved : ResourceVerificationStatus.Rejected;
             resource.VerifiedAtUtc = approve ? DateTime.UtcNow : null;
             resource.VerificationExpiresAtUtc = approve ? resource.VerifiedAtUtc!.Value.AddDays(days) : null;
+            if (resource.Availability == ResourceAvailability.Returned)
+                resource.Availability = approve ? ResourceAvailability.Available : ResourceAvailability.Unavailable;
             Touch(resource);
-            Audit(actorId, approve ? "ResourceApproved" : "ResourceRejected", reason, resourceId);
+            Audit(actorId, approve ? "ResourceApproved" : "ResourceRejected",
+                approve && string.IsNullOrWhiteSpace(reason) ? "Godkjent av verifiseringsansvarlig." : reason!, resourceId);
         });
 
     public Task UpdateResourceAvailabilityAsync(int resourceId, ResourceAvailability availability,
@@ -208,7 +214,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         var id = 0;
         await Mutate(async () =>
         {
-            var actorId = Admin(actor);
+            var actorId = Require(actor, AppRoles.OffentligAktor);
             if (string.IsNullOrWhiteSpace(description) || description.Trim().Length > 2000 ||
                 string.IsNullOrWhiteSpace(place) || place.Trim().Length > 200 || !Enum.IsDefined(priority))
                 throw new WorkflowException("Oppgi beskrivelse, sted og gyldig prioritet.");
@@ -225,20 +231,33 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         return id;
     }
 
-    public Task ChangeNeedStatusAsync(int needId, NeedStatus status, string expectedToken,
+    public Task ChangeNeedPriorityAsync(int needId, NeedPriority priority, string expectedToken,
         ClaimsPrincipal actor, string reason) => Mutate(async () =>
         {
-            var actorId = Admin(actor);
+            var actorId = Require(actor, AppRoles.Kriseledelse);
             var need = await Need(needId);
             Version(need.ConcurrencyToken, expectedToken);
             Open(need);
-            if (!Enum.IsDefined(status) || status == need.Status || status == NeedStatus.Open)
+            if (!Enum.IsDefined(priority) || priority == need.Priority)
+                throw new WorkflowException("Velg en ny, gyldig prioritet.");
+            need.Priority = priority;
+            Audit(actorId, $"NeedPriority{priority}", reason, needId: needId);
+        });
+
+    public Task ChangeNeedStatusAsync(int needId, NeedStatus status, string expectedToken,
+        ClaimsPrincipal actor, string reason) => Mutate(async () =>
+        {
+            var actorId = Require(actor, AppRoles.Kriseledelse);
+            var need = await Need(needId);
+            Version(need.ConcurrencyToken, expectedToken);
+            Open(need);
+            if (!Enum.IsDefined(status) || !WorkflowTransitions.CanMoveNeed(need.Status, status))
                 throw new WorkflowException("Ugyldig statusovergang.");
             if (status is NeedStatus.Completed or NeedStatus.Cancelled &&
                 await db.ResourceRequests.AnyAsync(r => r.NeedId == needId &&
                     (r.Status == ResourceRequestStatus.Pending || r.Status == ResourceRequestStatus.Accepted ||
                      r.Status == ResourceRequestStatus.Allocated)))
-                throw new WorkflowException("Avslutt forespørsler og returner tildelte ressurser først.");
+                throw new WorkflowException("Avslutt forespørsler og fullfør tildelinger først.");
             need.Status = status;
             Audit(actorId, $"Need{status}", reason, needId: needId);
         });
@@ -249,7 +268,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         var id = 0;
         await Mutate(async () =>
         {
-            var actorId = Admin(actor);
+            var actorId = Require(actor, AppRoles.DispatchTeam);
             var resource = await Resource(resourceId);
             var need = await Need(needId);
             Version(resource.ConcurrencyToken, expectedResourceToken);
@@ -266,6 +285,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
                 NeedId = needId, ResourceId = resourceId, CreatedAtUtc = DateTime.UtcNow,
                 CreatedById = actorId, Reason = Reason(reason)
             };
+            if (need.Status == NeedStatus.Open) need.Status = NeedStatus.InProgress;
             Touch(resource);
             Touch(need);
             db.ResourceRequests.Add(request);
@@ -285,9 +305,6 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
     public Task CancelAsync(int requestId, string expectedToken, ClaimsPrincipal actor, string reason) =>
         ChangeRequest(requestId, expectedToken, actor, reason, "Cancel");
 
-    public Task ReturnAsync(int requestId, string expectedToken, ClaimsPrincipal actor, string reason) =>
-        ChangeRequest(requestId, expectedToken, actor, reason, "Return");
-
     private Task ChangeRequest(int requestId, string expectedToken, ClaimsPrincipal actor, string reason, string action) =>
         Mutate(async () =>
         {
@@ -298,7 +315,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             var resource = request.Resource;
             if (action is "Accept" or "Reject")
             {
-                if (resource.OwnerId != actorId)
+                if (!ResourcePermissions.CanManage(actor, resource.OwnerId))
                     throw new WorkflowException("Bare ressursens eier kan svare på forespørselen.");
                 if (request.Status != ResourceRequestStatus.Pending)
                     throw new WorkflowException("Forespørselen er allerede besvart.");
@@ -314,18 +331,28 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             }
             else if (action == "Allocate")
             {
-                Admin(actor);
+                Require(actor, AppRoles.DispatchTeam);
                 Open(request.Need);
+                if (request.Need.Status == NeedStatus.Open)
+                    throw new WorkflowException("Behovet må vurderes før ressurser tildeles.");
                 if (request.Status != ResourceRequestStatus.Accepted || resource.Availability != ResourceAvailability.Reserved ||
                     !WorkflowEligibility.HasCurrentApproval(resource, DateTime.UtcNow))
                     throw new WorkflowException("Tildeling krever eiers aksept, reservasjon og gyldig godkjenning.");
+                if (await db.ResourceAssignments.AnyAsync(a => a.ResourceId == resource.Id && a.ActiveResourceId != null))
+                    throw new WorkflowException("Ressursen er allerede tildelt et annet oppdrag.");
                 resource.Availability = ResourceAvailability.Allocated;
                 request.Status = ResourceRequestStatus.Allocated;
-                request.Need.Status = NeedStatus.InProgress;
+                request.Need.Status = NeedStatus.Assigned;
+                db.ResourceAssignments.Add(new ResourceAssignment
+                {
+                    RequestId = request.Id, ResourceId = resource.Id, NeedId = request.NeedId,
+                    Status = AssignmentStatus.Confirmed, ActiveResourceId = resource.Id,
+                    CreatedAtUtc = DateTime.UtcNow, CreatedById = actorId
+                });
             }
             else if (action == "Cancel")
             {
-                Admin(actor);
+                Require(actor, AppRoles.DispatchTeam);
                 if (request.Status is not (ResourceRequestStatus.Pending or ResourceRequestStatus.Accepted))
                     throw new WorkflowException("Kun ventende eller aksepterte forespørsler kan avbrytes.");
                 if (request.Status == ResourceRequestStatus.Accepted)
@@ -336,19 +363,39 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
                 }
                 request.Status = ResourceRequestStatus.Cancelled;
             }
-            else if (action == "Return")
-            {
-                if (resource.OwnerId != actorId) Admin(actor);
-                if (request.Status != ResourceRequestStatus.Allocated || resource.Availability != ResourceAvailability.Allocated)
-                    throw new WorkflowException("Bare en tildelt ressurs kan returneres.");
-                request.Status = ResourceRequestStatus.Returned;
-                resource.Availability = ResourceAvailability.Available;
-                Invalidate(resource);
-            }
             else throw new WorkflowException("Ugyldig handling.");
             Touch(resource);
             Touch(request.Need);
             Audit(actorId, $"Request{action}", reason, resource.Id, request.NeedId, request.Id);
+        }, action == "Allocate"
+            ? "Ressursen er allerede tildelt eller ble endret av en annen bruker. Ingen endringer er lagret. Last siden på nytt."
+            : null);
+
+    public Task UpdateAssignmentAsync(int assignmentId, AssignmentStatus next, string expectedToken,
+        ClaimsPrincipal actor, string reason) => Mutate(async () =>
+        {
+            var actorId = Require(actor, AppRoles.DispatchTeam);
+            var assignment = await db.ResourceAssignments.Include(a => a.Request).Include(a => a.Resource)
+                .SingleOrDefaultAsync(a => a.Id == assignmentId) ?? throw new WorkflowException("Tildelingen finnes ikke.");
+            Version(assignment.ConcurrencyToken, expectedToken);
+            if (!Enum.IsDefined(next) || !WorkflowTransitions.CanMoveAssignment(assignment.Status, next))
+                throw new WorkflowException("Ugyldig statusovergang.");
+            var resource = assignment.Resource;
+            if (resource.Availability is not (ResourceAvailability.Allocated or ResourceAvailability.InUse) ||
+                assignment.Request.Status != ResourceRequestStatus.Allocated)
+                throw new WorkflowException("Tildelingen er ikke lenger aktiv.");
+            assignment.Status = next;
+            assignment.UpdatedAtUtc = DateTime.UtcNow;
+            if (next == AssignmentStatus.Arrived) resource.Availability = ResourceAvailability.InUse;
+            if (next == AssignmentStatus.Completed)
+            {
+                assignment.ActiveResourceId = null;
+                assignment.Request.Status = ResourceRequestStatus.Returned;
+                resource.Availability = ResourceAvailability.Returned;
+                Invalidate(resource);
+            }
+            Touch(resource);
+            Audit(actorId, $"Assignment{next}", reason, resource.Id, assignment.NeedId, assignment.RequestId);
         });
 
     private static void Invalidate(MapSubmission resource)

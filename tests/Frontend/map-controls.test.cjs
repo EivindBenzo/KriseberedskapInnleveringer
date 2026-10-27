@@ -389,7 +389,6 @@ test('dragging the header repositions the legend within the map, and a drag does
     prevented = false;
     summary.handlers.click({ preventDefault() { prevented = true; } });
     assert.equal(prevented, false, 'a later genuine click toggles normally');
-    page.document.handlers.pointerdown?.(event());
     summary.handlers.pointerdown(event());
     page.document.handlers.pointermove(event({ clientX: 50 }));
     page.document.handlers.pointerup(event({ clientX: 50 }));

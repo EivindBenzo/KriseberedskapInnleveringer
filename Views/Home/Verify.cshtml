@@ -15,7 +15,10 @@
     <link rel="stylesheet" href="~/css/resource-management.css" asp-append-version="true" />
     <div class="page-heading">
         <div><span class="eyebrow">Oversikt og administrasjon</span><h1>Ressurser</h1></div>
-        <a asp-action="Map" asp-route-register="true" class="btn-submit" data-map-register>+ Registrer ressurs</a>
+        @if (User.IsInRole(AppRoles.Ressursleverandor))
+        {
+            <a asp-action="Map" asp-route-register="true" class="btn-submit" data-map-register>+ Registrer ressurs</a>
+        }
     </div>
     @if (TempData["MapSuccess"] is string success)
     {
@@ -27,14 +30,17 @@
     }
     <nav class="section-nav" aria-label="Ressursutvalg">
         <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(!mine && !history ? "page" : null)">Alle ressurser</a>
-        <a asp-action="Resources" asp-route-mine="true" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(mine ? "page" : null)">Mine ressurser</a>
-        @if (User.IsInRole("Admin"))
+        @if (User.IsInRole(AppRoles.Ressursleverandor))
+        {
+            <a asp-action="Resources" asp-route-mine="true" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(mine ? "page" : null)">Mine ressurser</a>
+        }
+        @if (User.IsInRole(AppRoles.Kriseledelse))
         {
             <a asp-action="Resources" asp-route-history="true" data-resources-link aria-current="@(history ? "page" : null)">Ressurshistorikk</a>
         }
         @if (!overlay)
         {
-            <a asp-action="Map" data-map-back>Åpne kart</a>
+            <a asp-action="Map" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-mine="@(mine ? "true" : null)" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)" data-map-back>Åpne kart</a>
         }
     </nav>
     <p class="resource-management-status" role="status" tabindex="-1"></p>
@@ -158,7 +164,7 @@
                 </div>
                 <div class="resource-status">
                     <h3>Status</h3>
-                    <span class="status-badge @(r.Availability == ResourceAvailability.Available ? "status-positive" : "status-warning")">@status.Availability</span>
+                    <span class="status-badge @(r.Availability == ResourceAvailability.Available ? "status-positive" : "status-warning")">@status.Lifecycle</span>
                     <p class="resource-meta">Godkjenning: @status.Verification</p>
                     @if (!r.IsOnMap)
                     {
@@ -175,7 +181,7 @@
                     {
                         <a asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">Rediger</a>
                     }
-                    @if (User.IsInRole("Admin"))
+                    @if (User.IsInRole(AppRoles.DispatchTeam))
                     {
                         <a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="btn-secondary">Koordiner</a>
                     }
@@ -189,7 +195,7 @@
             </div>
         }
     </div>
-    @if (User.IsInRole("Admin"))
+    @if (User.IsInRole(AppRoles.Kriseledelse))
     {
         <details class="danger-zone" id="reset-map">
             <summary>Administrer kartplasseringer</summary>
@@ -205,8 +211,8 @@
     @if (Model.FormSubmissions.Count > 0)
     {
         <details>
-            <summary>Eldre meldinger · @(User.IsInRole("Admin") ? "administratortilgang" : "bare dine egne") (@Model.FormSubmissions.Count)</summary>
-            <p>Historiske meldinger er ikke operative behov. Nye behov håndteres av autorisert koordinator under Behov.</p>
+            <summary>Eldre meldinger · @(User.IsInRole(AppRoles.Kriseledelse) ? "alle meldinger" : "bare dine egne") (@Model.FormSubmissions.Count)</summary>
+            <p>Historiske meldinger er ikke operative behov. Nye behov registreres av offentlige aktører under Behov.</p>
             @foreach (var s in Model.FormSubmissions)
             {
                 <div class="resource-row">

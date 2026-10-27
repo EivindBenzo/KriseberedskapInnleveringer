@@ -300,13 +300,13 @@ test('unsupported dialogs and modified clicks retain ordinary standalone navigat
 
 test('overlay uses the authorized resource view, existing permission gates and antiforgery-protected workflows', () => {
     const controller = read('Controllers/HomeController.cs');
-    assert.match(controller, /\[Authorize\]\s*public class HomeController/);
+    assert.match(controller, /\[Authorize\(Roles = AppRoles.Any\)\]\s*public class HomeController/);
     assert.match(controller, /overlay \|\| fragment \? PartialView\("Verify", model\) : View\("Verify", model\)/);
     const view = read('Views/Home/Verify.cshtml');
     assert.match(view, /ResourcePermissions.CanManage\(User, r.OwnerId\)/);
-    assert.match(view, /User.IsInRole\("Admin"\)/);
+    assert.match(view, /User.IsInRole\(AppRoles.Kriseledelse\)/);
     assert.match(view, /asp-action="ResetMap" method="post"/);
-    assert.match(controller, /\[HttpPost\]\s*\[Authorize\(Roles = "Admin"\)\]\s*\[ValidateAntiForgeryToken\]\s*public async Task<IActionResult> ResetMap/);
+    assert.match(controller, /\[HttpPost\]\s*\[Authorize\(Roles = AppRoles.Kriseledelse\)\]\s*\[ValidateAntiForgeryToken\]\s*public async Task<IActionResult> ResetMap/);
     assert.doesNotMatch(view, /target="_blank"|actionTarget|ny fane|Rediger \//);
     assert.match(view, /@if \(!overlay\)/);
     assert.doesNotMatch(view, /asp-route-overlay=/, 'modified tab clicks must open the standalone view');
@@ -323,7 +323,7 @@ test('overlay uses the authorized resource view, existing permission gates and a
 
 test('only the standalone resources view includes Åpne kart, and popup cards have responsive columns', () => {
     const view = read('Views/Home/Verify.cshtml');
-    assert.match(view, /@if \(!overlay\)\s*\{\s*<a asp-action="Map" data-map-back>Åpne kart<\/a>\s*\}/);
+    assert.match(view, /@if \(!overlay\)\s*\{\s*<a asp-action="Map"[^>]*data-map-back>Åpne kart<\/a>\s*\}/);
     assert.equal((view.match(/>Åpne kart<\/a>/g) || []).length, 1);
     const css = read('wwwroot/css/resources-overlay.css');
     assert.match(css, /\.resources-dialog-content \.resource-row\s*\{[^}]*grid-template-columns: minmax\(0, 1\.35fr\) minmax\(0, 1fr\) minmax\(10rem, \.85fr\)/);

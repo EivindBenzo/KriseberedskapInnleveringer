@@ -11,6 +11,9 @@ public sealed record ResourceOperationalStatus(
     [property: JsonPropertyName("verificationExpiresAtUtc")] DateTime? VerificationExpiresAtUtc,
     [property: JsonPropertyName("statusText")] string StatusText)
 {
+    [JsonPropertyName("lifecycle")]
+    public string Lifecycle { get; init; } = string.Empty;
+
     public static ResourceOperationalStatus From(MapSubmission resource, DateTime nowUtc)
     {
         var knownType = MapSubmissionViewModel.ResourceTypes.Contains(resource.ResourceType);
@@ -22,6 +25,8 @@ public sealed record ResourceOperationalStatus(
             ResourceAvailability.Unavailable => "Utilgjengelig",
             ResourceAvailability.Reserved => "Reservert",
             ResourceAvailability.Allocated => "Tildelt",
+            ResourceAvailability.InUse => "I bruk",
+            ResourceAvailability.Returned => "Returnert",
             _ => "Ukjent tilgjengelighet"
         };
         var verification = resource.VerificationStatus switch
@@ -39,7 +44,8 @@ public sealed record ResourceOperationalStatus(
             $"Kan ikke forespørres nå · {availability} · {verification}" +
             (!hasOwner ? " · Mangler eier" : "") + (!knownType ? " · Ukjent ressurstype" : "");
         return new(eligible, availability, verification, AsUtc(resource.VerifiedAtUtc),
-            AsUtc(resource.VerificationExpiresAtUtc), statusText);
+            AsUtc(resource.VerificationExpiresAtUtc), statusText)
+        { Lifecycle = WorkflowTransitions.Lifecycle(resource, nowUtc) };
     }
 
     private static DateTime? AsUtc(DateTime? value) =>
