@@ -270,4 +270,13 @@ Eksempler på prompts:
 - «Bygg om databasen slik at UML/ER-diagrammet fungerer som database, men behold designet fra oliver-branch.»
 - «Test hele flyten i nettleseren for hver rolle og ta skjermbilder.»
 
+Fra den første prototypen (GitHub Copilot):
+
+- «Lag en ASP.NET Core MVC-løsning med GET/POST for hendelsesskjema.»
+- «Se på Marius-branchen og kombiner Entity Framework med skjema- og kartdesignet, slik at informasjonen faktisk lagres.»
+- «La kartet starte i Kristiansand og lag en side som viser lagret informasjon.»
+- «Legg til ressurstype og ressursnavn fra Marius-branchen»
+
+Før større endringer ble det laget en backup-branch (`backup/oliver-before-resource-map-2026-09-28`) slik at endringene kunne rulles tilbake.
+
 Alle endringer er bygget og testet (se tallene over) før de ble gitt til gruppen. KI-generert kode kan inneholde feil, og gruppen må gjennomgå den selv.
