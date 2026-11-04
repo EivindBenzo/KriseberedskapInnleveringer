@@ -1,36 +1,70 @@
 @{
     ViewData["Title"] = "Hjem";
+    var canUseOperations = User.Identity?.IsAuthenticated == true
+        && !string.IsNullOrEmpty(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
+        && HeimevernetInnlevering1.Models.AppRoles.HasAny(User);
+    var canRegister = User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Ressursleverandor);
 }
+<link rel="stylesheet" href="~/css/home.css" asp-append-version="true" />
+<div class="home-page">
+    <section class="home-hero" aria-labelledby="home-title">
+        <div class="home-hero-copy">
+            <span class="eyebrow">Oversikt starter med et sted</span>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <h1 id="home-title">Finn det som finnes.<br />Bidra med det du har.</h1>
+                <p class="home-lead">Få oversikt over ressurser i området, eller sett din egen ressurs på kartet.</p>
+                <div class="home-actions">
+                    <a asp-action="Map" class="btn-submit">Finn ressurser i kartet <span aria-hidden="true">→</span></a>
+                    @if (canRegister)
+                    {
+                        <a asp-action="Map" asp-route-register="true" class="btn-secondary">Registrer en ressurs</a>
+                    }
+                </div>
+            }
+            else
+            {
+                <h1 id="home-title">Et sted å samle<br />ressurser og bidrag.</h1>
+                <p class="home-lead">Beredskapsportalen gir en felles oversikt over hva som finnes, hvor det er og om det er tilgjengelig.</p>
+                <div class="home-actions">
+                    <a asp-controller="Account" asp-action="Login" class="btn-submit">Logg inn <span aria-hidden="true">→</span></a>
+                    <a asp-controller="Account" asp-action="Register" class="btn-secondary">Opprett brukerkonto</a>
+                </div>
+                <p class="home-context">Studentprosjekt · prototype. Ikke en offisiell tjeneste eller en kanal for reelle nødsituasjoner.</p>
+            }
+        </div>
+        <img src="~/images/Heimevernet-background.jpg" asp-append-version="true"
+             alt="Soldater i Heimevernet tar en pause sammen i grønne omgivelser."
+             width="1024" height="707" class="home-photo" fetchpriority="high" />
+    </section>
 
-<div class="hero hero-photo">
-    <div class="hero-overlay"></div>
-
-    <div class="hero-content hero-content-centered">
-        <span class="eyebrow">HEIMEVERNET · INNLEVERING 1</span>
-        <h1 class="hero-title-big">Heimevernet</h1>
-    </div>
+    <section class="home-guide" aria-labelledby="home-guide-title">
+        <div class="home-guide-heading">
+            <span class="eyebrow">Fra oversikt til bidrag</span>
+            <h2 id="home-guide-title">Slik bruker du portalen</h2>
+            <p>En god registrering gjør det enklere å finne riktig ressurs.</p>
+        </div>
+        <ol class="home-steps">
+            <li>
+                <h3>Start med området</h3>
+                <p>Søk etter et sted i kartet og filtrer på ressurstype. Se plassering og tilgjengelighet før du går videre.</p>
+            </li>
+            <li>
+                <h3>Gi ressursen en plass</h3>
+                <p>Oppgi navn, type og kapasitet. Marker punktet i kartet der ressursen finnes, og kontroller plasseringen før du lagrer.</p>
+            </li>
+            <li>
+                <h3>Hold bidraget ditt relevant</h3>
+                <p>Under «Mine ressurser» kan du endre detaljer og tilgjengelighet når noe endrer seg.</p>
+                @if (canRegister)
+                {
+                    <a asp-action="Resources" asp-route-mine="true">Se mine ressurser <span aria-hidden="true">→</span></a>
+                }
+                @if (canUseOperations)
+                {
+                    <a asp-controller="Operations" asp-action="Index">@(canRegister ? "Svar på forespørsler til dine ressurser" : "Følg opp behov, forespørsler og tildeling") <span aria-hidden="true">→</span></a>
+                }
+            </li>
+        </ol>
+    </section>
 </div>
-
-<section class="home-content home-intro">
-    <span class="eyebrow">OVERSIKT</span>
-    <h2>Alt samlet på ett sted</h2>
-    <p>Bruk menyen for å registrere informasjon, åpne kartet og se status for data.</p>
-
-    <div class="feature-grid">
-        <a asp-controller="Home" asp-action="Form" class="feature-card">
-            <span class="feature-icon">&#9998;</span>
-            <h3>Skjema</h3>
-            <p>Send inn personinformasjon på en enkel og trygg måte.</p>
-        </a>
-        <a asp-controller="Home" asp-action="Map" class="feature-card">
-            <span class="feature-icon">&#8982;</span>
-            <h3>Kart</h3>
-            <p>Klikk i kartet for å velge og registrere koordinater.</p>
-        </a>
-        <a asp-controller="Home" asp-action="Data" class="feature-card">
-            <span class="feature-icon">&#9638;</span>
-            <h3>Data</h3>
-            <p>Se oversikt over status og videre databaseintegrasjon.</p>
-        </a>
-    </div>
-</section>

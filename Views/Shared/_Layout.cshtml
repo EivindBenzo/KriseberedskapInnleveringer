@@ -1,47 +1,126 @@
+@{
+    var canUseOperations = User.Identity?.IsAuthenticated == true
+        && !string.IsNullOrEmpty(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
+        && HeimevernetInnlevering1.Models.AppRoles.HasAny(User);
+}
 <!DOCTYPE html>
 <html lang="no">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Heimevernet</title>
-    <link rel="stylesheet" href="~/css/site.css" />
+    <title>@ViewData["Title"] - Beredskapsportalen</title>
+    <script src="~/js/theme.js" asp-append-version="true"></script>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/workspace.css" asp-append-version="true" />
 </head>
 <body>
+    <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+        <defs>
+            <filter id="resource-map-outline" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+                <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="outline" />
+                <feFlood flood-color="#000" />
+                <feComposite in2="outline" operator="in" />
+                <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+        </defs>
+    </svg>
+    <a class="skip-link" href="#main">Hopp til innhold</a>
     <header>
-        <nav class="navbar">
+        <nav class="navbar" aria-label="Hovedmeny">
             <div class="nav-container">
                 <a asp-controller="Home" asp-action="Index" class="nav-brand" aria-label="Hjem">
-                    <img src="~/images/forsvaret-logo.png" alt="Forsvaret logo" />
+                    <img src="~/images/forsvaret-logo.png" asp-append-version="true" alt="" width="588" height="721" />
+                    <span>Beredskapsportalen<small>Studentprosjekt · prototype</small></span>
                 </a>
 
+                <div class="nav-actions">
+                <button type="button" class="theme-toggle" id="themeToggle" aria-label="Bytt til mørk modus" aria-pressed="false" hidden>
+                    <span id="themeIcon" aria-hidden="true">☀</span>
+                    <span id="themeLabel">Lys modus</span>
+                </button>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <form asp-controller="Account" asp-action="Logout" method="post">
+                        <button type="submit" class="nav-signout">Logg ut</button>
+                    </form>
+                }
                 <button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="navMenu" aria-label="Åpne meny">
                     <span></span>
                     <span></span>
                     <span></span>
                 </button>
+                </div>
 
                 <ul class="nav-menu" id="navMenu">
                     <li><a asp-controller="Home" asp-action="Index" class="nav-link">Hjem</a></li>
-                    <li><a asp-controller="Home" asp-action="Form" class="nav-link">Skjema</a></li>
-                    <li><a asp-controller="Home" asp-action="Map" class="nav-link">Kart</a></li>
-                    <li><a asp-controller="Home" asp-action="Data" class="nav-link">Data</a></li>
-                    <li><a asp-controller="Home" asp-action="Verify" class="nav-link">Verifiser</a></li>
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <li><a asp-controller="Home" asp-action="Dashboard" class="nav-link">Oversikt</a></li>
+                        <li><a asp-controller="Home" asp-action="Map" class="nav-link">Kart</a></li>
+                        <li><a asp-controller="Home" asp-action="Resources" class="nav-link">Ressurser</a></li>
+                        @if (canUseOperations)
+                        {
+                            @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Ressursleverandor)
+                                || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.DispatchTeam)
+                                || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
+                            {
+                                <li><a asp-controller="Operations" asp-action="Index" class="nav-link">Forespørsler</a></li>
+                            }
+                        }
+                        @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.OffentligAktor))
+                        {
+                            <li><a asp-controller="Behov" asp-action="Registrer" class="nav-link">Meld behov</a></li>
+                        }
+                        @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
+                        {
+                            <li><a asp-controller="Hendelse" asp-action="Index" class="nav-link">Hendelser</a></li>
+                            <li><a asp-controller="Admin" asp-action="Index" class="nav-link">Brukere</a></li>
+                        }
+                    }
+                    else
+                    {
+                        <li><a asp-controller="Account" asp-action="Login" class="nav-link">Logg inn</a></li>
+                        <li><a asp-controller="Account" asp-action="Register" class="nav-link">Registrer bruker</a></li>
+                    }
                 </ul>
             </div>
         </nav>
     </header>
 
-    <main class="main-content">
+    <main id="main" class="main-content" tabindex="-1">
         @RenderBody()
     </main>
 
-    <footer>
-        <p>&copy; 2026 Heimevernet Innlevering 1 - ASP.NET Core MVC</p>
-    </footer>
-
+    <script src="~/js/scroll-position.js" asp-append-version="true"></script>
     <script>
         const menuToggle = document.getElementById('menuToggle');
         const navMenu = document.getElementById('navMenu');
+        function updateCurrentNavigation() {
+            document.querySelectorAll('#navMenu a').forEach(function (link) {
+                const path = window.location.pathname.toLowerCase();
+                const samePage = link.pathname.toLowerCase() === path ||
+                    (link.pathname === '/' && path === '/home/index') ||
+                    (link.pathname.toLowerCase() === '/home/resources' &&
+                        ['/home/mine', '/home/edit', '/home/delete'].some(route => path === route || path.startsWith(route + '/')));
+                if (samePage && (!link.hash || link.hash === window.location.hash)) {
+                    link.setAttribute('aria-current', 'page');
+                } else {
+                    link.removeAttribute('aria-current');
+                }
+            });
+        }
+        updateCurrentNavigation();
+        window.addEventListener('hashchange', updateCurrentNavigation);
+        function revealLinkedSection(hash = window.location.hash) {
+            const section = document.getElementById(hash.slice(1));
+            if (section?.tagName === 'DETAILS') {
+                section.open = true;
+                section.scrollIntoView({ block: 'start' });
+            }
+        }
+        revealLinkedSection();
+        window.addEventListener('hashchange', () => revealLinkedSection());
 
         menuToggle.addEventListener('click', function () {
             const isOpen = navMenu.classList.toggle('open');
@@ -50,10 +129,22 @@
         });
 
         document.addEventListener('click', function (event) {
+            const link = event.target.closest?.('a');
+            if (link?.hash && link.pathname === window.location.pathname) {
+                revealLinkedSection(link.hash);
+            }
             if (!navMenu.contains(event.target) && !menuToggle.contains(event.target)) {
                 navMenu.classList.remove('open');
                 menuToggle.classList.remove('open');
                 menuToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && navMenu.classList.contains('open')) {
+                navMenu.classList.remove('open');
+                menuToggle.classList.remove('open');
+                menuToggle.setAttribute('aria-expanded', 'false');
+                menuToggle.focus();
             }
         });
     </script>

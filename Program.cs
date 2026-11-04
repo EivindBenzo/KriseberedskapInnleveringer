@@ -1,32 +1,109 @@
+using System.Data.Common;
 using HeimevernetInnlevering1.Data;
+using HeimevernetInnlevering1.Services;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using HeimevernetInnlevering1.Models;
+
+if (args.Any(arg => arg.StartsWith("--promote-admin", StringComparison.Ordinal)))
+{
+    Environment.ExitCode = await AdminPromotionCommand.RunAsync(args);
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
-builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession(options =>
+builder.Services.Configure<HeimevernetInnlevering1.Models.WorkflowOptions>(builder.Configuration.GetSection("Workflow"));
+builder.Services.AddScoped<WorkflowService>();
+builder.Services.AddScoped<DashboardService>();
+builder.Services.Configure<GeocodingOptions>(builder.Configuration.GetSection("Geocoding"));
+builder.Services.AddSingleton<IPlaceGeocoder>(services => new PlaceGeocoder(
+    new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }),
+    services.GetRequiredService<Microsoft.Extensions.Options.IOptions<GeocodingOptions>>()));
+builder.Services.AddIdentity<Bruker, Rolle>(options =>
 {
-    options.IdleTimeout = TimeSpan.FromHours(8);
+    options.User.RequireUniqueEmail = true;
+    options.Password.RequiredLength = 12;
+    // Spesialtegn kreves ikke. Et langt passord (minst 12 tegn) med store og små bokstaver og tall er like sikkert og lettere å huske.
+    options.Password.RequireNonAlphanumeric = false;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+}).AddEntityFrameworkStores<AppDbContext>().AddDefaultTokenProviders();
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.Cookie.Name = "Heimevernet.Identity";
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
 });
+// Validate role changes and revoked sessions on the very next authenticated request.
+builder.Services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);
+var keyPath = builder.Configuration["DataProtection:KeyPath"]
+    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".aspnet", "DataProtection-Keys");
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(keyPath))
+    .SetApplicationName("HeimevernetInnlevering");
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Data Source=Data/heimevernet.db";
+var connectionString = DatabaseProviderConfiguration.GetRequiredConnectionString(builder.Configuration);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+    DatabaseProviderConfiguration.Configure(options, connectionString,
+        builder.Configuration["DATABASE_SERVER_VERSION"]));
 
 var app = builder.Build();
 
-// Create the SQLite directory/database automatically for local and Docker runs.
+// Wait briefly for the database during container startup, then initialize the schema from migrations.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var databaseDirectory = Path.Combine(AppContext.BaseDirectory, "Data");
-    Directory.CreateDirectory(databaseDirectory);
-    db.Database.EnsureCreated();
+    const int maximumAttempts = 10;
+    var connected = false;
+
+    string? lastError = null;
+
+    for (var attempt = 1; attempt <= maximumAttempts; attempt++)
+    {
+        try
+        {
+            connected = await db.Database.CanConnectAsync();
+            if (!connected) lastError = "The database did not accept the connection.";
+        }
+        catch (Exception exception) when (exception is DbException or InvalidOperationException)
+        {
+            connected = false;
+            lastError = exception.GetBaseException().Message;
+        }
+
+        if (connected)
+        {
+            break;
+        }
+
+        if (attempt < maximumAttempts)
+        {
+            app.Logger.LogWarning(
+                "Database is not ready (attempt {Attempt} of {MaximumAttempts}): {Error}. Retrying in 2 seconds.",
+                attempt,
+                maximumAttempts,
+                lastError);
+            await Task.Delay(TimeSpan.FromSeconds(2));
+        }
+    }
+
+    if (!connected)
+    {
+        throw new InvalidOperationException(
+            $"Could not connect to the database after {maximumAttempts} attempts. Last error: {lastError}");
+    }
+
+    await db.Database.MigrateAsync();
+    await IdentitySeeder.SeedAsync(scope.ServiceProvider, builder.Configuration);
 }
 
 if (!app.Environment.IsDevelopment())
@@ -38,25 +115,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
-app.UseSession();
-
-// New browser sessions must complete the form before using the rest of the site.
-app.Use(async (context, next) =>
-{
-    var path = context.Request.Path;
-    var isFormPage = path.StartsWithSegments("/Home/Form");
-    var isErrorPage = path.StartsWithSegments("/Home/Error");
-    var isRegistered = context.Session.GetInt32("RegistrationId").HasValue;
-
-    if (path.StartsWithSegments("/Home") && !isFormPage && !isErrorPage && !isRegistered)
-    {
-        context.Response.Redirect("/Home/Form");
-        return;
-    }
-
-    await next();
-});
-
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(

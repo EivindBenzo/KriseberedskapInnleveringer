@@ -14,10 +14,34 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
   build-and-test:
     name: Build and test Heimevernet
     runs-on: ubuntu-latest
+
+    # Integrasjonstestene trenger en ekte MariaDB. Hver test lager og sletter sin egen database,
+    # derfor kobler testene seg til som root i denne midlertidige test-databasen.
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-passord
+          MARIADB_DATABASE: heimevernet
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      MARIADB_HOST: 127.0.0.1
+      MARIADB_PORT: 3306
+      MARIADB_DATABASE: heimevernet
+      MARIADB_USER: root
+      MARIADB_APP_PASSWORD: ci-root-passord
 
     steps:
       - name: Checkout repository
@@ -26,62 +50,36 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Restore dependencies
-        run: dotnet restore ./Heimevernet.slnx
+        run: dotnet restore tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj
 
-      - name: Build solution
-        run: dotnet build ./Heimevernet.slnx --configuration Release --no-restore
+      - name: Build application and tests
+        run: dotnet build tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj --configuration Release --no-restore
 
-      - name: Run tests with coverage
+      - name: Run MariaDB integration tests
         run: >
-          dotnet test ./Heimevernet.slnx
+          dotnet test tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj
           --configuration Release
           --no-build
-          --no-restore
-          --verbosity normal
-          --output Detailed
-          --report-xunit-trx
-          --coverlet
-          --coverlet-output-format cobertura
+          --logger trx
           --results-directory ./TestResults
-      - name: Generate coverage report
-        if: always() && hashFiles('TestResults/**/coverage.cobertura*.xml') != ''
-        continue-on-error: true
-        uses: danielpalme/ReportGenerator-GitHub-Action@5.5.11
-        with:
-          reports: TestResults/**/coverage.cobertura*.xml
-          targetdir: coverage-report
-          reporttypes: Html;Cobertura;MarkdownSummaryGithub
 
-      - name: Add coverage to job summary
-        if: always() && hashFiles('coverage-report/SummaryGithub.md') != ''
-        continue-on-error: true
-        run: cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Run frontend tests
+        run: node --test tests/Frontend/*.cjs
 
-      - name: Summarize coverage
-        if: always() && hashFiles('coverage-report/Cobertura.xml') != ''
-        continue-on-error: true
-        uses: irongut/CodeCoverageSummary@v1.3.0
-        with:
-          filename: coverage-report/Cobertura.xml
-          fail_below_min: false
-          format: markdown
-          hide_branch_rate: false
-          hide_complexity: true
-          indicators: false
-          output: both
-
-      - name: Upload test and coverage reports
+      - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-and-coverage-reports
-          path: |
-            TestResults/
-            coverage-report/
-            code-coverage-results.md
+          name: test-results
+          path: TestResults/
           if-no-files-found: warn
 
   publish-pr-results:
@@ -96,11 +94,11 @@ jobs:
       issues: read
       pull-requests: write
     steps:
-      - name: Download test and coverage reports
+      - name: Download test results
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: test-and-coverage-reports
+          name: test-results
 
       - name: Publish test results
         if: always() && hashFiles('**/*.trx') != ''
@@ -108,10 +106,3 @@ jobs:
         with:
           files: '**/*.trx'
           comment_title: Unit Test Results
-
-      - name: Comment coverage summary
-        if: always() && hashFiles('code-coverage-results.md') != ''
-        uses: marocchino/sticky-pull-request-comment@v3
-        with:
-          header: code-coverage
-          path: code-coverage-results.md

@@ -1,0 +1,46 @@
+@model HeimevernetInnlevering1.Models.RegisterViewModel
+@using HeimevernetInnlevering1.Models
+@{
+    ViewData["Title"] = "Registrer bruker";
+}
+<section class="account-card" aria-labelledby="account-heading">
+    <h1 id="account-heading">Registrer bruker</h1>
+    <p>Velg hvordan du skal bruke portalen.</p>
+    <form asp-action="Register" method="post" class="account-form">
+        <div asp-validation-summary="ModelOnly" role="alert"></div>
+        <label asp-for="Fornavn"></label>
+        <input asp-for="Fornavn" autocomplete="given-name" maxlength="100" required />
+        <span asp-validation-for="Fornavn"></span>
+        <label asp-for="Etternavn"></label>
+        <input asp-for="Etternavn" autocomplete="family-name" maxlength="100" required />
+        <span asp-validation-for="Etternavn"></span>
+        <label asp-for="Telefon"></label>
+        <input asp-for="Telefon" type="tel" autocomplete="tel" maxlength="20" required placeholder="f.eks. 999 99 999" />
+        <span asp-validation-for="Telefon"></span>
+        <label asp-for="Organisasjon"></label>
+        <input asp-for="Organisasjon" autocomplete="organization" maxlength="150" />
+        <span asp-validation-for="Organisasjon"></span>
+        <label asp-for="Email"></label>
+        <input asp-for="Email" type="email" autocomplete="username" maxlength="254" required />
+        <span asp-validation-for="Email"></span>
+        <label asp-for="Role"></label>
+        <select asp-for="Role" required>
+            <option value="">Velg kontotype</option>
+            @foreach (var role in AppRoles.SelfService)
+            {
+                <option value="@role" selected="@(Model.Role == role)">@AppRoles.Label(role)</option>
+            }
+        </select>
+        <span asp-validation-for="Role"></span>
+        <p class="account-hint">Dispatch, kriseledelse og verifiseringsansvarlig tildeles av kriseledelsen etter registrering.</p>
+        <label asp-for="Password"></label>
+        <input asp-for="Password" autocomplete="new-password" minlength="12" maxlength="128" aria-describedby="password-rules" required />
+        <span asp-validation-for="Password"></span>
+        <p id="password-rules" class="account-hint">Bruk minst 12 tegn med både store og små bokstaver og minst ett tall. Spesialtegn er ikke nødvendig.</p>
+        <label asp-for="ConfirmPassword"></label>
+        <input asp-for="ConfirmPassword" autocomplete="new-password" required />
+        <span asp-validation-for="ConfirmPassword"></span>
+        <button class="account-button" type="submit">Opprett konto</button>
+    </form>
+    <p class="account-links">Har du en konto? <a asp-action="Login">Logg inn</a></p>
+</section>

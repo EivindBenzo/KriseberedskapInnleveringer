@@ -1,0 +1,476 @@
+body:has(.map-workspace) {
+    height: 100dvh;
+    min-height: 0;
+}
+
+.main-content:has(.map-workspace) {
+    display: flex;
+    flex-direction: column;
+    max-width: 1680px;
+    margin: 0 auto;
+    padding: .75rem 1.25rem;
+}
+
+.map-workspace {
+    --workspace-border: var(--workspace-surface-border);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    color: var(--text);
+}
+
+.map-workspace > :not(.workspace-grid) { flex-shrink: 0; }
+
+.map-workspace .workspace-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: .6rem;
+}
+
+.map-workspace h1 {
+    font-size: 1.65rem;
+    margin: 0;
+}
+
+.map-workspace h2 {
+    font-size: 1.05rem;
+    margin: 0 0 .6rem;
+}
+
+.map-workspace .workspace-grid {
+    display: grid;
+    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+    gap: .75rem;
+    align-items: stretch;
+    flex: 1;
+    min-height: 0;
+}
+
+.map-workspace[data-registration-open="true"] .workspace-grid {
+    grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+}
+
+.map-workspace .workspace-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .85rem;
+}
+
+.map-workspace .workspace-toolbar .btn-submit {
+    width: auto;
+    margin: 0;
+}
+
+.map-workspace #registrationToggle[aria-expanded="true"] {
+    background: #102c50;
+    border-color: var(--accent);
+    box-shadow: inset 0 -3px #a9d2ff;
+}
+
+.map-workspace .workspace-sidebar {
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    border: 1px solid var(--workspace-border);
+    border-radius: 12px;
+    background: var(--workspace-surface);
+}
+
+.map-workspace .workspace-search,
+.map-workspace .workspace-results,
+.map-workspace .registration-panel {
+    padding: 1rem;
+}
+
+.map-workspace .workspace-search,
+.map-workspace .registration-panel {
+    border-bottom: 1px solid var(--workspace-border);
+}
+
+.map-workspace .registration-intro {
+    color: var(--muted);
+    font-size: .9rem;
+    margin-bottom: 1rem;
+}
+
+.map-workspace .registration-section {
+    min-width: 0;
+    min-inline-size: 0;
+    width: 100%;
+    margin: 0 0 1rem;
+    padding: .85rem;
+    border: 1px solid var(--workspace-section-border);
+    border-radius: 8px;
+    background: var(--workspace-section-surface);
+    overflow-wrap: anywhere;
+}
+
+.map-workspace .workspace-form {
+    min-width: 0;
+}
+
+.map-workspace fieldset.registration-section {
+    display: flow-root;
+}
+
+.map-workspace .registration-section legend,
+.map-workspace .registration-section > summary {
+    color: var(--heading);
+    font-size: .9rem;
+    font-weight: 650;
+}
+
+.map-workspace .registration-section legend {
+    float: inline-start;
+    width: 100%;
+    margin: 0 0 .75rem;
+    padding: 0 0 .65rem;
+    border-bottom: 1px solid var(--workspace-section-border);
+}
+
+.map-workspace .registration-section legend + * {
+    clear: both;
+}
+
+.map-workspace details.registration-section {
+    padding: 0 .85rem;
+}
+
+.map-workspace .registration-section > summary {
+    display: list-item;
+    margin: 0;
+    min-height: 44px;
+    padding: .75rem 0;
+}
+
+.map-workspace details.registration-section[open] {
+    padding-bottom: .85rem;
+}
+
+.map-workspace .registration-section[open] > summary {
+    margin-bottom: .75rem;
+    border-bottom: 1px solid var(--workspace-section-border);
+}
+
+.map-workspace .registration-section .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.map-workspace #registrationCancel {
+    width: 100%;
+    margin-top: .5rem;
+}
+
+.map-workspace .workspace-search-row {
+    display: flex;
+    align-items: start;
+    gap: .4rem;
+}
+
+.map-workspace .city-search-input {
+    min-width: 0;
+    flex: 1;
+}
+
+.map-workspace label {
+    font-size: .9rem;
+    margin-bottom: .3rem;
+}
+
+.map-workspace .form-control {
+    min-width: 0;
+    max-width: 100%;
+    padding: .6rem .65rem;
+    font-size: .9rem;
+    border-width: 1px;
+    border-radius: 7px;
+    border-color: var(--workspace-section-border);
+    background: var(--workspace-input-surface);
+}
+
+.map-workspace .form-control:focus {
+    border-color: var(--accent);
+    background: var(--workspace-input-surface);
+}
+
+.map-workspace .form-control option {
+    background: var(--workspace-input-surface);
+}
+
+.map-workspace .btn-secondary,
+.map-workspace .btn-danger {
+    background: var(--workspace-surface);
+}
+
+.map-workspace .btn-secondary:hover,
+.map-workspace .btn-danger:hover {
+    background: var(--workspace-hover);
+}
+
+.map-workspace .btn-secondary,
+.map-workspace .btn-danger,
+.map-workspace .btn-submit,
+.map-workspace .workspace-mobile-switch button {
+    min-height: 44px;
+    padding: .55rem .8rem;
+    margin: 0;
+    font: inherit;
+    font-size: .85rem;
+    line-height: 1.4;
+    border-radius: 7px;
+}
+
+.map-workspace .btn-submit {
+    width: 100%;
+    margin-top: .75rem;
+}
+
+.map-workspace .form-group {
+    margin-bottom: .75rem;
+}
+
+.map-workspace .workspace-muted,
+.map-workspace #citySearchHelp,
+.map-workspace #citySearchStatus,
+.map-workspace #placementHelp {
+    display: block;
+    font-size: .85rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: .4rem;
+}
+
+.map-workspace summary {
+    cursor: pointer;
+}
+
+.map-workspace .workspace-location {
+    font-size: .9rem;
+    margin: .65rem 0;
+    padding: .7rem;
+    background: var(--workspace-input-surface);
+    border: 1px solid var(--workspace-border);
+    border-radius: 6px;
+    overflow-wrap: anywhere;
+}
+
+.map-workspace .workspace-location p {
+    font-size: inherit;
+    margin: .25rem 0 0;
+}
+
+.map-workspace .workspace-resource-list {
+    margin-top: .6rem;
+    display: grid;
+    gap: .65rem;
+}
+
+.map-workspace .resource-card {
+    margin: 0;
+    border: 1px solid var(--workspace-border);
+    border-radius: 8px;
+    background: var(--workspace-section-surface);
+}
+
+.map-workspace .resource-card[open] {
+    border-color: var(--accent);
+}
+
+.map-workspace .resource-card > summary:hover {
+    background: var(--workspace-hover);
+}
+
+.map-workspace .resource-card > summary {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .8rem;
+    border-radius: 8px;
+    list-style: none;
+}
+
+.map-workspace .resource-card > summary::after {
+    content: "+";
+    margin-left: auto;
+    font-weight: 700;
+}
+
+.map-workspace .resource-card[open] > summary::after {
+    content: "−";
+}
+
+.map-workspace .resource-card strong,
+.map-workspace .resource-card small {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.map-workspace .resource-card small {
+    color: var(--muted);
+    font-size: .85rem;
+    line-height: 1.5;
+    margin-top: .2rem;
+}
+
+.map-workspace .resource-card img {
+    flex-shrink: 0;
+}
+
+.map-workspace .resource-detail {
+    padding: .75rem;
+    border-top: 1px solid var(--border);
+    font-size: .9rem;
+}
+
+.map-workspace .resource-detail dl > div {
+    margin-bottom: .45rem;
+}
+
+.map-workspace .resource-detail dt {
+    color: var(--muted);
+    font-size: .8rem;
+}
+
+.map-workspace .resource-detail dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.map-workspace .resource-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+}
+
+.map-workspace .workspace-map-region {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.map-workspace .workspace-map-status {
+    font-size: .8rem;
+    margin: 0 0 .5rem;
+    color: var(--muted);
+}
+
+.map-workspace #map {
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    box-shadow: none;
+    border: 1px solid var(--workspace-border);
+    border-radius: 8px;
+}
+
+.map-workspace #map.placement-active {
+    outline: 3px solid var(--accent);
+    outline-offset: -3px;
+    cursor: crosshair;
+}
+
+.map-workspace [aria-pressed="true"] {
+    background: var(--workspace-hover);
+    color: var(--heading);
+    box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.map-workspace .resource-popup strong {
+    display: block;
+    font-size: 1rem;
+}
+
+.map-workspace .workspace-notice {
+    padding: .6rem .9rem;
+    border: 1px solid var(--workspace-border);
+    border-radius: 8px;
+    margin-bottom: .75rem;
+}
+
+.map-workspace .workspace-mobile-switch {
+    display: none;
+}
+
+.map-workspace [hidden] {
+    display: none !important;
+}
+
+@media (max-width: 760px) {
+    .main-content:has(.map-workspace) {
+        margin: 0 auto;
+        padding: .65rem;
+    }
+
+    .map-workspace .workspace-heading {
+        gap: .5rem;
+        margin-bottom: .65rem;
+    }
+
+    .map-workspace h1 {
+        font-size: 1.3rem;
+    }
+
+    .map-workspace .workspace-mobile-switch {
+        display: flex;
+        gap: .4rem;
+        margin-bottom: .65rem;
+    }
+
+    .map-workspace .workspace-mobile-switch button {
+        flex: 1;
+        color: var(--text);
+        background: var(--workspace-surface);
+        border: 1px solid var(--workspace-border);
+    }
+
+    .map-workspace .workspace-grid {
+        display: flex;
+        flex-direction: column;
+        gap: .65rem;
+    }
+
+    .map-workspace .workspace-toolbar > * {
+        flex: 1 1 auto;
+        text-align: center;
+    }
+
+    .map-workspace .workspace-sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 45%;
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    .map-workspace[data-registration-open="true"] .workspace-sidebar { flex: 1; max-height: 60%; }
+    .map-workspace[data-mobile-view="list"] .workspace-sidebar { flex: 1; max-height: 100%; }
+
+    .map-workspace .workspace-search {
+        padding: .65rem;
+        border-bottom: 0;
+    }
+
+    .map-workspace .workspace-map-region {
+        flex: 1;
+        width: 100%;
+    }
+
+    .map-workspace #map {
+        height: 100%;
+        min-height: 0;
+    }
+
+    .map-workspace[data-mobile-view="map"] .workspace-results,
+    .map-workspace[data-mobile-view="list"] .workspace-map-region {
+        display: none;
+    }
+}

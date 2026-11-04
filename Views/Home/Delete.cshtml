@@ -1,0 +1,13 @@
+@model HeimevernetInnlevering1.Models.Ressurs
+@{
+    ViewData["Title"] = "Slett ressurs";
+}
+<div class="form-container">
+    <h1>Slett ressurs</h1>
+    <p>Vil du slette «@Model.Navn» (@Model.Ressurstype?.Navn) ved @Model.Stedsnavn? Dette kan ikke angres.</p>
+    <form asp-action="Delete" asp-route-id="@Model.RessursID" method="post">
+        <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+        <button type="submit" class="btn-danger">Ja, slett ressursen</button>
+        <a asp-action="Map" class="btn-secondary">Avbryt</a>
+    </form>
+</div>

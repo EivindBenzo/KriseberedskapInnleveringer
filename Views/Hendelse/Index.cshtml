@@ -1,0 +1,74 @@
+@model HeimevernetInnlevering1.Controllers.HendelseSkjemaViewModel
+@using HeimevernetInnlevering1.Models
+@{
+    ViewData["Title"] = "Hendelser";
+    var hendelser = (ViewBag.Hendelser as List<Hendelse>) ?? new();
+}
+<section class="operations-workspace" aria-labelledby="incident-heading">
+    <div class="page-heading">
+        <div><span class="eyebrow">Kriseledelse</span><h1 id="incident-heading">Hendelser</h1></div>
+        <a asp-controller="Home" asp-action="Dashboard" class="btn-secondary">Tilbake til oversikten</a>
+    </div>
+    <p>En hendelse er en krise, for eksempel en flom eller et langvarig strømbrudd. Offentlige aktører kan knytte behov til en aktiv hendelse.</p>
+    @if (TempData["WorkflowError"] is string error)
+    {
+        <p class="workspace-alert" role="alert">@error</p>
+    }
+    @if (TempData["WorkflowSuccess"] is string success)
+    {
+        <p class="notice" role="status">@success</p>
+    }
+
+    <details class="workflow-section" open="@(hendelser.Count == 0 || !ViewData.ModelState.IsValid)">
+        <summary>+ Opprett hendelse</summary>
+        <form asp-action="Index" method="post" class="form-container">
+            <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+            <div class="form-group">
+                <label asp-for="Navn">Navn <span class="required">*</span></label>
+                <input asp-for="Navn" class="form-control" maxlength="150" placeholder="f.eks. Flom i Glomma" required />
+                <span asp-validation-for="Navn" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Område">Område <span class="required">*</span></label>
+                <input asp-for="Område" class="form-control" maxlength="150" placeholder="f.eks. Innlandet" required />
+                <span asp-validation-for="Område" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Starttidspunkt">Starttidspunkt <span class="required">*</span></label>
+                <input asp-for="Starttidspunkt" type="datetime-local" class="form-control" required />
+                <span asp-validation-for="Starttidspunkt" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Beskrivelse">Beskrivelse (valgfritt)</label>
+                <textarea asp-for="Beskrivelse" class="form-control" rows="3" maxlength="2000"></textarea>
+            </div>
+            <button type="submit" class="btn-submit">Opprett hendelse</button>
+        </form>
+    </details>
+
+    <h2>Alle hendelser <span class="count-badge">@hendelser.Count</span></h2>
+    @if (hendelser.Count == 0)
+    {
+        <p class="empty-state">Ingen hendelser er registrert.</p>
+    }
+    @foreach (var h in hendelser)
+    {
+        <article class="workflow-item">
+            <div class="results-heading">
+                <h3>@h.Navn</h3>
+                <span class="status-badge @(h.Status == Statuser.Hendelse.Aktiv ? "status-warning" : "")">@Statuser.Visning(h.Status)</span>
+            </div>
+            <p class="resource-meta">@h.Område · startet @h.Starttidspunkt.ToString("dd.MM.yyyy HH:mm") UTC · @h.Behov.Count behov</p>
+            @if (!string.IsNullOrWhiteSpace(h.Beskrivelse))
+            {
+                <p>@h.Beskrivelse</p>
+            }
+            @if (h.Status == Statuser.Hendelse.Aktiv)
+            {
+                <form asp-action="Avslutt" asp-route-id="@h.HendelseID" method="post" class="inline-form">
+                    <button type="submit" class="btn-secondary">Avslutt hendelsen</button>
+                </form>
+            }
+        </article>
+    }
+</section>

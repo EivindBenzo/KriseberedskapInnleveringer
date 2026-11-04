@@ -1,113 +1,309 @@
-@model MapSubmissionViewModel
+@model RessursSkjemaViewModel
 @using System.Globalization
+@using HeimevernetInnlevering1.Models
+@inject Microsoft.AspNetCore.Mvc.ViewFeatures.IFileVersionProvider FileVersionProvider
 @{
     ViewData["Title"] = "Kart";
-    var resources = (ViewBag.Resources as List<HeimevernetInnlevering1.Models.MapSubmission>) ?? new();
+    var isEditing = ViewBag.EditId != null;
+    var canRegister = User.IsInRole(AppRoles.Ressursleverandor);
+    var registrationOpen = canRegister && (isEditing || !ViewData.ModelState.IsValid || Context.Request.Query["register"] == "true");
+    var resources = (ViewBag.Resources as List<Ressurs>) ?? new();
+    var ressurstyper = (ViewBag.Ressurstyper as List<string>) ?? HeimevernetInnlevering1.Data.SeedData.RessurstypeNavn.ToList();
+    var annenType = Model?.Ressurstype == RessursSkjemaViewModel.AnnenType
+        || (!string.IsNullOrEmpty(Model?.Ressurstype) && !ressurstyper.Contains(Model!.Ressurstype));
+    var statusTime = DateTime.UtcNow;
+    var placedResourceId = TempData["MapPlacedResourceId"] is int placedId ? (int?)placedId : null;
+    var resourceStatuses = resources.ToDictionary(r => r.RessursID, r => ResourceOperationalStatus.From(r, statusTime));
     var resourcesJson = System.Text.Json.JsonSerializer.Serialize(resources.Select(r => new
     {
-        name = r.ResourceName,
-        type = r.ResourceType,
-        location = r.LocationName,
-        lat = r.Latitude,
-        lng = r.Longitude
+        id = r.RessursID,
+        name = r.Navn,
+        type = r.Ressurstype?.Navn,
+        location = r.Stedsnavn,
+        lat = (double)r.Breddegrad,
+        lng = (double)r.Lengdegrad,
+        status = resourceStatuses[r.RessursID],
+        updated = r.Registrert.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) + " UTC"
     }));
-    var startLat = (Model?.Latitude ?? 58.1467).ToString(CultureInfo.InvariantCulture);
-    var startLng = (Model?.Longitude ?? 7.9956).ToString(CultureInfo.InvariantCulture);
+    var selectedPoint = Model?.Breddegrad is double lat && Model.Lengdegrad is double lng
+        && double.IsFinite(lat) && double.IsFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    var startLat = (selectedPoint ? Model!.Breddegrad!.Value : 58.1467).ToString(CultureInfo.InvariantCulture);
+    var startLng = (selectedPoint ? Model!.Lengdegrad!.Value : 7.9956).ToString(CultureInfo.InvariantCulture);
+    var resourceIconUrls = new[] { "car", "excavator", "drone", "generator", "personnel", "toolbox", "other", "unknown" }
+        .SelectMany(file => new[] { file, file + "-available", file + "-unavailable" })
+        .ToDictionary(file => file, file => FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content($"~/images/resources/{file}.svg")));
 }
 
-<div class="map-container">
-    <span class="eyebrow">RESSURSER</span>
-    <h1>Kart</h1>
-    <p>Velg ressurstype, skriv inn navn og klikk i kartet (eller søk etter en by) for å plassere ressursen.</p>
-
+<link rel="stylesheet" href="~/css/workspace-map.css" asp-append-version="true" />
+<section class="map-workspace" id="mapWorkspace" data-mobile-view="map" data-registration-open="@(registrationOpen ? "true" : "false")" aria-labelledby="workspaceTitle">
+    <div class="workspace-heading">
+        <div><span class="eyebrow">RESSURSOVERSIKT</span><h1 id="workspaceTitle">Ressurskart</h1></div>
+    </div>
+    <div class="workspace-toolbar" role="group" aria-label="Ressursverktøy">
+        <button type="button" id="registrationToggle" class="btn-submit" hidden="@(!canRegister)" aria-controls="registrationPanel" aria-expanded="@(registrationOpen ? "true" : "false")">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</button>
+        <a asp-action="Resources" class="btn-secondary" id="resourcesOverlayOpen" aria-haspopup="dialog" aria-controls="resourcesDialog">Ressurser og mine ressurser</a>
+    </div>
+    @if (isEditing)
+    {
+        <p class="workspace-notice">Endres navn, type, beskrivelse eller plassering, må ressursen verifiseres på nytt.</p>
+    }
     @if (TempData["MapSuccess"] is string success)
     {
-        <p class="info">✅ @success</p>
+        <p class="workspace-notice" role="status">@success</p>
     }
-
-    <form method="post" asp-action="Map" class="form">
-        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="resourceType">Ressurstype <span class="required">*</span></label>
-                <select id="resourceType" name="ResourceType" class="form-control" required>
-                    <option value="">Velg type</option>
-                    @foreach (var type in MapSubmissionViewModel.ResourceTypes)
+    <div class="workspace-mobile-switch" role="group" aria-label="Kartvisning">
+        <button type="button" id="showMap" aria-pressed="true" aria-controls="mapRegion">Kart</button>
+        <button type="button" id="showList" aria-pressed="false" aria-controls="resourceResults">Liste</button>
+    </div>
+    <div class="workspace-grid">
+        <aside class="workspace-sidebar" aria-label="Søk og ressurser">
+            <div class="workspace-search city-search-group">
+                <label for="citySearch">Finn sted</label>
+                <div class="workspace-search-row">
+                    <div class="city-search-input">
+                        <input type="text" id="citySearch" class="form-control" placeholder="By eller tettsted" autocomplete="off"
+                               maxlength="120" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                               aria-controls="citySuggestions" aria-describedby="citySearchStatus" />
+                        <ul id="citySuggestions" class="city-suggestions" role="listbox" aria-label="Stedsforslag"></ul>
+                    </div>
+                    <button type="button" id="citySearchButton" class="btn-secondary">Søk</button>
+                </div>
+                <span id="citySearchStatus" role="status" aria-live="polite" aria-atomic="true"></span>
+            </div>
+            <section id="registrationPanel" class="registration-panel" hidden="@(!registrationOpen)" aria-labelledby="registrationTitle">
+                <h2 id="registrationTitle">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</h2>
+                <p class="registration-intro">Beskriv ressursen og marker hvor den finnes. Felt merket * er påkrevd.</p>
+                <form method="post" asp-controller="Home" asp-action="@(isEditing ? "Edit" : "Map")" asp-route-id="@ViewBag.EditId" class="workspace-form">
+                    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+                    <fieldset class="registration-section">
+                        <legend>Ressursdetaljer</legend>
+                    <div class="form-group">
+                        <label for="resourceName">Ressursnavn <span class="required">*</span></label>
+                        <input type="text" id="resourceName" name="Navn" value="@Model?.Navn" class="form-control" placeholder="f.eks. Lastebil 1" minlength="2" maxlength="150" required />
+                        <span asp-validation-for="Navn" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="resourceType">Ressurstype <span class="required">*</span></label>
+                        <select id="resourceType" name="Ressurstype" class="form-control" required>
+                            <option value="">Velg type</option>
+                            @foreach (var type in ressurstyper)
+                            {
+                                <option value="@type" selected="@(!annenType && Model?.Ressurstype == type)">@type</option>
+                            }
+                            <option value="@RessursSkjemaViewModel.AnnenType" selected="@annenType">Annen type …</option>
+                        </select>
+                        <span asp-validation-for="Ressurstype" class="text-danger"></span>
+                    </div>
+                    <div class="form-group" id="nyRessurstypeGroup" hidden="@(!annenType)">
+                        <label for="nyRessurstype">Skriv inn ressurstype <span class="required">*</span></label>
+                        <input type="text" id="nyRessurstype" name="NyRessurstype" class="form-control" maxlength="100"
+                               value="@(annenType ? (Model?.NyRessurstype ?? (Model?.Ressurstype == RessursSkjemaViewModel.AnnenType ? "" : Model?.Ressurstype)) : "")"
+                               placeholder="f.eks. Snøscooter eller Båt" />
+                        <span class="workspace-muted">Typen legges til i listen, slik at andre også kan velge den.</span>
+                        <span asp-validation-for="NyRessurstype" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="beskrivelse">Beskrivelse (valgfritt)</label>
+                        <textarea id="beskrivelse" name="Beskrivelse" class="form-control" maxlength="1000" rows="2" placeholder="f.eks. 5 kW, 8 seter, krever tilhenger">@Model?.Beskrivelse</textarea>
+                        <span asp-validation-for="Beskrivelse" class="text-danger"></span>
+                    </div>
+                    </fieldset>
+                    <fieldset class="registration-section">
+                        <legend>Tilgjengelighet og kontakt</legend>
+                    <div class="form-row-compact">
+                        <div class="form-group">
+                            <label for="tilgjengeligFra">Tilgjengelig fra <span class="required">*</span></label>
+                            <input type="date" id="tilgjengeligFra" name="TilgjengeligFra" value="@Model?.TilgjengeligFra?.ToString("yyyy-MM-dd")" class="form-control" required />
+                            <span asp-validation-for="TilgjengeligFra" class="text-danger"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="tilgjengeligTil">Tilgjengelig til</label>
+                            <input type="date" id="tilgjengeligTil" name="TilgjengeligTil" value="@Model?.TilgjengeligTil?.ToString("yyyy-MM-dd")" class="form-control" />
+                            <span asp-validation-for="TilgjengeligTil" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="kontaktperson">Kontaktperson <span class="required">*</span></label>
+                        <input type="text" id="kontaktperson" name="Kontaktperson" value="@Model?.Kontaktperson" class="form-control" maxlength="150" required autocomplete="off" placeholder="f.eks. Ola Nordmann" />
+                        <span asp-validation-for="Kontaktperson" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="kontakttelefon">Kontakttelefon <span class="required">*</span></label>
+                        <input type="tel" id="kontakttelefon" name="Kontakttelefon" value="@Model?.Kontakttelefon" class="form-control" maxlength="20" required autocomplete="off" placeholder="f.eks. 999 99 999" />
+                        <span asp-validation-for="Kontakttelefon" class="text-danger"></span>
+                    </div>
+                    </fieldset>
+                    <fieldset class="registration-section" aria-describedby="placementHelp">
+                        <legend>Plassering <span class="required">*</span></legend>
+                    <p id="placementHelp">Klikk i kartet eller velg et forslag fra «Finn sted» over. Plasseringen kan endres så lenge skjemaet er åpent.</p>
+                    <a href="#mapRegion" id="locationMapLink">Gå til kartet</a>
+                    <div class="workspace-location"><strong>Valgt plassering</strong><p id="selectedPlace" role="status">@(selectedPoint ? Model?.Stedsnavn : "Ingen plassering valgt ennå.")</p></div>
+                    <input type="hidden" id="latitude" name="Breddegrad" value="@(selectedPoint ? startLat : "")" />
+                    <input type="hidden" id="longitude" name="Lengdegrad" value="@(selectedPoint ? startLng : "")" />
+                    <span asp-validation-for="Breddegrad" class="text-danger"></span>
+                    </fieldset>
+                    <button type="submit" class="btn-submit">@(isEditing ? "Lagre endringer" : "Registrer ressurs")</button>
+                    <button type="button" id="registrationCancel" class="btn-secondary">Tilbake til kartvisning</button>
+                    <p class="workspace-muted">Tilbake lukker skjemaet uten å lagre. Feltene beholdes til du forlater siden.</p>
+                </form>
+            </section>
+            <section id="resourceResults" class="workspace-results" aria-labelledby="resultsTitle">
+                <h2 id="resultsTitle">Ressurser <span id="resourceCount">@resources.Count</span></h2>
+                <label for="resourceFilter">Filtrer ressurstype</label>
+                <select id="resourceFilter" class="form-control">
+                    <option value="">Alle typer</option>
+                    <option value="custom" disabled hidden>Valgte typer i kartet</option>
+                    @* Samme grupper som kartlista: de faste typene, og «Annet» for typer brukerne har lagt til selv. *@
+                    @foreach (var type in HeimevernetInnlevering1.Data.SeedData.RessurstypeNavn)
                     {
-                        <option value="@type" selected="@(Model?.ResourceType == type)">@type</option>
+                        <option value="@type">@type</option>
                     }
+                    <option value="Annet">Annet</option>
                 </select>
-                <span asp-validation-for="ResourceType" class="text-danger"></span>
-            </div>
-
-            <div class="form-group">
-                <label for="resourceName">Ressursnavn <span class="required">*</span></label>
-                <input type="text" id="resourceName" name="ResourceName" value="@Model?.ResourceName" class="form-control" placeholder="f.eks. Lastebil 1" required />
-                <span asp-validation-for="ResourceName" class="text-danger"></span>
-            </div>
-        </div>
-
-        <div class="form-group city-search-group">
-            <label for="citySearch">Søk etter by</label>
-            <input type="text" id="citySearch" class="form-control" placeholder="Skriv navnet på en by, f.eks. Bergen" autocomplete="off" />
-            <ul id="citySuggestions" class="city-suggestions"></ul>
-            <span class="info" id="citySearchStatus"></span>
-        </div>
-
-        <div class="form-group">
-            <label for="locationName">Lokasjonsnavn <span class="required">*</span></label>
-            <input type="text" id="locationName" name="LocationName" value="@(Model?.LocationName ?? "Kristiansand")" class="form-control" required />
-            <span asp-validation-for="LocationName" class="text-danger"></span>
-        </div>
-
-        <input type="hidden" id="latitude" name="Latitude" value="@startLat" />
-        <input type="hidden" id="longitude" name="Longitude" value="@startLng" />
-
-        <p class="info">Standardlokasjon: Kristiansand. Klikk i kartet for å velge nøyaktig plassering.</p>
-        <div id="map" aria-label="Interaktivt kart"></div>
-        <button type="submit" class="btn-submit">Send inn</button>
-    </form>
-
-    <h2>Registrerte ressurser (@resources.Count)</h2>
-    @if (resources.Count == 0)
-    {
-        <p>Ingen ressurser er registrert ennå.</p>
-    }
-    else
-    {
-        <div class="feature-grid">
+                <p id="resourceResultsStatus" class="workspace-muted" role="status">@(resources.Count == 0 ? "Ingen ressurser er plassert på kartet." : "")</p>
+                <div class="workspace-resource-list">
             @foreach (var r in resources)
             {
-                <div class="feature-card resource-card"
-                     data-lat="@r.Latitude.ToString(CultureInfo.InvariantCulture)"
-                     data-lng="@r.Longitude.ToString(CultureInfo.InvariantCulture)"
-                     style="cursor:pointer">
-                    <span class="eyebrow">@r.ResourceType</span>
-                    <h3>@r.ResourceName</h3>
-                    <p>📍 @r.LocationName<br />@r.Latitude.ToString("F5", CultureInfo.InvariantCulture), @r.Longitude.ToString("F5", CultureInfo.InvariantCulture)</p>
-                </div>
+                var status = resourceStatuses[r.RessursID];
+                var typeNavn = r.Ressurstype?.Navn ?? "Ukjent";
+                <details class="resource-card" id="resource-@r.RessursID"
+                     data-resource-id="@r.RessursID"
+                     data-resource-type="@typeNavn"
+                     data-lat="@(((double)r.Breddegrad).ToString(CultureInfo.InvariantCulture))"
+                     data-lng="@(((double)r.Lengdegrad).ToString(CultureInfo.InvariantCulture))">
+                    <summary><img data-resource-icon="@typeNavn" data-resource-status="@System.Text.Json.JsonSerializer.Serialize(status)" alt="" width="32" height="32" /><span><strong>@r.Navn</strong><small>@typeNavn · @r.Stedsnavn</small><small data-resource-status-text="@r.RessursID">@status.Availability · Godkjenning: @status.Verification</small></span></summary>
+                    <div class="resource-detail">
+                        <dl>
+                            <div><dt>Registrert</dt><dd>@r.Registrert.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) UTC</dd></div>
+                            <div><dt>Tilgjengelig</dt><dd>fra @r.TilgjengeligFra.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)@(r.TilgjengeligTil is DateOnly til ? " til " + til.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : "")</dd></div>
+                            <div><dt>Kontakt</dt><dd>@r.Kontaktperson, @r.Kontakttelefon</dd></div>
+                            <div><dt>Koordinater</dt><dd>@r.Breddegrad.ToString("F5", CultureInfo.InvariantCulture), @r.Lengdegrad.ToString("F5", CultureInfo.InvariantCulture)</dd></div>
+                            @if (!string.IsNullOrEmpty(r.Beskrivelse))
+                            {
+                                <div><dt>Beskrivelse</dt><dd>@r.Beskrivelse</dd></div>
+                            }
+                        </dl>
+                        <div class="resource-actions">
+                            <button type="button" class="btn-secondary resource-focus">Vis på kart</button>
+                            @if (ResourcePermissions.CanManage(User, r.EierID))
+                            {
+                                <a asp-action="Edit" asp-route-id="@r.RessursID" class="btn-secondary">Rediger</a>
+                                <div class="resource-destructive-actions">
+                                    <a asp-action="Delete" asp-route-id="@r.RessursID" class="btn-danger">Slett</a>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </details>
             }
+                </div>
+            </section>
+        </aside>
+        <div class="workspace-map-region" id="mapRegion" aria-label="Ressurskart">
+            <p id="mapModeStatus" role="status" class="workspace-map-status"></p>
+            <div id="map" aria-label="Interaktivt kart over ressurser"></div>
         </div>
-    }
-</div>
+    </div>
+</section>
 
-<style>
-    select.form-control option { background: #0f172a; color: #f1f5f9; }
-    .resource-popup strong { display: block; font-size: 1rem; }
-</style>
+<link rel="stylesheet" href="~/css/resources-overlay.css" asp-append-version="true" />
+<dialog id="resourcesDialog" class="resources-dialog" aria-labelledby="resourcesDialogTitle">
+    <div class="resources-dialog-header">
+        <button type="button" class="btn-secondary" id="resourcesDialogBack" aria-label="Tilbake til kartet"><span aria-hidden="true">←</span> Tilbake til kartet</button>
+        <h2 id="resourcesDialogTitle">Ressurser</h2>
+    </div>
+    <div id="resourcesDialogContent" class="resources-dialog-content" tabindex="-1"></div>
+</dialog>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="~/lib/leaflet/leaflet.css" />
+<link rel="stylesheet" href="~/css/map-controls.css" asp-append-version="true" />
+<script src="~/lib/leaflet/leaflet.js"></script>
+<script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")" data-icon-urls="@System.Text.Json.JsonSerializer.Serialize(resourceIconUrls)"></script>
+<script src="~/js/map-controls.js" asp-append-version="true"></script>
+<script src="~/js/place-search.js" asp-append-version="true"></script>
+<script src="~/js/resources-overlay.js" asp-append-version="true"></script>
 <script>
     const startLat = @startLat;
     const startLng = @startLng;
     const savedResources = @Html.Raw(resourcesJson);
+    const hasSelectedPoint = @Json.Serialize(selectedPoint);
+    const registrationInitiallyOpen = @Json.Serialize(registrationOpen);
+    const editId = @Json.Serialize(ViewBag.EditId);
+    const placedResourceId = @Json.Serialize(placedResourceId);
+    const placeUrl = @Json.Serialize(Url.Action("Place", "Home"));
+    const searchUrl = @Json.Serialize(Url.Action("SearchPlaces", "Home"));
 
     const map = L.map('map').setView([startLat, startLng], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Stedsforslag: <a href="https://www.geonames.org/">GeoNames</a> (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, bearbeidet)'
     }).addTo(map);
+
+    if (typeof ResizeObserver !== 'undefined') {
+        const mapResizeObserver = new ResizeObserver(function (entries) {
+            if (entries.some(entry => entry.contentRect.width > 0 && entry.contentRect.height > 0)) {
+                map.invalidateSize?.({ pan: false });
+            }
+        });
+        mapResizeObserver.observe(document.getElementById('map'));
+    }
+
+    const workspace = document.getElementById('mapWorkspace');
+    const registrationPanel = document.getElementById('registrationPanel');
+    const registrationToggle = document.getElementById('registrationToggle');
+    const resourceFilter = document.getElementById('resourceFilter');
+    const resourceCards = Array.from(document.querySelectorAll('.resource-card'));
+    const visibleTypes = new Map();
+    let placementActive = false;
+    let pointVersion = 0;
+    let pointController = null;
+    registrationPanel.hidden = !registrationInitiallyOpen;
+
+    function setMobileView(view) {
+        workspace.dataset.mobileView = view;
+        document.getElementById('showMap').setAttribute('aria-pressed', String(view === 'map'));
+        document.getElementById('showList').setAttribute('aria-pressed', String(view === 'list'));
+        if (view === 'map') map.invalidateSize?.({ pan: false });
+    }
+    document.getElementById('showMap').addEventListener('click', () => setMobileView('map'));
+    document.getElementById('showList').addEventListener('click', () => setMobileView('list'));
+
+    function setPlacement(active) {
+        if (!active) {
+            cancelPointLookup();
+            clearHoverPreview();
+            if (marker) map.removeLayer(marker);
+        } else if (marker) {
+            marker.addTo(map);
+        }
+        placementActive = active;
+        document.getElementById('mapModeStatus').textContent = active
+            ? 'Registrering · klikk i kartet eller velg et stedsforslag for å plassere ressursen'
+            : '';
+        document.getElementById('map').classList[active ? 'add' : 'remove']('placement-active');
+        if (active) setMobileView('map');
+    }
+    function setRegistrationOpen(open) {
+        registrationPanel.hidden = !open;
+        workspace.dataset.registrationOpen = String(open);
+        registrationToggle.setAttribute('aria-expanded', String(open));
+        setPlacement(open);
+        if (open) document.getElementById('resourceName').focus();
+        else registrationToggle.focus();
+    }
+    registrationToggle.addEventListener('click', function () {
+        setRegistrationOpen(registrationPanel.hidden);
+    });
+    document.getElementById('registrationCancel').addEventListener('click', () => setRegistrationOpen(false));
+    document.getElementById('locationMapLink').addEventListener('click', () => {
+        setMobileView('map');
+    });
+
+    function selectResource(id) {
+        resourceCards.forEach(function (card) {
+            card.open = String(id) === card.dataset.resourceId;
+            if (card.open) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    }
 
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -115,107 +311,257 @@
         return div.innerHTML;
     }
 
-    // Markers for all stored resources, each with a small info box.
-    savedResources.forEach(function (r) {
-        L.marker([r.lat, r.lng]).addTo(map).bindPopup(
-            '<div class="resource-popup"><strong>' + escapeHtml(r.name) + '</strong>' +
+    function savedPopup(r) {
+        return '<div class="resource-popup"><strong>' + escapeHtml(r.name) + '</strong>' +
             'Type: ' + escapeHtml(r.type) + '<br>' +
             'Sted: ' + escapeHtml(r.location) + '<br>' +
-            r.lat.toFixed(5) + ', ' + r.lng.toFixed(5) + '</div>'
-        );
+            'Status: ' + escapeHtml(window.ResourceIcons.summaryText(r.status)) + '<br>' +
+            'Sist oppdatert: ' + escapeHtml(r.updated) + '<br>' +
+            '<a href="#resource-' + r.id + '">Vis ressursdetaljer i listen</a><br>' +
+            r.lat.toFixed(5) + ', ' + r.lng.toFixed(5) + '</div>';
+    }
+
+    // Markers for all stored resources, each with a small info box.
+    const savedMarkers = savedResources.filter(r => r.id !== editId).map(function (r) {
+        const savedMarker = L.marker([r.lat, r.lng], resourceMarkerOptions(r.type, false, map.getZoom(), r.status))
+            .addTo(map).bindPopup(savedPopup(r));
+        if (r.id === placedResourceId) savedMarker.getElement?.()?.classList.add('resource-marker-placed');
+        savedMarker.on('click', () => selectResource(r.id));
+        return { resource: r, marker: savedMarker };
+    });
+    document.addEventListener('resource-deleted', function (event) {
+        const id = String(event.detail.id);
+        for (let index = savedMarkers.length - 1; index >= 0; index--) {
+            if (String(savedMarkers[index].resource.id) !== id) continue;
+            map.removeLayer(savedMarkers[index].marker);
+            savedMarkers.splice(index, 1);
+        }
+        const resourceIndex = savedResources.findIndex(resource => String(resource.id) === id);
+        if (resourceIndex >= 0) savedResources.splice(resourceIndex, 1);
+        const cardIndex = resourceCards.findIndex(card => card.dataset.resourceId === id);
+        if (cardIndex >= 0) resourceCards.splice(cardIndex, 1)[0].remove();
+        const count = resourceCards.filter(card => !card.hidden).length;
+        document.getElementById('resourceCount').textContent = count;
+        document.getElementById('resourceResultsStatus').textContent = count
+            ? count + ' ressurser vist' : savedResources.length
+                ? 'Ingen ressurser passer filteret.' : 'Ingen ressurser er plassert på kartet.';
+    });
+    window.ResourceIcons.watchAvailability(function () {
+        savedMarkers.forEach(function (item) {
+            const options = resourceMarkerOptions(item.resource.type, false, map.getZoom(), item.resource.status);
+            item.marker.options.title = options.title;
+            item.marker.options.alt = options.alt;
+            item.marker.setIcon(options.icon);
+            const element = item.marker.getElement?.();
+            if (element) {
+                element.title = options.title;
+                element.alt = options.alt;
+            }
+            item.marker.bindPopup(savedPopup(item.resource));
+        });
+    }, savedMarkers.map(item => item.resource.status));
+    const controls = MapControls.add(map, {
+        onTypeChange(type, visible) {
+            visibleTypes.set(type, visible);
+            const selectedTypes = window.ResourceIcons.entries.filter(entry => visibleTypes.get(entry.type) !== false);
+            resourceFilter.value = selectedTypes.length === window.ResourceIcons.entries.length ? ''
+                : selectedTypes.length === 1 ? selectedTypes[0].type : 'custom';
+            savedMarkers.filter(item => window.ResourceIcons.group(item.resource.type) === type).forEach(function (item) {
+                if (visible) {
+                    item.marker.setIcon(resourceMarkerOptions(item.resource.type, false, map.getZoom(), item.resource.status).icon);
+                    item.marker.addTo(map);
+                } else {
+                    map.removeLayer(item.marker);
+                }
+            });
+            resourceCards.forEach(card => { card.hidden = visibleTypes.get(window.ResourceIcons.group(card.dataset.resourceType)) === false; });
+            const count = resourceCards.filter(card => !card.hidden).length;
+            document.getElementById('resourceCount').textContent = count;
+            document.getElementById('resourceResultsStatus').textContent = count
+                ? count + ' ressurser vist' : savedResources.length
+                    ? 'Ingen ressurser passer filteret.' : 'Ingen ressurser er plassert på kartet.';
+        }
+    });
+    resourceFilter.addEventListener('change', function () {
+        const selectedType = resourceFilter.value;
+        window.ResourceIcons.entries.forEach(({ type }) => controls.setTypeVisible(type, !selectedType || selectedType === type));
+        resourceFilter.value = selectedType;
     });
 
     // Marker for the location currently being chosen.
-    let marker = L.marker([startLat, startLng], { opacity: 0.6 }).addTo(map);
-    marker.bindPopup('Ny ressurs plasseres her').openPopup();
+    const resourceType = document.getElementById('resourceType');
+    let marker = null;
+    let hoverMarker = null;
 
-    function setLocation(lat, lng, label) {
+    function clearHoverPreview() {
+        if (hoverMarker) map.removeLayer(hoverMarker);
+        hoverMarker = null;
+    }
+
+    map.on('mousemove', function (event) {
+        if (event.originalEvent?.target?.closest?.('.leaflet-control')) {
+            clearHoverPreview();
+            return;
+        }
+        if (!placementActive || marker) return;
+        if (!hoverMarker) {
+            hoverMarker = L.marker(event.latlng, {
+                ...resourceMarkerOptions(resourceType.value, true, map.getZoom()),
+                opacity: 0.45, interactive: false, keyboard: false
+            }).addTo(map);
+        } else hoverMarker.setLatLng(event.latlng);
+    });
+    map.on('mouseout', clearHoverPreview);
+
+    // «Annen type …» viser et tekstfelt der ressursleverandøren skriver inn en ny ressurstype.
+    const nyRessurstypeGroup = document.getElementById('nyRessurstypeGroup');
+    const nyRessurstype = document.getElementById('nyRessurstype');
+    function toggleNyRessurstype() {
+        if (!nyRessurstypeGroup || !nyRessurstype) return;
+        const annen = resourceType.value === '__annen__'; // samme verdi som RessursSkjemaViewModel.AnnenType
+        nyRessurstypeGroup.hidden = !annen;
+        nyRessurstype.required = annen;
+        if (annen && document.activeElement === resourceType) nyRessurstype.focus();
+    }
+    resourceType.addEventListener('change', toggleNyRessurstype);
+    toggleNyRessurstype();
+
+    resourceType.addEventListener('change', function () {
+        if (hoverMarker) hoverMarker.setIcon(resourceMarkerOptions(resourceType.value, true, map.getZoom()).icon);
+        if (!marker) return;
+        const options = resourceMarkerOptions(resourceType.value, true, map.getZoom());
+        marker.options.title = options.title;
+        marker.options.alt = options.alt;
+        marker.setIcon(options.icon);
+    });
+
+    map.on('zoomend', function () {
+        savedMarkers.forEach(function (item) {
+            item.marker.setIcon(resourceMarkerOptions(item.resource.type, false, map.getZoom(), item.resource.status).icon);
+        });
+        if (marker) marker.setIcon(resourceMarkerOptions(resourceType.value, true, map.getZoom()).icon);
+        if (hoverMarker) hoverMarker.setIcon(resourceMarkerOptions(resourceType.value, true, map.getZoom()).icon);
+    });
+
+    const focusId = new URLSearchParams(window.location.search).get('focus');
+    const focused = savedMarkers.find(item => String(item.resource.id) === focusId);
+    function focusResource(item) {
+        controls.setTypeVisible(item.resource.type, true);
+        map.setView(item.marker.getLatLng(), 15);
+        item.marker.openPopup();
+        selectResource(item.resource.id);
+        setMobileView('map');
+    }
+    if (focused) focusResource(focused);
+    window.ResourcesOverlay.initialize({
+        onOpen() { setRegistrationOpen(false); },
+        onRegister() { setRegistrationOpen(true); },
+        onFocus(id, lat, lng) {
+            const item = savedMarkers.find(item => String(item.resource.id) === id);
+            if (item) focusResource(item);
+            else {
+                map.setView([lat, lng], 15);
+                setMobileView('map');
+            }
+            document.getElementById('map').scrollIntoView({ block: 'nearest' });
+        }
+    });
+
+    const selectedPlace = document.getElementById('selectedPlace');
+
+    function cancelPointLookup() {
+        pointVersion++;
+        if (pointController) pointController.abort();
+        pointController = null;
+    }
+
+    function showPlace(label) {
+        selectedPlace.textContent = label;
+        placeSearch.setValue(label);
+    }
+
+    function setLocation(lat, lng, label, resolvePlace = true) {
+        cancelPointLookup();
+        clearHoverPreview();
+        const version = pointVersion;
+        const coordinates = lat.toFixed(5) + ', ' + lng.toFixed(5);
         map.setView([lat, lng], map.getZoom());
-        map.removeLayer(marker);
-        marker = L.marker([lat, lng], { opacity: 0.6 }).addTo(map);
-        marker.bindPopup(label || 'Ny ressurs plasseres her').openPopup();
+        if (!marker) {
+            marker = L.marker([lat, lng], resourceMarkerOptions(resourceType.value, true, map.getZoom())).addTo(map);
+        } else {
+            marker.setLatLng([lat, lng]);
+        }
+        if (resolvePlace) {
+            const element = marker.getElement?.();
+            if (element) {
+                element.classList.remove('resource-marker-placed');
+                void element.offsetWidth;
+                element.classList.add('resource-marker-placed');
+            }
+        }
         document.getElementById('latitude').value = lat;
         document.getElementById('longitude').value = lng;
+        showPlace(label || coordinates);
+        if (!resolvePlace || label) return;
+
+        pointController = new AbortController();
+        const controller = pointController;
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        fetch(placeUrl + '?latitude=' + encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lng),
+            { signal: controller.signal })
+            .then(response => response.ok ? response.json() : null)
+            .then(result => {
+                if (version === pointVersion && !controller.signal.aborted
+                    && typeof result?.label === 'string' && result.label.trim().length > 0
+                    && result.label.length <= 220 && !/[\u0000-\u001f\u007f]/.test(result.label)) {
+                    showPlace(result.label);
+                }
+            })
+            .catch(() => { /* Coordinates remain usable when lookup is unavailable. */ })
+            .finally(() => clearTimeout(timeout));
     }
 
     map.on('click', function (e) {
-        setLocation(e.latlng.lat, e.latlng.lng,
-            'Ny ressurs plasseres her<br>' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5));
+        if (placementActive) setLocation(e.latlng.lat, e.latlng.lng);
     });
 
-    document.querySelectorAll('.resource-card').forEach(function (card) {
-        card.addEventListener('click', function () {
-            map.setView([parseFloat(card.dataset.lat), parseFloat(card.dataset.lng)], 15);
+    resourceCards.forEach(function (card) {
+        card.addEventListener('toggle', function () {
+            if (card.open) resourceCards.filter(other => other !== card).forEach(other => { other.open = false; });
+        });
+        card.querySelector('.resource-focus').addEventListener('click', function () {
+            const item = savedMarkers.find(item => String(item.resource.id) === card.dataset.resourceId);
+            if (item) focusResource(item);
+            else if (marker && editId === Number(card.dataset.resourceId)) {
+                map.setView(marker.getLatLng(), 15);
+                setMobileView('map');
+            }
             document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
         });
     });
 
-    // City search with autocomplete (OpenStreetMap Nominatim)
-    const citySearchInput = document.getElementById('citySearch');
-    const citySuggestionsList = document.getElementById('citySuggestions');
-    const citySearchStatus = document.getElementById('citySearchStatus');
-    const locationNameInput = document.getElementById('locationName');
-    let searchTimeout = null;
-    let currentController = null;
-
-    function clearSuggestions() {
-        citySuggestionsList.innerHTML = '';
-        citySuggestionsList.classList.remove('open');
-    }
-
-    function renderSuggestions(results) {
-        clearSuggestions();
-        if (!results || results.length === 0) return;
-
-        results.forEach(function (place) {
-            const item = document.createElement('li');
-            item.className = 'city-suggestion-item';
-            item.textContent = place.display_name;
-            item.addEventListener('click', function () {
-                locationNameInput.value = place.display_name.split(',')[0];
-                citySearchInput.value = place.display_name;
-                setLocation(parseFloat(place.lat), parseFloat(place.lon), escapeHtml(place.display_name));
-                map.setZoom(12);
-                clearSuggestions();
-            });
-            citySuggestionsList.appendChild(item);
-        });
-        citySuggestionsList.classList.add('open');
-    }
-
-    citySearchInput.addEventListener('input', function () {
-        const query = citySearchInput.value.trim();
-        if (searchTimeout) clearTimeout(searchTimeout);
-
-        if (query.length < 2) {
-            clearSuggestions();
-            citySearchStatus.textContent = '';
-            return;
+    const placeSearch = PlaceSearch.attach({
+        input: document.getElementById('citySearch'),
+        list: document.getElementById('citySuggestions'),
+        status: document.getElementById('citySearchStatus'),
+        button: document.getElementById('citySearchButton'),
+        searchUrl,
+        localitiesUrl: @Json.Serialize(FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content("~/data/norway-localities.json"))),
+        onInput: cancelPointLookup,
+        onSelect(place) {
+            if (placementActive) setLocation(place.lat, place.lng, place.label);
+            map.setView([place.lat, place.lng], 12);
+            setMobileView('map');
         }
-
-        citySearchStatus.textContent = 'Søker...';
-        searchTimeout = setTimeout(function () {
-            if (currentController) currentController.abort();
-            currentController = new AbortController();
-            const url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=6&q=' + encodeURIComponent(query);
-
-            fetch(url, { signal: currentController.signal, headers: { 'Accept-Language': 'no,en' } })
-                .then(function (response) { return response.json(); })
-                .then(function (data) {
-                    citySearchStatus.textContent = data.length === 0 ? 'Ingen treff' : '';
-                    renderSuggestions(data);
-                })
-                .catch(function (error) {
-                    if (error.name !== 'AbortError') {
-                        citySearchStatus.textContent = 'Kunne ikke hente forslag akkurat nå.';
-                    }
-                });
-        }, 400);
     });
-
-    document.addEventListener('click', function (event) {
-        if (!citySuggestionsList.contains(event.target) && event.target !== citySearchInput) {
-            clearSuggestions();
+    setPlacement(registrationInitiallyOpen);
+    if (hasSelectedPoint) setLocation(startLat, startLng, selectedPlace.textContent, false);
+    document.getElementById('map').addEventListener('click', function (event) {
+        const link = event.target.closest?.('a[href^="#resource-"]');
+        if (link) {
+            event.preventDefault();
+            setMobileView('list');
+            selectResource(link.getAttribute('href').slice('#resource-'.length));
         }
     });
 </script>

@@ -1,0 +1,160 @@
+@model HeimevernetInnlevering1.Controllers.BehovSkjemaViewModel
+@using System.Globalization
+@using HeimevernetInnlevering1.Models
+@{
+    ViewData["Title"] = "Meld behov";
+    var harPunkt = Model.Breddegrad is double && Model.Lengdegrad is double;
+    var lat = (Model.Breddegrad ?? 60.7945).ToString(CultureInfo.InvariantCulture);
+    var lng = (Model.Lengdegrad ?? 11.0680).ToString(CultureInfo.InvariantCulture);
+    var behovstyper = (ViewBag.Behovstyper as List<HeimevernetInnlevering1.Models.Behovstype>) ?? new();
+    var annenType = Model.BehovstypeID == BehovSkjemaViewModel.AnnenType;
+}
+<link rel="stylesheet" href="~/lib/leaflet/leaflet.css" />
+<section class="need-form-page" aria-labelledby="need-heading">
+    <div class="page-heading">
+        <div><span class="eyebrow">Offentlig aktør</span><h1 id="need-heading">Meld behov</h1></div>
+        <a asp-controller="Home" asp-action="Dashboard" class="btn-secondary">Tilbake til oversikten</a>
+    </div>
+    <p>Beskriv hva dere trenger, og klikk i kartet der behovet er. Felt merket <span class="required">*</span> er påkrevd.</p>
+
+    <div class="need-form-grid">
+        <form asp-action="Registrer" method="post" class="form-container need-form" novalidate>
+            <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+
+            <fieldset class="registration-section">
+                <legend>Hva trengs?</legend>
+                <div class="form-group">
+                    <label asp-for="BehovstypeID">Behovstype <span class="required">*</span></label>
+                    <select asp-for="BehovstypeID" class="form-control" required>
+                        <option value="0">Velg behovstype</option>
+                        @foreach (var type in behovstyper)
+                        {
+                            <option value="@type.BehovstypeID" selected="@(Model.BehovstypeID == type.BehovstypeID)">@type.Navn</option>
+                        }
+                        <option value="@BehovSkjemaViewModel.AnnenType" selected="@annenType">Annen type …</option>
+                    </select>
+                    <span asp-validation-for="BehovstypeID" class="text-danger"></span>
+                </div>
+                <div class="form-group" id="nyBehovstypeGroup" hidden="@(!annenType)">
+                    <label for="nyBehovstype">Skriv inn behovstype <span class="required">*</span></label>
+                    <input type="text" id="nyBehovstype" name="NyBehovstype" class="form-control" maxlength="100"
+                           value="@(annenType ? Model.NyBehovstype : "")" placeholder="f.eks. Vannforsyning" autocomplete="off" />
+                    <span asp-validation-for="NyBehovstype" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="Beskrivelse">Beskrivelse <span class="required">*</span></label>
+                    <textarea asp-for="Beskrivelse" class="form-control" rows="4" maxlength="2000" required
+                              placeholder="f.eks. Strøm til midlertidig mottak i idrettshallen"></textarea>
+                    <span asp-validation-for="Beskrivelse" class="text-danger"></span>
+                </div>
+                <div class="form-row-compact">
+                    <div class="form-group">
+                        <label asp-for="Prioritet">Prioritet <span class="required">*</span></label>
+                        <select asp-for="Prioritet" class="form-control">
+                            @foreach (var p in Statuser.Prioritet.Alle)
+                            {
+                                <option value="@p" selected="@(Model.Prioritet == p)">@Statuser.Visning(p)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label asp-for="Antall">Antall <span class="required">*</span></label>
+                        <input asp-for="Antall" type="number" min="1" max="10000" class="form-control" required />
+                        <span asp-validation-for="Antall" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label asp-for="Frist">Frist (valgfritt)</label>
+                    <input asp-for="Frist" type="datetime-local" class="form-control" />
+                    <span asp-validation-for="Frist" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="HendelseID">Hendelse (valgfritt)</label>
+                    <select asp-for="HendelseID" asp-items="ViewBag.Hendelser" class="form-control">
+                        <option value="">Ikke knyttet til en hendelse</option>
+                    </select>
+                </div>
+            </fieldset>
+
+            <fieldset class="registration-section">
+                <legend>Kontakt</legend>
+                <div class="form-group">
+                    <label asp-for="Kontaktperson">Kontaktperson <span class="required">*</span></label>
+                    <input asp-for="Kontaktperson" class="form-control" maxlength="150" autocomplete="off" required placeholder="f.eks. Ola Nordmann" />
+                    <span asp-validation-for="Kontaktperson" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="Kontakttelefon">Kontakttelefon <span class="required">*</span></label>
+                    <input asp-for="Kontakttelefon" type="tel" class="form-control" maxlength="20" autocomplete="off" required placeholder="f.eks. 999 99 999" />
+                    <span asp-validation-for="Kontakttelefon" class="text-danger"></span>
+                </div>
+            </fieldset>
+
+            <fieldset class="registration-section">
+                <legend>Plassering <span class="required">*</span></legend>
+                <div class="workspace-location"><strong>Valgt plassering</strong>
+                    <p id="needPlace" role="status">@(harPunkt && !string.IsNullOrEmpty(Model.Stedsnavn) ? Model.Stedsnavn : "Klikk i kartet for å velge hvor behovet er.")</p>
+                </div>
+                <input type="hidden" id="needLat" name="Breddegrad" value="@(harPunkt ? lat : "")" />
+                <input type="hidden" id="needLng" name="Lengdegrad" value="@(harPunkt ? lng : "")" />
+                <span asp-validation-for="Breddegrad" class="text-danger"></span>
+            </fieldset>
+
+            <button type="submit" class="btn-submit">Meld behov</button>
+        </form>
+
+        <div class="need-map-panel">
+            <div id="needMap" class="need-map" role="application" aria-label="Kart: klikk for å velge hvor behovet er"></div>
+            <p class="workspace-muted">Klikk i kartet for å plassere behovet. Du kan klikke på nytt for å flytte punktet.</p>
+        </div>
+    </div>
+</section>
+
+<script src="~/lib/leaflet/leaflet.js"></script>
+<script>
+    (function () {
+        // Vis feltet for egen behovstype bare når «Annen type …» er valgt.
+        const typeSelect = document.getElementById('BehovstypeID');
+        const nyGroup = document.getElementById('nyBehovstypeGroup');
+        const nyInput = document.getElementById('nyBehovstype');
+        function toggleNyBehovstype() {
+            if (!typeSelect || !nyGroup || !nyInput) return;
+            const annen = typeSelect.value === '-1';
+            nyGroup.hidden = !annen;
+            nyInput.required = annen;
+            if (annen && document.activeElement === typeSelect) nyInput.focus();
+        }
+        if (typeSelect) typeSelect.addEventListener('change', toggleNyBehovstype);
+        toggleNyBehovstype();
+    })();
+    (function () {
+        const latInput = document.getElementById('needLat');
+        const lngInput = document.getElementById('needLng');
+        const placeText = document.getElementById('needPlace');
+        const placeUrl = @Json.Serialize(Url.Action("Place", "Home"));
+        const hasPoint = @Json.Serialize(harPunkt);
+        const map = L.map('needMap').setView([@lat, @lng], hasPoint ? 13 : 8);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        let marker = hasPoint ? L.marker([@lat, @lng]).addTo(map) : null;
+        let version = 0;
+
+        map.on('click', function (event) {
+            const lat = event.latlng.lat;
+            const lng = event.latlng.lng;
+            if (marker) marker.setLatLng(event.latlng); else marker = L.marker(event.latlng).addTo(map);
+            latInput.value = lat.toFixed(6);
+            lngInput.value = lng.toFixed(6);
+            placeText.textContent = lat.toFixed(5) + ', ' + lng.toFixed(5);
+            // Hent et lesbart stedsnavn fra serveren. Svar for et gammelt punkt ignoreres.
+            const current = ++version;
+            fetch(placeUrl + '?latitude=' + lat + '&longitude=' + lng, { headers: { Accept: 'application/json' } })
+                .then(response => response.ok ? response.json() : null)
+                .then(data => { if (data && data.label && current === version) placeText.textContent = data.label; })
+                .catch(() => { });
+        });
+    })();
+</script>

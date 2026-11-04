@@ -1,0 +1,369 @@
+@using HeimevernetInnlevering1.Models
+@model HeimevernetInnlevering1.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Oversikt";
+    var provider = User.IsInRole(AppRoles.Ressursleverandor);
+    var verifier = User.IsInRole(AppRoles.Verifiseringsansvarlig);
+    var dispatch = User.IsInRole(AppRoles.DispatchTeam);
+    var leader = User.IsInRole(AppRoles.Kriseledelse);
+    var publicActor = User.IsInRole(AppRoles.OffentligAktor);
+    var actorId = ResourcePermissions.BrukerId(User);
+    var roles = string.Join(" · ", AppRoles.All.Where(User.IsInRole).Select(AppRoles.Label));
+    var back = Url.Action("Dashboard", "Home");
+    var now = DateTime.UtcNow;
+    string PriorityChip(string p) => p == Statuser.Prioritet.Akutt ? "status-critical" : "";
+    string ResourceChip(Ressurs r) => r.Status switch
+    {
+        Statuser.Ressurs.Tilgjengelig => "status-positive", Statuser.Ressurs.Avvist => "status-critical", _ => "status-warning"
+    };
+    string Stamp(DateTime value) => value.ToString("dd.MM.yyyy HH:mm") + " UTC";
+    string Tittel(Behov b) => $"{b.Behovstype?.Navn} · {b.Stedsnavn}";
+}
+<section class="operations-workspace dashboard" aria-labelledby="dashboard-heading">
+<div class="page-heading">
+    <div><span class="eyebrow">@roles</span><h1 id="dashboard-heading">Oversikt</h1></div>
+    <a asp-action="Map" class="btn-secondary">Åpne kartet</a>
+</div>
+@if (TempData["WorkflowError"] is string error)
+{
+    <p class="workspace-alert" role="alert">@error</p>
+}
+@if (TempData["WorkflowSuccess"] is string success)
+{
+    <p class="notice" role="status">@success</p>
+}
+
+@if (provider)
+{
+    var pendingIncoming = Model.IncomingRequests.Count(f => f.Svar == Statuser.Svar.Venter);
+    <h2 id="mine-foresporsler">Forespørsler til meg <span class="count-badge">@pendingIncoming</span></h2>
+    @if (Model.IncomingRequests.Count == 0)
+    {
+        <p class="empty-state">Ingen forespørsler om dine ressurser.</p>
+    }
+    @foreach (var request in Model.IncomingRequests)
+    {
+        var behov = request.Behov!;
+        <article class="workflow-item @(request.Svar == Statuser.Svar.Venter ? "workflow-item-highlight" : "")">
+            <div class="results-heading">
+                <h3>@request.Ressurs!.Navn</h3>
+                <span class="status-badge @(request.Svar == Statuser.Svar.Venter ? "status-warning" : "")">@Statuser.Visning(request.Svar)</span>
+            </div>
+            <p>@Tittel(behov) · <span class="status-badge @PriorityChip(behov.Prioritet)">@Statuser.Visning(behov.Prioritet)</span>
+                @if (behov.Frist is DateTime frist) { <span class="resource-meta"> · frist @Stamp(frist)</span> }</p>
+            <p>@behov.Beskrivelse</p>
+            @if (request.Svar == Statuser.Svar.Venter)
+            {
+                <form asp-controller="Operations" asp-action="Respond" method="post" class="inline-form">
+                    <input type="hidden" name="id" value="@request.ForespørselID" />
+                    <input type="hidden" name="returnUrl" value="@back" />
+                    <label>Kommentar (valgfritt) <input name="reason" maxlength="1000" /></label>
+                    <button name="accept" value="true" type="submit" class="btn-submit">Godta</button>
+                    <button name="accept" value="false" type="submit">Avslå</button>
+                </form>
+            }
+            @await Html.PartialAsync("_Timeline", Model.RequestTimeline.GetValueOrDefault(request.ForespørselID))
+        </article>
+    }
+
+    <div class="results-heading section-head">
+        <h2 id="mine-ressurser">Mine ressurser <span class="count-badge">@Model.OwnResources.Count</span></h2>
+        <a asp-action="Map" asp-route-register="true" class="btn-submit">Registrer ressurs</a>
+    </div>
+    @if (Model.OwnResources.Count == 0)
+    {
+        <p class="empty-state">Du har ikke registrert noen ressurser ennå.</p>
+    }
+    @foreach (var resource in Model.OwnResources)
+    {
+        var status = ResourceOperationalStatus.From(resource, now);
+        var sisteAvvisning = resource.Verifiseringer.OrderByDescending(v => v.Tidspunkt).FirstOrDefault();
+        <article class="workflow-item">
+            <div class="results-heading">
+                <h3>@resource.Navn</h3>
+                <div>
+                    <span class="status-badge @ResourceChip(resource)">@Statuser.Visning(resource.Status)</span>
+                    <span class="status-badge @(status.Verification == "Godkjent" ? "status-positive" : "status-warning")">@status.Verification</span>
+                </div>
+            </div>
+            <p class="resource-meta">@resource.Ressurstype?.Navn · @resource.Stedsnavn</p>
+            @if (resource.Status == Statuser.Ressurs.VenterPåVerifisering)
+            {
+                <p>Ressursen er ikke synlig for dispatch før den er verifisert.</p>
+            }
+            @if (resource.Status == Statuser.Ressurs.Avvist && sisteAvvisning?.Begrunnelse is string grunn)
+            {
+                <p><strong>Avvist:</strong> @grunn</p>
+            }
+            <div class="inline-form">
+                @if (resource.Status is Statuser.Ressurs.Tilgjengelig or Statuser.Ressurs.Utilgjengelig)
+                {
+                    var settTilgjengelig = resource.Status == Statuser.Ressurs.Utilgjengelig;
+                    <form asp-controller="Operations" asp-action="Availability" method="post">
+                        <input type="hidden" name="id" value="@resource.RessursID" />
+                        <input type="hidden" name="available" value="@(settTilgjengelig ? "true" : "false")" />
+                        <input type="hidden" name="returnUrl" value="@back" />
+                        <button type="submit" class="btn-secondary">@(settTilgjengelig ? "Sett tilgjengelig" : "Sett utilgjengelig")</button>
+                    </form>
+                }
+                @if (!Statuser.Ressurs.Opptatt.Contains(resource.Status))
+                {
+                    <a asp-action="Edit" asp-route-id="@resource.RessursID" class="btn-secondary">Rediger</a>
+                }
+            </div>
+            @await Html.PartialAsync("_Timeline", Model.ResourceTimeline.GetValueOrDefault(resource.RessursID))
+        </article>
+    }
+}
+
+@if (verifier)
+{
+    <h2 id="verifiseringskoe">Venter på verifisering <span class="count-badge">@Model.VerificationQueue.Count</span></h2>
+    @if (Model.VerificationQueue.Count == 0)
+    {
+        <p class="empty-state">Ingen ressurser venter på verifisering.</p>
+    }
+    @foreach (var resource in Model.VerificationQueue)
+    {
+        <article class="workflow-item">
+            <div class="results-heading">
+                <h3>@resource.Navn</h3>
+                <span class="status-badge status-warning">@Statuser.Visning(resource.Status)</span>
+            </div>
+            <p class="resource-meta">@resource.Ressurstype?.Navn · @resource.Stedsnavn · registrert @Stamp(resource.Registrert)</p>
+            <p>Eier: @resource.Eier?.FulltNavn (@resource.Eier?.Organisasjon) · Kontakt: @resource.Kontaktperson, @resource.Kontakttelefon</p>
+            <p>Beskrivelse: @(string.IsNullOrWhiteSpace(resource.Beskrivelse) ? "ikke oppgitt" : resource.Beskrivelse)</p>
+            <form asp-controller="Operations" asp-action="Verify" method="post" class="inline-form">
+                <input type="hidden" name="id" value="@resource.RessursID" />
+                <input type="hidden" name="returnUrl" value="@back" />
+                <label>Begrunnelse (kreves ved avvisning) <input name="reason" maxlength="1000" /></label>
+                @if (resource.EierID != actorId)
+                {
+                    <button name="approve" value="true" type="submit" class="btn-submit">Godkjenn</button>
+                }
+                <button name="approve" value="false" type="submit">Avvis</button>
+            </form>
+            @await Html.PartialAsync("_Timeline", Model.ResourceTimeline.GetValueOrDefault(resource.RessursID))
+        </article>
+    }
+}
+
+@if (dispatch)
+{
+    <h2 id="apne-behov">Åpne behov <span class="count-badge">@Model.Needs.Count</span></h2>
+    @if (Model.Needs.Count == 0)
+    {
+        <p class="empty-state">Ingen åpne behov.</p>
+    }
+    @foreach (var need in Model.Needs)
+    {
+        // Ressurstypene som passer behovstypen, fra koblingstabellen BehovstypeRessurstype.
+        var passendeTyper = need.Behovstype?.PassendeRessurstyper.Select(k => k.RessurstypeID).ToHashSet() ?? [];
+        var matches = Model.MatchingResources
+            .Where(r => passendeTyper.Contains(r.RessurstypeID))
+            .OrderByDescending(r => string.Equals(ResourceCity.FromLocation(r.Stedsnavn), ResourceCity.FromLocation(need.Stedsnavn), StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        // Andre typer, for eksempel typer ressursleverandører har lagt til selv og som ikke er koblet til en behovstype.
+        var andre = Model.MatchingResources.Where(r => !passendeTyper.Contains(r.RessurstypeID)).OrderBy(r => r.Navn).ToList();
+        <article class="workflow-item">
+            <div class="results-heading">
+                <h3>@Tittel(need)</h3>
+                <div>
+                    <span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span>
+                    <span class="status-badge">@Statuser.Visning(need.Status)</span>
+                </div>
+            </div>
+            <p>@need.Beskrivelse</p>
+            <p class="resource-meta">Antall: @need.Antall@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")@(need.Hendelse is Hendelse h ? " · " + h.Navn : "") · Kontakt: @need.Kontaktperson, @need.Kontakttelefon</p>
+            @if (need.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes)
+            {
+                <details>
+                    <summary>Passende verifiserte ressurser <span class="count-badge">@matches.Count</span></summary>
+                    @if (matches.Count == 0)
+                    {
+                        <p class="empty-state">Ingen tilgjengelige ressurser av riktig type.</p>
+                    }
+                    @foreach (var resource in matches)
+                    {
+                        <form asp-controller="Operations" asp-action="CreateRequest" method="post" class="inline-form">
+                            <input type="hidden" name="needId" value="@need.BehovID" />
+                            <input type="hidden" name="resourceId" value="@resource.RessursID" />
+                            <input type="hidden" name="returnUrl" value="@back" />
+                            <span><strong>@resource.Navn</strong> · @resource.Ressurstype?.Navn · @resource.Stedsnavn</span>
+                            <button type="submit">Send forespørsel</button>
+                        </form>
+                    }
+                </details>
+                @if (andre.Count > 0)
+                {
+                    <details>
+                        <summary>Andre tilgjengelige ressurser <span class="count-badge">@andre.Count</span></summary>
+                        <p class="resource-meta">Ressurser av typer som ikke er koblet til «@need.Behovstype?.Navn», men som kan passe.</p>
+                        @foreach (var resource in andre)
+                        {
+                            <form asp-controller="Operations" asp-action="CreateRequest" method="post" class="inline-form">
+                                <input type="hidden" name="needId" value="@need.BehovID" />
+                                <input type="hidden" name="resourceId" value="@resource.RessursID" />
+                                <input type="hidden" name="returnUrl" value="@back" />
+                                <span><strong>@resource.Navn</strong> · @resource.Ressurstype?.Navn · @resource.Stedsnavn</span>
+                                <button type="submit">Send forespørsel</button>
+                            </form>
+                        }
+                    </details>
+                }
+            }
+        </article>
+    }
+
+    <h2 id="foresporsler">Forespørsler <span class="count-badge">@Model.Requests.Count</span></h2>
+    @if (Model.Requests.Count == 0)
+    {
+        <p class="empty-state">Ingen forespørsler venter på svar eller tildeling.</p>
+    }
+    @foreach (var request in Model.Requests)
+    {
+        <article class="workflow-item">
+            <div class="results-heading">
+                <h3>@request.Ressurs!.Navn → @request.Behov!.Stedsnavn</h3>
+                <span class="status-badge @(request.Svar == Statuser.Svar.Venter ? "status-warning" : "status-positive")">@Statuser.Visning(request.Svar)</span>
+            </div>
+            <p class="resource-meta">Sendt @Stamp(request.Sendt)</p>
+            @if (request.Svar == Statuser.Svar.Godtatt)
+            {
+                <form asp-controller="Operations" asp-action="Allocate" method="post" class="inline-form">
+                    <input type="hidden" name="id" value="@request.ForespørselID" />
+                    <input type="hidden" name="returnUrl" value="@back" />
+                    <button type="submit" class="btn-submit">Opprett tildeling</button>
+                </form>
+            }
+            <details>
+                <summary>Avbryt forespørsel</summary>
+                <form asp-controller="Operations" asp-action="Cancel" method="post" class="inline-form">
+                    <input type="hidden" name="id" value="@request.ForespørselID" />
+                    <input type="hidden" name="returnUrl" value="@back" />
+                    <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
+                    <button type="submit" class="btn-danger">Avbryt</button>
+                </form>
+            </details>
+            @await Html.PartialAsync("_Timeline", Model.RequestTimeline.GetValueOrDefault(request.ForespørselID))
+        </article>
+    }
+}
+
+@if (dispatch || leader)
+{
+    <h2 id="tildelinger">Aktive tildelinger <span class="count-badge">@Model.Assignments.Count</span></h2>
+    @if (Model.Assignments.Count == 0)
+    {
+        <p class="empty-state">Ingen aktive tildelinger.</p>
+    }
+    @foreach (var assignment in Model.Assignments)
+    {
+        var steg = Array.IndexOf(Statuser.Fremdrift.Rekkefølge, assignment.Fremdrift);
+        var next = WorkflowTransitions.NextAssignmentStep(assignment.Fremdrift);
+        <article class="workflow-item">
+            <div class="results-heading">
+                <h3>@assignment.Forespørsel!.Ressurs!.Navn → @assignment.Forespørsel.Behov!.Stedsnavn</h3>
+                <span class="status-badge status-positive">@Statuser.Visning(assignment.Fremdrift)</span>
+            </div>
+            <ol class="progress-steps" aria-label="Fremdrift">
+                @for (var i = 0; i < Statuser.Fremdrift.Rekkefølge.Length; i++)
+                {
+                    <li aria-current="@(i == steg ? "step" : null)" class="@(i <= steg ? "done" : "")">@Statuser.Visning(Statuser.Fremdrift.Rekkefølge[i])</li>
+                }
+            </ol>
+            @if (dispatch && next is not null)
+            {
+                <form asp-controller="Operations" asp-action="Assignment" method="post" class="inline-form">
+                    <input type="hidden" name="id" value="@assignment.TildelingID" />
+                    <input type="hidden" name="status" value="@next" />
+                    <input type="hidden" name="returnUrl" value="@back" />
+                    <label>Kommentar (valgfritt) <input name="reason" maxlength="1000" /></label>
+                    <button type="submit" class="btn-submit">Sett til @next</button>
+                </form>
+            }
+            @await Html.PartialAsync("_Timeline", Model.AssignmentTimeline.GetValueOrDefault(assignment.TildelingID))
+        </article>
+    }
+}
+
+@if (leader)
+{
+    <div class="dashboard-stats">
+        <div><strong>@Model.Needs.Count</strong><span>Åpne behov</span></div>
+        <div><strong>@Model.Needs.Count(n => n.Prioritet == Statuser.Prioritet.Akutt)</strong><span>Akutte</span></div>
+        <div><strong>@Model.Requests.Count(f => f.Svar == Statuser.Svar.Venter)</strong><span>Venter på svar</span></div>
+        <div><strong>@Model.Assignments.Count</strong><span>Aktive tildelinger</span></div>
+    </div>
+    <div class="results-heading section-head">
+        <h2 id="hendelser">Aktive hendelser <span class="count-badge">@Model.ActiveIncidents.Count</span></h2>
+        <a asp-controller="Hendelse" asp-action="Index" class="btn-secondary">Opprett og avslutt hendelser</a>
+    </div>
+    @if (Model.ActiveIncidents.Count == 0)
+    {
+        <p class="empty-state">Ingen aktive hendelser.</p>
+    }
+    @foreach (var hendelse in Model.ActiveIncidents)
+    {
+        <p><strong>@hendelse.Navn</strong> · @hendelse.Område · startet @Stamp(hendelse.Starttidspunkt)</p>
+    }
+    <div class="results-heading section-head">
+        <h2 id="behov-prioritet">Behov etter prioritet</h2>
+        <a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="btn-secondary">Prioriter og endre status</a>
+    </div>
+    @if (Model.Needs.Count == 0)
+    {
+        <p class="empty-state">Ingen åpne behov.</p>
+    }
+    @foreach (var need in Model.Needs)
+    {
+        <article class="workflow-item">
+            <div class="results-heading">
+                <h3>@Tittel(need)</h3>
+                <div>
+                    <span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span>
+                    <span class="status-badge">@Statuser.Visning(need.Status)</span>
+                </div>
+            </div>
+            <p>@need.Beskrivelse</p>
+            <p class="resource-meta">Antall: @need.Antall · registrert @Stamp(need.Registrert)@(need.Hendelse is Hendelse h ? " · " + h.Navn : "")</p>
+        </article>
+    }
+    <div class="results-heading section-head">
+        <h2 id="brukere">Brukere og roller</h2>
+        <a asp-controller="Admin" asp-action="Index" class="btn-secondary">Administrer brukere</a>
+    </div>
+    <p>
+        @foreach (var (role, count) in Model.RoleCounts)
+        {
+            <span class="status-badge">@AppRoles.Label(role): @count</span>
+        }
+    </p>
+}
+
+@if (publicActor)
+{
+    <div class="results-heading section-head">
+        <h2 id="mine-behov">Mine behov <span class="count-badge">@Model.Needs.Count</span></h2>
+        <a asp-controller="Behov" asp-action="Registrer" class="btn-submit">Meld nytt behov</a>
+    </div>
+    @if (Model.Needs.Count == 0)
+    {
+        <p class="empty-state">Du har ikke meldt inn noen behov.</p>
+    }
+    @foreach (var need in Model.Needs)
+    {
+        <article class="workflow-item">
+            <div class="results-heading">
+                <h3>@Tittel(need)</h3>
+                <div>
+                    <span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span>
+                    <span class="status-badge">@Statuser.Visning(need.Status)</span>
+                </div>
+            </div>
+            <p>@need.Beskrivelse</p>
+            <p class="resource-meta">Antall: @need.Antall · registrert @Stamp(need.Registrert)@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")</p>
+        </article>
+    }
+}
+</section>

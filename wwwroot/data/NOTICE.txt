@@ -1,0 +1,42 @@
+Norwegian locality suggestions
+
+Data: GeoNames, https://www.geonames.org/
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+Official source documentation: https://download.geonames.org/export/dump/readme.txt
+
+Extracted 2026-10-25 from geonamescache 3.0.2, cities500.json:
+https://pypi.org/project/geonamescache/3.0.2/
+https://files.pythonhosted.org/packages/48/c2/52f1b29de8839b4b55cd2641dfd722a6a94953d74fa82514e26084a92318/geonamescache-3.0.2-py3-none-any.whl
+Distribution SHA-256:
+b830e8942f2d58c7e68782dcf4dff2ffe8c4104a35ee881ed1ad4023cefcdba4
+
+Changes: keep countrycode NO only (624 localities); retain name and coordinates;
+sort by descending population, then name; append ", Norge"; disambiguate duplicate
+names with coordinates; discard all other columns and alternate names.
+The source covers cities with population >500 and administrative seats down to
+PPLA4. This is a fixed snapshot, not all Norwegian places, addresses or boundaries.
+GeoNames supplies data as-is, without warranty of accuracy or completeness.
+No GeoNames endorsement is implied.
+
+GeoNamesCache attribution: Ramiro Gomez, https://github.com/yaph/geonamescache
+Its software is MIT licensed (no Python runtime/code is bundled here):
+
+Copyright (C) 2021 by Ramiro Gómez (https://ramiro.org/)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

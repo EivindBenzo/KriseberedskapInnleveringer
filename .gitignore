@@ -689,3 +689,16 @@ FodyWeavers.xsd
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,visualstudiocode,visualstudio,rider,git,aspnetcore
 
+
+### Prosjektspesifikt (Heimevernet) ###
+.env
+.env.*
+!.env.example
+**/bin/
+**/obj/
+**/TestResults/
+Data/*.db
+Data/*.db-shm
+Data/*.db-wal
+heimevernet.sqlite.backup
+/mariadb-*.sql

@@ -1,9 +1,0 @@
-C:\Users\drago\OneDrive\Desktop\Is202\HeimevernetInnlevering1\obj\Debug\net8.0\rpswa.dswa.cache.json
-C:\Users\drago\OneDrive\Desktop\Is202\HeimevernetInnlevering1\obj\Debug\net8.0\HeimevernetInnlevering1.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\drago\OneDrive\Desktop\Is202\HeimevernetInnlevering1\obj\Debug\net8.0\HeimevernetInnlevering1.AssemblyInfoInputs.cache
-C:\Users\drago\OneDrive\Desktop\Is202\HeimevernetInnlevering1\obj\Debug\net8.0\HeimevernetInnlevering1.AssemblyInfo.cs
-C:\Users\drago\OneDrive\Desktop\Is202\HeimevernetInnlevering1\obj\Debug\net8.0\HeimevernetInnlevering1.csproj.CoreCompileInputs.cache
-C:\Users\drago\OneDrive\Desktop\Is202\HeimevernetInnlevering1\obj\Debug\net8.0\HeimevernetInnlevering1.MvcApplicationPartsAssemblyInfo.cache
-C:\Users\drago\OneDrive\Desktop\Is202\HeimevernetInnlevering1\obj\Debug\net8.0\HeimevernetInnlevering1.RazorAssemblyInfo.cache
-C:\Users\drago\OneDrive\Desktop\Is202\HeimevernetInnlevering1\obj\Debug\net8.0\HeimevernetInnlevering1.RazorAssemblyInfo.cs
-C:\Users\drago\OneDrive\Desktop\Is202\HeimevernetInnlevering1\obj\Debug\net8.0\HeimevernetInnlevering1.sourcelink.json

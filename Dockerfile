@@ -14,10 +14,8 @@ ENV ASPNETCORE_URLS=http://+:8080
 
 COPY --from=build /app/publish .
 
-# Folder for the SQLite database (mounted as a Docker volume).
-# The aspnet image runs as the non-root 'app' user, so it must own this folder.
-USER root
-RUN mkdir -p /app/Data && chown -R app:app /app/Data
+RUN mkdir -p /app/keys && chown app:app /app/keys && chmod 700 /app/keys
+
 USER app
 
 ENTRYPOINT ["dotnet", "HeimevernetInnlevering1.dll"]
