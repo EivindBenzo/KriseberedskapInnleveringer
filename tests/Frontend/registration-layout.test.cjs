@@ -34,7 +34,7 @@ test('optional sections share the fieldset inset and keep native disclosure sema
     assert.match(summary, /min-height: 44px/);
     assert.match(rule(css, '.map-workspace details.registration-section[open]'), /padding-bottom: \.85rem/);
     assert.match(rule(css, '.map-workspace .registration-section[open] > summary'), /margin-bottom: \.75rem/);
-    assert.match(view, /<details class="registration-section"[^>]*>[\s\S]*?<summary>Kapasitet og transportbehov/);
+    assert.match(view, /<fieldset class="registration-section">\s*<legend>Tilgjengelighet og kontakt/);
 });
 
 test('registration content stays inside the sidebar without clipping feedback or map placement', () => {
@@ -46,13 +46,13 @@ test('registration content stays inside the sidebar without clipping feedback or
     assert.match(rule(css, '.map-workspace .form-control'), /min-width: 0;[\s\S]*max-width: 100%/);
     assert.match(rule(css, '.map-workspace .workspace-sidebar'), /overflow-y: auto/);
     assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.workspace-sidebar \{[^}]*overflow-y: auto/);
-    for (const field of ['ResourceName', 'ResourceType', 'Availability', 'Capability', 'TransportRequirements', 'Latitude', 'Longitude']) {
+    for (const field of ['Navn', 'Ressurstype', 'Beskrivelse', 'TilgjengeligFra', 'TilgjengeligTil', 'Kontaktperson', 'Kontakttelefon', 'Breddegrad']) {
         assert.match(view, new RegExp(`asp-validation-for="${field}"`));
     }
-    for (const id of ['resourceName', 'resourceType', 'availability', 'capability', 'transportRequirements', 'latitude', 'longitude', 'locationMapLink', 'registrationCancel']) {
+    for (const id of ['resourceName', 'resourceType', 'beskrivelse', 'tilgjengeligFra', 'kontaktperson', 'kontakttelefon', 'latitude', 'longitude', 'locationMapLink', 'registrationCancel']) {
         assert.ok(view.includes(`id="${id}"`), `Preserve ${id}`);
     }
-    assert.match(view, /id="resourceName"[^>]*minlength="2"[^>]*maxlength="100" required/);
+    assert.match(view, /id="resourceName"[^>]*minlength="2"[^>]*maxlength="150" required/);
     assert.match(view, /id="resourceType"[^>]*required/);
     assert.match(view, /id="selectedPlace" role="status"/);
 });

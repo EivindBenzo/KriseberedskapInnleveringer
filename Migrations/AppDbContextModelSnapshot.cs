@@ -23,381 +23,192 @@ namespace HeimevernetInnlevering1.Migrations
             MySqlModelBuilderExtensions.HasCharSet(modelBuilder, "utf8mb4");
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
-            modelBuilder.Entity("HeimevernetInnlevering1.Models.FormSubmission", b =>
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Behov", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<int>("BehovID")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("BehovID"));
 
-                    b.Property<DateTime>("CreatedAtUtc")
+                    b.Property<int>("Antall")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BehovstypeID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Beskrivelse")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Breddegrad")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<DateTime?>("Frist")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(254)
-                        .HasColumnType("varchar(254)");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("double");
-
-                    b.Property<string>("LocationName")
-                        .HasColumnType("longtext");
-
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("double");
-
-                    b.Property<string>("OwnerId")
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OwnerId");
-
-                    b.ToTable("FormSubmissions");
-                });
-
-            modelBuilder.Entity("HeimevernetInnlevering1.Models.MapSubmission", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int?>("HendelseID")
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    b.Property<string>("Kontaktperson")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
 
-                    b.Property<int>("Availability")
-                        .ValueGeneratedOnAdd()
+                    b.Property<string>("Kontakttelefon")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<decimal>("Lengdegrad")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("Prioritet")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<DateTime>("Registrert")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("RegistrertAvID")
                         .HasColumnType("int")
-                        .HasDefaultValue(0);
+                        .HasColumnName("RegistrertAv");
 
-                    b.Property<string>("Capability")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<string>("ConcurrencyToken")
+                    b.Property<string>("Status")
                         .IsConcurrencyToken()
                         .IsRequired()
-                        .HasMaxLength(36)
-                        .HasColumnType("varchar(36)");
+                        .HasMaxLength(15)
+                        .HasColumnType("varchar(15)");
 
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("IsOnMap")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("tinyint(1)")
-                        .HasDefaultValue(true);
-
-                    b.Property<double>("Latitude")
-                        .HasColumnType("double");
-
-                    b.Property<string>("LocationName")
+                    b.Property<string>("Stedsnavn")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
-                    b.Property<double>("Longitude")
-                        .HasColumnType("double");
+                    b.HasKey("BehovID");
 
-                    b.Property<string>("OwnerId")
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
+                    b.HasIndex("BehovstypeID");
 
-                    b.Property<string>("ResourceName")
+                    b.HasIndex("HendelseID");
+
+                    b.HasIndex("RegistrertAvID");
+
+                    b.ToTable("Behov", (string)null);
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Behovstype", b =>
+                {
+                    b.Property<int>("BehovstypeID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("BehovstypeID"));
+
+                    b.Property<string>("Navn")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<string>("ResourceType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                    b.HasKey("BehovstypeID");
 
-                    b.Property<string>("TransportRequirements")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
+                    b.ToTable("Behovstype", (string)null);
 
-                    b.Property<DateTime?>("UpdatedAtUtc")
-                        .HasColumnType("datetime(6)");
+                    b.HasData(
+                        new
+                        {
+                            BehovstypeID = 1,
+                            Navn = "Transport"
+                        },
+                        new
+                        {
+                            BehovstypeID = 2,
+                            Navn = "Strøm"
+                        },
+                        new
+                        {
+                            BehovstypeID = 3,
+                            Navn = "Søk og overvåking"
+                        },
+                        new
+                        {
+                            BehovstypeID = 4,
+                            Navn = "Mannskap"
+                        },
+                        new
+                        {
+                            BehovstypeID = 5,
+                            Navn = "Graving og rydding"
+                        },
+                        new
+                        {
+                            BehovstypeID = 6,
+                            Navn = "Utstyr"
+                        });
+                });
 
-                    b.Property<DateTime?>("VerificationExpiresAtUtc")
-                        .HasColumnType("datetime(6)");
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.BehovstypeRessurstype", b =>
+                {
+                    b.Property<int>("BehovstypeID")
+                        .HasColumnType("int");
 
-                    b.Property<int>("VerificationStatus")
+                    b.Property<int>("RessurstypeID")
+                        .HasColumnType("int");
+
+                    b.HasKey("BehovstypeID", "RessurstypeID");
+
+                    b.HasIndex("RessurstypeID");
+
+                    b.ToTable("BehovstypeRessurstype", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            BehovstypeID = 1,
+                            RessurstypeID = 1
+                        },
+                        new
+                        {
+                            BehovstypeID = 2,
+                            RessurstypeID = 4
+                        },
+                        new
+                        {
+                            BehovstypeID = 3,
+                            RessurstypeID = 3
+                        },
+                        new
+                        {
+                            BehovstypeID = 3,
+                            RessurstypeID = 5
+                        },
+                        new
+                        {
+                            BehovstypeID = 4,
+                            RessurstypeID = 5
+                        },
+                        new
+                        {
+                            BehovstypeID = 5,
+                            RessurstypeID = 2
+                        },
+                        new
+                        {
+                            BehovstypeID = 6,
+                            RessurstypeID = 6
+                        });
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Bruker", b =>
+                {
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasDefaultValue(0);
-
-                    b.Property<DateTime?>("VerifiedAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OwnerId");
-
-                    b.ToTable("MapSubmissions");
-                });
-
-            modelBuilder.Entity("HeimevernetInnlevering1.Models.OperationalNeed", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnName("BrukerID");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasMaxLength(36)
-                        .HasColumnType("varchar(36)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("CreatedById")
-                        .IsRequired()
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
-
-                    b.Property<string>("Place")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<int>("Priority")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("OperationalNeeds");
-                });
-
-            modelBuilder.Entity("HeimevernetInnlevering1.Models.ResourceAssignment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("ActiveResourceId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasMaxLength(36)
-                        .HasColumnType("varchar(36)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("CreatedById")
-                        .IsRequired()
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
-
-                    b.Property<int>("NeedId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("RequestId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ResourceId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActiveResourceId")
-                        .IsUnique();
-
-                    b.HasIndex("NeedId");
-
-                    b.HasIndex("RequestId")
-                        .IsUnique();
-
-                    b.HasIndex("ResourceId");
-
-                    b.ToTable("ResourceAssignments");
-                });
-
-            modelBuilder.Entity("HeimevernetInnlevering1.Models.ResourceRequest", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ConcurrencyToken")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasMaxLength(36)
-                        .HasColumnType("varchar(36)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("CreatedById")
-                        .IsRequired()
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
-
-                    b.Property<int>("NeedId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<int>("ResourceId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NeedId");
-
-                    b.HasIndex("ResourceId", "Status");
-
-                    b.ToTable("ResourceRequests");
-                });
-
-            modelBuilder.Entity("HeimevernetInnlevering1.Models.WorkflowAudit", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(60)
-                        .HasColumnType("varchar(60)");
-
-                    b.Property<string>("ActorId")
-                        .IsRequired()
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
-
-                    b.Property<int?>("NeedId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("OccurredAtUtc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<int?>("RequestId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ResourceId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ResourceId", "OccurredAtUtc");
-
-                    b.ToTable("WorkflowAudits");
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
-
-                    b.Property<string>("ConcurrencyStamp")
-                        .IsConcurrencyToken()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
-
-                    b.Property<string>("NormalizedName")
-                        .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedName")
-                        .IsUnique()
-                        .HasDatabaseName("RoleNameIndex");
-
-                    b.ToTable("AspNetRoles", (string)null);
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ClaimType")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("ClaimValue")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("RoleId")
-                        .IsRequired()
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RoleId");
-
-                    b.ToTable("AspNetRoleClaims", (string)null);
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUser", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
 
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
@@ -407,11 +218,22 @@ namespace HeimevernetInnlevering1.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("Email")
-                        .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("Epost");
 
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Etternavn")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Fornavn")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("tinyint(1)");
@@ -427,11 +249,19 @@ namespace HeimevernetInnlevering1.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
+                    b.Property<string>("Organisasjon")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("PassordHash");
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasColumnName("Telefon");
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("tinyint(1)");
@@ -455,10 +285,378 @@ namespace HeimevernetInnlevering1.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
 
-                    b.ToTable("AspNetUsers", (string)null);
+                    b.ToTable("Bruker", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.BrukerRolle", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int")
+                        .HasColumnName("BrukerID");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("int")
+                        .HasColumnName("RolleID");
+
+                    b.Property<DateTime>("Tildelt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("UserId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("BrukerRolle", (string)null);
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Forespørsel", b =>
+                {
+                    b.Property<int>("ForespørselID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("ForespørselID"));
+
+                    b.Property<int>("BehovID")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RessursID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Sendt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("SendtAvID")
+                        .HasColumnType("int")
+                        .HasColumnName("SendtAv");
+
+                    b.Property<string>("Svar")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<DateTime?>("Svart")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("ForespørselID");
+
+                    b.HasIndex("BehovID");
+
+                    b.HasIndex("SendtAvID");
+
+                    b.HasIndex("RessursID", "Svar");
+
+                    b.ToTable("Forespørsel", (string)null);
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Hendelse", b =>
+                {
+                    b.Property<int>("HendelseID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("HendelseID"));
+
+                    b.Property<string>("Beskrivelse")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Navn")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("Område")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<int>("OpprettetAvID")
+                        .HasColumnType("int")
+                        .HasColumnName("OpprettetAv");
+
+                    b.Property<DateTime>("Starttidspunkt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("varchar(15)");
+
+                    b.HasKey("HendelseID");
+
+                    b.HasIndex("OpprettetAvID");
+
+                    b.ToTable("Hendelse", (string)null);
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Hendelseslogg", b =>
+                {
+                    b.Property<long>("LoggID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("LoggID"));
+
+                    b.Property<string>("Begrunnelse")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<int?>("BehovID")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ForespørselID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Handling")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)");
+
+                    b.Property<int?>("RessursID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Tidspunkt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("UtførtAvID")
+                        .HasColumnType("int")
+                        .HasColumnName("UtførtAv");
+
+                    b.HasKey("LoggID");
+
+                    b.HasIndex("ForespørselID");
+
+                    b.HasIndex("RessursID", "Tidspunkt");
+
+                    b.ToTable("Hendelseslogg", (string)null);
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Ressurs", b =>
+                {
+                    b.Property<int>("RessursID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("RessursID"));
+
+                    b.Property<string>("Beskrivelse")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Breddegrad")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<int>("EierID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Kontaktperson")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("Kontakttelefon")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<decimal>("Lengdegrad")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("Navn")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<DateTime>("Registrert")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("RessurstypeID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("Stedsnavn")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateOnly>("TilgjengeligFra")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("TilgjengeligTil")
+                        .HasColumnType("date");
+
+                    b.HasKey("RessursID");
+
+                    b.HasIndex("EierID");
+
+                    b.HasIndex("RessurstypeID");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("Ressurs", (string)null);
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Ressurstype", b =>
+                {
+                    b.Property<int>("RessurstypeID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("RessurstypeID"));
+
+                    b.Property<string>("Navn")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("RessurstypeID");
+
+                    b.HasIndex("Navn")
+                        .IsUnique();
+
+                    b.ToTable("Ressurstype", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            RessurstypeID = 1,
+                            Navn = "Kjøretøy"
+                        },
+                        new
+                        {
+                            RessurstypeID = 2,
+                            Navn = "Maskin"
+                        },
+                        new
+                        {
+                            RessurstypeID = 3,
+                            Navn = "Drone"
+                        },
+                        new
+                        {
+                            RessurstypeID = 4,
+                            Navn = "Generator"
+                        },
+                        new
+                        {
+                            RessurstypeID = 5,
+                            Navn = "Personell"
+                        },
+                        new
+                        {
+                            RessurstypeID = 6,
+                            Navn = "Utstyr"
+                        });
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Rolle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("RolleID");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasColumnName("Navn");
+
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("RoleNameIndex");
+
+                    b.ToTable("Rolle", (string)null);
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Tildeling", b =>
+                {
+                    b.Property<int>("TildelingID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("TildelingID"));
+
+                    b.Property<int>("ForespørselID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Fremdrift")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("varchar(15)");
+
+                    b.Property<DateTime?>("Fullført")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("SistOppdatert")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("Tildelt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("TildelingID");
+
+                    b.HasIndex("ForespørselID")
+                        .IsUnique();
+
+                    b.ToTable("Tildeling", (string)null);
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Verifisering", b =>
+                {
+                    b.Property<int>("VerifiseringID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("VerifiseringID"));
+
+                    b.Property<string>("Begrunnelse")
+                        .HasColumnType("text");
+
+                    b.Property<int>("RessursID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Resultat")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<DateTime>("Tidspunkt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("VerifisertAvID")
+                        .HasColumnType("int")
+                        .HasColumnName("VerifisertAv");
+
+                    b.HasKey("VerifiseringID");
+
+                    b.HasIndex("VerifisertAvID");
+
+                    b.HasIndex("RessursID", "Tidspunkt");
+
+                    b.ToTable("Verifisering", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -472,197 +670,293 @@ namespace HeimevernetInnlevering1.Migrations
                     b.Property<string>("ClaimValue")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
+                    b.Property<int>("RoleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("RolleClaim", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<int>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimType")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ClaimValue")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("BrukerClaim", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<int>", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("ProviderKey")
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("ProviderDisplayName")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
                     b.HasKey("LoginProvider", "ProviderKey");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("BrukerInnlogging", (string)null);
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<int>", b =>
                 {
-                    b.Property<string>("UserId")
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
-
-                    b.Property<string>("RoleId")
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
-
-                    b.HasKey("UserId", "RoleId");
-
-                    b.HasIndex("RoleId");
-
-                    b.ToTable("AspNetUserRoles", (string)null);
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                {
-                    b.Property<string>("UserId")
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
                     b.Property<string>("LoginProvider")
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Name")
-                        .HasMaxLength(127)
-                        .HasColumnType("varchar(127)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Value")
                         .HasColumnType("longtext");
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
+                    b.ToTable("BrukerToken", (string)null);
                 });
 
-            modelBuilder.Entity("HeimevernetInnlevering1.Models.FormSubmission", b =>
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Behov", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "Owner")
+                    b.HasOne("HeimevernetInnlevering1.Models.Behovstype", "Behovstype")
                         .WithMany()
-                        .HasForeignKey("OwnerId")
+                        .HasForeignKey("BehovstypeID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HeimevernetInnlevering1.Models.Hendelse", "Hendelse")
+                        .WithMany("Behov")
+                        .HasForeignKey("HendelseID")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("Owner");
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", "RegistrertAv")
+                        .WithMany()
+                        .HasForeignKey("RegistrertAvID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Behovstype");
+
+                    b.Navigation("Hendelse");
+
+                    b.Navigation("RegistrertAv");
                 });
 
-            modelBuilder.Entity("HeimevernetInnlevering1.Models.MapSubmission", b =>
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.BehovstypeRessurstype", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "Owner")
-                        .WithMany()
-                        .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                    b.HasOne("HeimevernetInnlevering1.Models.Behovstype", "Behovstype")
+                        .WithMany("PassendeRessurstyper")
+                        .HasForeignKey("BehovstypeID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.Navigation("Owner");
+                    b.HasOne("HeimevernetInnlevering1.Models.Ressurstype", "Ressurstype")
+                        .WithMany("PassendeBehovstyper")
+                        .HasForeignKey("RessurstypeID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Behovstype");
+
+                    b.Navigation("Ressurstype");
                 });
 
-            modelBuilder.Entity("HeimevernetInnlevering1.Models.ResourceAssignment", b =>
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.BrukerRolle", b =>
                 {
-                    b.HasOne("HeimevernetInnlevering1.Models.OperationalNeed", "Need")
+                    b.HasOne("HeimevernetInnlevering1.Models.Rolle", null)
                         .WithMany()
-                        .HasForeignKey("NeedId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("HeimevernetInnlevering1.Models.ResourceRequest", "Request")
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", null)
                         .WithMany()
-                        .HasForeignKey("RequestId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("HeimevernetInnlevering1.Models.MapSubmission", "Resource")
-                        .WithMany()
-                        .HasForeignKey("ResourceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Need");
-
-                    b.Navigation("Request");
-
-                    b.Navigation("Resource");
                 });
 
-            modelBuilder.Entity("HeimevernetInnlevering1.Models.ResourceRequest", b =>
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Forespørsel", b =>
                 {
-                    b.HasOne("HeimevernetInnlevering1.Models.OperationalNeed", "Need")
-                        .WithMany()
-                        .HasForeignKey("NeedId")
+                    b.HasOne("HeimevernetInnlevering1.Models.Behov", "Behov")
+                        .WithMany("Forespørsler")
+                        .HasForeignKey("BehovID")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("HeimevernetInnlevering1.Models.MapSubmission", "Resource")
-                        .WithMany()
-                        .HasForeignKey("ResourceId")
+                    b.HasOne("HeimevernetInnlevering1.Models.Ressurs", "Ressurs")
+                        .WithMany("Forespørsler")
+                        .HasForeignKey("RessursID")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Need");
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", "SendtAv")
+                        .WithMany()
+                        .HasForeignKey("SendtAvID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
-                    b.Navigation("Resource");
+                    b.Navigation("Behov");
+
+                    b.Navigation("Ressurs");
+
+                    b.Navigation("SendtAv");
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Hendelse", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", "OpprettetAv")
+                        .WithMany()
+                        .HasForeignKey("OpprettetAvID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("OpprettetAv");
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Ressurs", b =>
+                {
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", "Eier")
+                        .WithMany()
+                        .HasForeignKey("EierID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HeimevernetInnlevering1.Models.Ressurstype", "Ressurstype")
+                        .WithMany()
+                        .HasForeignKey("RessurstypeID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Eier");
+
+                    b.Navigation("Ressurstype");
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Tildeling", b =>
+                {
+                    b.HasOne("HeimevernetInnlevering1.Models.Forespørsel", "Forespørsel")
+                        .WithOne("Tildeling")
+                        .HasForeignKey("HeimevernetInnlevering1.Models.Tildeling", "ForespørselID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Forespørsel");
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Verifisering", b =>
+                {
+                    b.HasOne("HeimevernetInnlevering1.Models.Ressurs", "Ressurs")
+                        .WithMany("Verifiseringer")
+                        .HasForeignKey("RessursID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", "VerifisertAv")
+                        .WithMany()
+                        .HasForeignKey("VerifisertAvID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Ressurs");
+
+                    b.Navigation("VerifisertAv");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
+                {
+                    b.HasOne("HeimevernetInnlevering1.Models.Rolle", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<int>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<int>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<int>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
-                        .WithMany()
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Behov", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Navigation("Forespørsler");
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Behovstype", b =>
+                {
+                    b.Navigation("PassendeRessurstyper");
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Forespørsel", b =>
+                {
+                    b.Navigation("Tildeling");
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Hendelse", b =>
+                {
+                    b.Navigation("Behov");
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Ressurs", b =>
+                {
+                    b.Navigation("Forespørsler");
+
+                    b.Navigation("Verifiseringer");
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Ressurstype", b =>
+                {
+                    b.Navigation("PassendeBehovstyper");
                 });
 #pragma warning restore 612, 618
         }

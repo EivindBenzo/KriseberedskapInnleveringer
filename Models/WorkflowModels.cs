@@ -1,158 +1,91 @@
-using System.ComponentModel.DataAnnotations;
+using System.Linq.Expressions;
 
 namespace HeimevernetInnlevering1.Models;
 
-public enum ResourceAvailability { Available, Unavailable, Reserved, Allocated, InUse, Returned }
-public enum ResourceVerificationStatus { Pending, Approved, Rejected }
-public enum NeedPriority { Low, Normal, High, Critical }
-public enum NeedStatus { Open, InProgress, Completed, Cancelled, Assigned }
-public enum ResourceRequestStatus { Pending, Accepted, Allocated, Rejected, Cancelled, Returned }
-public enum AssignmentStatus { Confirmed, EnRoute, Arrived, Completed }
-
-public class OperationalNeed
-{
-    public int Id { get; set; }
-    [Required, MaxLength(2000)]
-    public string Description { get; set; } = string.Empty;
-    [Required, MaxLength(200)]
-    public string Place { get; set; } = string.Empty;
-    public NeedPriority Priority { get; set; } = NeedPriority.Normal;
-    public NeedStatus Status { get; set; } = NeedStatus.Open;
-    public DateTime CreatedAtUtc { get; set; }
-    [Required, MaxLength(127)]
-    public string CreatedById { get; set; } = string.Empty;
-    [ConcurrencyCheck, MaxLength(36)]
-    public string ConcurrencyToken { get; set; } = Guid.NewGuid().ToString();
-}
-
-public class ResourceRequest
-{
-    public int Id { get; set; }
-    public int NeedId { get; set; }
-    public OperationalNeed Need { get; set; } = null!;
-    public int ResourceId { get; set; }
-    public MapSubmission Resource { get; set; } = null!;
-    public ResourceRequestStatus Status { get; set; } = ResourceRequestStatus.Pending;
-    public DateTime CreatedAtUtc { get; set; }
-    [Required, MaxLength(127)]
-    public string CreatedById { get; set; } = string.Empty;
-    [Required, MaxLength(1000)]
-    public string Reason { get; set; } = string.Empty;
-    [ConcurrencyCheck, MaxLength(36)]
-    public string ConcurrencyToken { get; set; } = Guid.NewGuid().ToString();
-}
-
-public class ResourceAssignment
-{
-    public int Id { get; set; }
-    public int RequestId { get; set; }
-    public ResourceRequest Request { get; set; } = null!;
-    public int ResourceId { get; set; }
-    public MapSubmission Resource { get; set; } = null!;
-    public int NeedId { get; set; }
-    public OperationalNeed Need { get; set; } = null!;
-    public AssignmentStatus Status { get; set; } = AssignmentStatus.Confirmed;
-    /// <summary>Equals ResourceId while the assignment is active; a unique index keeps a resource from being assigned twice.</summary>
-    public int? ActiveResourceId { get; set; }
-    public DateTime CreatedAtUtc { get; set; }
-    public DateTime? UpdatedAtUtc { get; set; }
-    [Required, MaxLength(127)]
-    public string CreatedById { get; set; } = string.Empty;
-    [ConcurrencyCheck, MaxLength(36)]
-    public string ConcurrencyToken { get; set; } = Guid.NewGuid().ToString();
-}
-
-public class WorkflowAudit
-{
-    public long Id { get; set; }
-    public int? ResourceId { get; set; }
-    public int? NeedId { get; set; }
-    public int? RequestId { get; set; }
-    [Required, MaxLength(127)]
-    public string ActorId { get; set; } = string.Empty;
-    public DateTime OccurredAtUtc { get; set; }
-    [Required, MaxLength(60)]
-    public string Action { get; set; } = string.Empty;
-    [Required, MaxLength(1000)]
-    public string Reason { get; set; } = string.Empty;
-}
-
 public class WorkflowOptions
 {
+    /// <summary>Hvor mange dager en godkjenning (Verifisering med resultat «godkjent») gjelder.</summary>
     public int VerificationValidityDays { get; set; } = 30;
 }
 
+/// <summary>Regler for når en ressurs kan forespørres. Brukes både i databasespørringer og i minnet.</summary>
 public static class WorkflowEligibility
 {
-    public static bool HasCurrentApproval(MapSubmission resource, DateTime nowUtc) =>
-        resource.VerificationStatus == ResourceVerificationStatus.Approved &&
-        resource.VerifiedAtUtc.HasValue && resource.VerifiedAtUtc <= nowUtc &&
-        resource.VerificationExpiresAtUtc > nowUtc;
+    public const int StandardGyldighetDager = 30;
 
-    public static bool IsEligible(MapSubmission resource, DateTime nowUtc) =>
-        resource.Availability == ResourceAvailability.Available && HasCurrentApproval(resource, nowUtc);
+    /// <summary>Siste godkjenning for ressursen (krever at Verifiseringer er lastet).</summary>
+    public static DateTime? SisteGodkjenning(Ressurs ressurs) =>
+        ressurs.Verifiseringer.Where(v => v.Resultat == Statuser.Resultat.Godkjent)
+            .Select(v => (DateTime?)v.Tidspunkt).Max();
+
+    public static DateTime? GodkjentTil(Ressurs ressurs, int dager = StandardGyldighetDager) =>
+        SisteGodkjenning(ressurs)?.AddDays(dager);
+
+    public static bool HasCurrentApproval(Ressurs ressurs, DateTime nowUtc, int dager = StandardGyldighetDager) =>
+        SisteGodkjenning(ressurs) is DateTime godkjent && godkjent <= nowUtc && godkjent.AddDays(dager) > nowUtc;
+
+    public static bool IsEligible(Ressurs ressurs, DateTime nowUtc, int dager = StandardGyldighetDager) =>
+        ressurs.Status == Statuser.Ressurs.Tilgjengelig && HasCurrentApproval(ressurs, nowUtc, dager);
+
+    /// <summary>Samme regel som <see cref="IsEligible"/>, skrevet slik at EF Core kan oversette den til SQL.</summary>
+    public static Expression<Func<Ressurs, bool>> EligibleExpression(DateTime nowUtc, int dager = StandardGyldighetDager)
+    {
+        var grense = nowUtc.AddDays(-dager);
+        return r => r.Status == Statuser.Ressurs.Tilgjengelig &&
+                    r.Verifiseringer.Any(v => v.Resultat == Statuser.Resultat.Godkjent &&
+                                              v.Tidspunkt > grense && v.Tidspunkt <= nowUtc);
+    }
+
+    /// <summary>Ressurser verifiseringsansvarlig skal se på: nye, returnerte, eller med utløpt godkjenning.</summary>
+    public static Expression<Func<Ressurs, bool>> TrengerVerifisering(DateTime nowUtc, int dager = StandardGyldighetDager)
+    {
+        var grense = nowUtc.AddDays(-dager);
+        return r => r.Status == Statuser.Ressurs.VenterPåVerifisering || r.Status == Statuser.Ressurs.Returnert ||
+                    ((r.Status == Statuser.Ressurs.Tilgjengelig || r.Status == Statuser.Ressurs.Utilgjengelig) &&
+                     !r.Verifiseringer.Any(v => v.Resultat == Statuser.Resultat.Godkjent && v.Tidspunkt > grense));
+    }
 }
 
 public static class WorkflowTransitions
 {
-    public static bool CanMoveNeed(NeedStatus from, NeedStatus to) => (from, to) switch
+    /// <summary>Lovlige overganger for Behov.Status som kriseledelsen kan gjøre manuelt.</summary>
+    public static bool CanMoveNeed(string from, string to) => (from, to) switch
     {
-        (NeedStatus.Open, NeedStatus.InProgress) => true,
-        (NeedStatus.Assigned, NeedStatus.Completed) => true,
-        (NeedStatus.Open or NeedStatus.InProgress or NeedStatus.Assigned, NeedStatus.Cancelled) => true,
+        (Statuser.Behov.Ny, Statuser.Behov.Vurderes) => true,
+        (Statuser.Behov.Ny or Statuser.Behov.Vurderes or Statuser.Behov.Tildelt, Statuser.Behov.Løst) => true,
         _ => false
     };
 
-    public static bool IsActive(NeedStatus status) =>
-        status is NeedStatus.Open or NeedStatus.InProgress or NeedStatus.Assigned;
+    public static bool IsActive(string status) => Statuser.Behov.Aktive.Contains(status);
 
-    public static bool CanMoveAssignment(AssignmentStatus from, AssignmentStatus to) =>
-        from != AssignmentStatus.Completed && (int)to == (int)from + 1;
-
-    public static string Label(NeedStatus status) => status switch
+    /// <summary>Fremdriften i en tildeling går ett steg om gangen: bekreftet → på vei → fremme → fullført.</summary>
+    public static bool CanMoveAssignment(string from, string to)
     {
-        NeedStatus.Open => "Ny", NeedStatus.InProgress => "Vurderes", NeedStatus.Assigned => "Tildelt",
-        NeedStatus.Completed => "Løst", _ => "Avbrutt"
-    };
+        var steg = Array.IndexOf(Statuser.Fremdrift.Rekkefølge, from);
+        return steg >= 0 && steg < Statuser.Fremdrift.Rekkefølge.Length - 1 &&
+               Statuser.Fremdrift.Rekkefølge[steg + 1] == to;
+    }
 
-    public static string Label(AssignmentStatus status) => status switch
+    public static string? NextAssignmentStep(string from)
     {
-        AssignmentStatus.Confirmed => "Bekreftet", AssignmentStatus.EnRoute => "På vei",
-        AssignmentStatus.Arrived => "Fremme", _ => "Fullført"
-    };
+        var steg = Array.IndexOf(Statuser.Fremdrift.Rekkefølge, from);
+        return steg >= 0 && steg < Statuser.Fremdrift.Rekkefølge.Length - 1 ? Statuser.Fremdrift.Rekkefølge[steg + 1] : null;
+    }
 
-    public static string Label(ResourceRequestStatus status) => status switch
-    {
-        ResourceRequestStatus.Pending => "Venter", ResourceRequestStatus.Accepted => "Godtatt",
-        ResourceRequestStatus.Allocated => "Tildelt", ResourceRequestStatus.Rejected => "Avslått",
-        ResourceRequestStatus.Cancelled => "Avbrutt", _ => "Returnert"
-    };
+    public static string Label(string? status) => Statuser.Visning(status);
 
-    public static string Label(NeedPriority priority) => priority switch
-    {
-        NeedPriority.Low => "Lav", NeedPriority.Normal => "Normal", NeedPriority.High => "Høy", _ => "Kritisk"
-    };
-
-    public static string Lifecycle(MapSubmission resource, DateTime nowUtc) => resource.VerificationStatus switch
-    {
-        ResourceVerificationStatus.Rejected => "Avvist",
-        _ when resource.Availability == ResourceAvailability.Reserved => "Forespurt",
-        _ when resource.Availability == ResourceAvailability.Allocated => "Tildelt",
-        _ when resource.Availability == ResourceAvailability.InUse => "I bruk",
-        _ when !WorkflowEligibility.HasCurrentApproval(resource, nowUtc) =>
-            resource.Availability == ResourceAvailability.Returned ? "Returnert" : "Venter på verifisering",
-        _ when resource.Availability == ResourceAvailability.Unavailable => "Utilgjengelig",
-        _ => "Tilgjengelig"
-    };
+    /// <summary>Sorteringsrekkefølge: akutte behov først.</summary>
+    public static int PriorityRank(string prioritet) => prioritet == Statuser.Prioritet.Akutt ? 0 : 1;
 }
 
 public class OperationsViewModel
 {
-    public IReadOnlyList<MapSubmission> Resources { get; set; } = [];
-    public IReadOnlyList<OperationalNeed> Needs { get; set; } = [];
-    public IReadOnlyList<ResourceRequest> Requests { get; set; } = [];
-    public IReadOnlyList<ResourceAssignment> Assignments { get; set; } = [];
-    public IReadOnlyList<WorkflowAudit> Audit { get; set; } = [];
+    public IReadOnlyList<Ressurs> Resources { get; set; } = [];
+    public IReadOnlyList<Behov> Needs { get; set; } = [];
+    public IReadOnlyList<Forespørsel> Requests { get; set; } = [];
+    public IReadOnlyList<Tildeling> Assignments { get; set; } = [];
+    public IReadOnlyList<Hendelseslogg> Audit { get; set; } = [];
+    public IReadOnlyDictionary<int, string> ActorNames { get; set; } = new Dictionary<int, string>();
 }
 
 public record TimelineEntry(string Label, string Actor, DateTime OccurredAtUtc);
@@ -161,20 +94,27 @@ public static class WorkflowLabels
 {
     public static string Action(string action) => action switch
     {
-        "ResourceRegistered" => "Registrert",
-        "ResourceApproved" => "Verifisert",
-        "ResourceRejected" => "Avvist ved verifisering",
-        "ResourceEditedReverificationRequired" => "Endret, venter på ny verifisering",
-        "AvailabilityChanged" => "Tilgjengelighet endret",
-        "RequestCreated" => "Forespørsel sendt",
-        "RequestAccept" => "Godtatt av eier",
-        "RequestReject" => "Avslått av eier",
-        "RequestAllocate" => "Tildelt",
-        "RequestCancel" => "Forespørsel avbrutt",
-        "AssignmentEnRoute" => "På vei",
-        "AssignmentArrived" => "Fremme",
-        "AssignmentCompleted" => "Fullført",
-        "NeedCreated" => "Behov registrert",
+        "RessursRegistrert" => "Registrert",
+        "RessursGodkjent" => "Verifisert",
+        "RessursAvvist" => "Avvist ved verifisering",
+        "RessursEndret" => "Endret, venter på ny verifisering",
+        "RessursSlettet" => "Slettet",
+        "TilgjengelighetEndret" => "Tilgjengelighet endret",
+        "ForespørselSendt" => "Forespørsel sendt",
+        "ForespørselGodtatt" => "Godtatt av eier",
+        "ForespørselAvslått" => "Avslått av eier",
+        "ForespørselAvbrutt" => "Forespørsel avbrutt",
+        "Tildelt" => "Tildelt",
+        "FremdriftPåVei" => "På vei",
+        "FremdriftFremme" => "Fremme",
+        "FremdriftFullført" => "Fullført",
+        "BehovRegistrert" => "Behov registrert",
+        "BehovStatus" => "Behovsstatus endret",
+        "BehovPrioritet" => "Prioritet endret",
+        "HendelseOpprettet" => "Hendelse opprettet",
+        "RessurstypeOpprettet" => "Ny ressurstype",
+        "BehovstypeOpprettet" => "Ny behovstype",
+        "HendelseAvsluttet" => "Hendelse avsluttet",
         _ => action
     };
 }

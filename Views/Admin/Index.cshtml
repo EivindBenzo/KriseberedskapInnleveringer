@@ -19,7 +19,8 @@
         {
             <article class="admin-user">
                 <div>
-                    <h2>@user.Email</h2>
+                    <h2>@user.Navn</h2>
+                    <p>@user.Email@(user.Organisasjon is string org ? " · " + org : "")</p>
                     <p>@(user.Role is null ? "Ingen rolle" : AppRoles.Label(user.Role))</p>
                 </div>
                 <form asp-action="SetRole" method="post">

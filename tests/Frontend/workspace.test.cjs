@@ -25,23 +25,15 @@ test('navigation exposes operational destinations, prototype identity and keyboa
     assert.match(layout, /asp-controller="Account" asp-action="Logout" method="post"/);
 });
 
-test('resources keep mine actions inside their context and reset outside filtered rows', () => {
+test('resources keep mine actions inside their context', () => {
     const resources = read('Views/Home/Verify.cshtml');
     assert.match(resources, /aria-label="Ressursutvalg"/);
     assert.match(resources, /asp-action="Resources" asp-route-mine="true"/);
     for (const action of ['Edit', 'Delete'])
-        assert.match(resources, new RegExp(`asp-action="${action}" asp-route-id="@r.Id"`));
-    assert.match(resources, /asp-action="Edit" asp-route-id="@r.Id" class="btn-secondary">Rediger<\/a>/);
+        assert.match(resources, new RegExp(`asp-action="${action}" asp-route-id="@r.RessursID"`));
+    assert.match(resources, /asp-action="Edit" asp-route-id="@r.RessursID" class="btn-secondary">Rediger<\/a>/);
     assert.doesNotMatch(resources, /Rediger \//);
-    assert.match(resources, /@if \(r.IsOnMap\)/);
-    assert.match(resources, /Ikke på kartet/);
-    const reset = resources.slice(resources.indexOf('<details class="danger-zone"'));
-    assert.match(reset, /asp-action="ResetMap" method="post"/);
-    assert.match(reset, /type="checkbox" name="confirmed" value="true" required/);
-    assert.equal((resources.match(/id="reset-map"/g) || []).length, 1);
-    assert.ok(resources.indexOf('id="reset-map"') > resources.indexOf('\n        }\n    </div>'));
-    assert.match(resources, /også utenfor valgt filter/);
-    assert.match(resources, /User.IsInRole\(AppRoles.Kriseledelse\)[\s\S]*class="danger-zone"/);
+    assert.doesNotMatch(resources, /ResetMap|reset-map|IsOnMap/, 'kartnullstilling er fjernet');
 });
 
 test('requests lead with actions and status while secondary work is expandable', () => {
@@ -49,9 +41,9 @@ test('requests lead with actions and status while secondary work is expandable',
     assert.ok(operations.indexOf('<h2 id="requests"') < operations.indexOf('id="resources"'));
     for (const section of ['resources', 'needs'])
         assert.match(operations, new RegExp(`<details class="workflow-section" id="${section}"`));
-    assert.match(operations, /<details class="workflow-section">\s*<summary>Beslutningslogg/);
-    assert.match(operations, /value="true" type="submit" class="btn-submit">Godta og reserver/);
-    assert.match(operations, /NeedPriority.Critical \? "status-critical"/);
+    assert.match(operations, /<details class="workflow-section">\s*<summary>Hendelseslogg/);
+    assert.match(operations, /value="true" type="submit" class="btn-submit">Godta</);
+    assert.match(operations, /Statuser.Prioritet.Akutt \? "status-critical"/);
     assert.match(operations, /<summary>Avbryt forespørsel/);
     const css = read('wwwroot/css/workspace.css');
     assert.match(css, /data-theme="dark"\] \.status-positive/);
@@ -124,9 +116,9 @@ test('home is permission-aware and resource overview keeps operational filtering
     assert.doesNotMatch(resources, /Operativ vurdering|@status.StatusText/);
     assert.match(resources, /<label for="eligible">Operativ status<\/label>/);
     assert.match(resources, /<option value="true" selected="@\(ViewBag.Eligible is true\)">Kan forespørres nå/);
-    assert.match(resources, /Sist oppdatert/);
+    assert.match(resources, /<dt>Registrert<\/dt>/);
     assert.doesNotMatch(resources, /Owner\?\.UserName/);
-    assert.match(read('Views/Home/Delete.cshtml'), /name="version"/);
+    assert.match(read('Views/Home/Delete.cshtml'), /asp-action="Delete" asp-route-id="@Model.RessursID" method="post"/);
 });
 
 test('resource cards have bounded theme-aware surfaces, readable facts and separated destructive actions', () => {
@@ -134,10 +126,10 @@ test('resource cards have bounded theme-aware surfaces, readable facts and separ
     const css = read('wwwroot/css/workspace.css');
     const tokens = read('wwwroot/css/site.css');
     assert.match(view, /class="data-container resource-overview"/);
-    assert.match(view, /class="resource-facts"[\s\S]*?<dl>[\s\S]*?<dt>Sist oppdatert<\/dt>/);
+    assert.match(view, /class="resource-facts"[\s\S]*?<dl>[\s\S]*?<dt>Registrert<\/dt>/);
     assert.match(view, /class="resource-status"[\s\S]*?@status.Lifecycle[\s\S]*?Godkjenning: @status.Verification/);
     assert.doesNotMatch(view, /Operativ vurdering|data-resource-status-text/);
-    assert.match(view, /ResourcePermissions.CanManage\(User, r.OwnerId\)[\s\S]*?class="resource-destructive-actions"[\s\S]*?asp-action="Delete"/);
+    assert.match(view, /ResourcePermissions.CanManage\(User, r.EierID\)[\s\S]*?class="resource-destructive-actions"[\s\S]*?asp-action="Delete"/);
     assert.match(css, /\.resource-overview \{ max-width: 1240px/);
     assert.match(css, /\.resource-overview \{[^}]*background: transparent; border: 0;/);
     assert.match(css, /\.data-container \.resource-row \{[^}]*border: 1px solid var\(--border-strong\)[^}]*background: var\(--surface\)/);

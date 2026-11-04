@@ -19,7 +19,7 @@ function icons() {
 
 test('zoom scaling keeps the upward pointer tip anchored and a 44px keyboard hit target for all types', () => {
     const api = icons();
-    assert.equal(api.entries.length, 6);
+    assert.equal(api.entries.length, 7, 'six fixed types plus «Annet»');
     assert.equal(api.sizeForZoom(12), 32);
     assert.equal(api.sizeForZoom(0), 28);
     assert.equal(api.sizeForZoom(22), 36);
@@ -142,12 +142,12 @@ function controls({ mobile = false, native = false, rejected = false, onTypeChan
     return { document, container, map, added, media, api, controller, timers, button: added[0].element.children[0], legend: added[1].element };
 }
 
-test('legend uses all six shared icons, is bottom-left and collapses on mobile', () => {
+test('legend uses all seven shared icons (six types + Annet), is bottom-left and collapses on mobile', () => {
     const page = controls({ mobile: true });
     assert.equal(page.added[1].options.position, 'bottomleft');
     assert.equal(page.legend.open, false);
     const items = page.legend.children[1].children;
-    assert.equal(items.length, 6);
+    assert.equal(items.length, 7);
     page.api.entries.forEach((entry, index) => {
         const label = items[index].children[0];
         assert.equal(label.tagName, 'label');
@@ -163,7 +163,7 @@ test('legend uses all six shared icons, is bottom-left and collapses on mobile',
     assert.equal(page.legend.open, true);
 });
 
-test('legend changes and public API synchronize six checkboxes and callbacks without duplicate changes', () => {
+test('legend changes and public API synchronize seven checkboxes and callbacks without duplicate changes', () => {
     const changes = [];
     const page = controls({ onTypeChange: (...args) => changes.push(args) });
     assert.deepEqual(changes, [], 'all types start visible without emitting changes');
@@ -177,9 +177,9 @@ test('legend changes and public API synchronize six checkboxes and callbacks wit
         assert.deepEqual(changes.at(-1), [type, true]);
         page.controller.setTypeVisible(type, true);
     });
-    assert.equal(changes.length, 12);
+    assert.equal(changes.length, 14);
     page.controller.setTypeVisible('unknown', false);
-    assert.equal(changes.length, 12);
+    assert.equal(changes.length, 14);
     const noCallback = controls();
     noCallback.controller.setTypeVisible(noCallback.api.entries[0].type, false);
 });
@@ -340,19 +340,19 @@ test('single bulk toggle uses exact dynamic labels for checkbox and programmatic
     assert.equal(toggle.textContent, 'Unselect all');
     toggle.handlers.click();
     assert.equal(toggle.textContent, 'Select all');
-    assert.equal(changes.length, 6);
+    assert.equal(changes.length, 7);
     page.legend.children[1].children.forEach(item => assert.equal(item.children[0].children[0].checked, false));
     page.controller.setTypeVisible(page.api.entries[0].type, true);
     assert.equal(toggle.textContent, 'Unselect all', 'focusResource uses this API to reveal its type');
     page.controller.setTypeVisible(page.api.entries[0].type, true);
-    assert.equal(changes.length, 7, 'duplicate visibility updates emit no duplicate callbacks');
+    assert.equal(changes.length, 8, 'duplicate visibility updates emit no duplicate callbacks');
     const checkbox = page.legend.children[1].children[0].children[0].children[0];
     checkbox.checked = false;
     checkbox.handlers.change();
     assert.equal(toggle.textContent, 'Select all');
     toggle.handlers.click();
     assert.equal(toggle.textContent, 'Unselect all');
-    assert.equal(changes.length, 14);
+    assert.equal(changes.length, 16);
     page.legend.children[1].children.forEach(item => assert.equal(item.children[0].children[0].checked, true));
 });
 

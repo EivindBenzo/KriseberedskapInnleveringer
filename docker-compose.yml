@@ -39,6 +39,8 @@ services:
     volumes:
       - identity-keys:/app/keys
 
+  # Kjøres bare med «--profile integration» og et eget prosjektnavn (-p), se README.
+  # Hver test lager og sletter sin egen database, derfor brukes root i denne isolerte testprofilen.
   mariadb-integration-tests:
     profiles: ["integration"]
     build:
@@ -51,8 +53,8 @@ services:
       MARIADB_HOST: mariadb
       MARIADB_PORT: "3306"
       MARIADB_DATABASE: heimevernet
-      MARIADB_USER: heimevernet_app
-      MARIADB_APP_PASSWORD: ${MARIADB_APP_PASSWORD:?Set MARIADB_APP_PASSWORD in .env}
+      MARIADB_USER: root
+      MARIADB_APP_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Set MARIADB_ROOT_PASSWORD in .env}
 
 volumes:
   mariadb-data:

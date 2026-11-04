@@ -17,6 +17,22 @@ public class LoginViewModel
 
 public class RegisterViewModel
 {
+    [Required(ErrorMessage = "Oppgi fornavn."), StringLength(100)]
+    [Display(Name = "Fornavn")]
+    public string Fornavn { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Oppgi etternavn."), StringLength(100)]
+    [Display(Name = "Etternavn")]
+    public string Etternavn { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Oppgi telefonnummer."), Phone(ErrorMessage = "Oppgi et gyldig telefonnummer."), StringLength(20)]
+    [Display(Name = "Telefon")]
+    public string Telefon { get; set; } = string.Empty;
+
+    [StringLength(150)]
+    [Display(Name = "Organisasjon (valgfritt)")]
+    public string? Organisasjon { get; set; }
+
     [Required(ErrorMessage = "Oppgi e-postadresse."), EmailAddress(ErrorMessage = "Oppgi en gyldig e-postadresse."), MaxLength(254)]
     [Display(Name = "E-post")]
     public string Email { get; set; } = string.Empty;
@@ -35,4 +51,4 @@ public class RegisterViewModel
     public string ConfirmPassword { get; set; } = string.Empty;
 }
 
-public record AdminUserViewModel(string Id, string Email, string? Role);
+public record AdminUserViewModel(int Id, string Navn, string Email, string? Organisasjon, string? Role);

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using HeimevernetInnlevering1.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,8 +26,8 @@ public static class AdminPromotionCommand
             builder.Services.AddDbContext<AppDbContext>(options =>
                 DatabaseProviderConfiguration.Configure(options, connection,
                     builder.Configuration["DATABASE_SERVER_VERSION"]));
-            builder.Services.AddIdentityCore<IdentityUser>(options => options.User.RequireUniqueEmail = true)
-                .AddRoles<IdentityRole>()
+            builder.Services.AddIdentityCore<Bruker>(options => options.User.RequireUniqueEmail = true)
+                .AddRoles<Rolle>()
                 .AddEntityFrameworkStores<AppDbContext>();
             await using var services = builder.Services.BuildServiceProvider();
             await using var scope = services.CreateAsyncScope();
@@ -49,8 +50,8 @@ public static class AdminPromotionCommand
             throw new InvalidOperationException("A valid existing account is required.");
 
         var db = services.GetRequiredService<AppDbContext>();
-        var users = services.GetRequiredService<UserManager<IdentityUser>>();
-        var roles = services.GetRequiredService<RoleManager<IdentityRole>>();
+        var users = services.GetRequiredService<UserManager<Bruker>>();
+        var roles = services.GetRequiredService<RoleManager<Rolle>>();
         await using var transaction = await db.Database.BeginTransactionAsync();
         var normalizedEmail = users.NormalizeEmail(email.Trim());
         var matches = await users.Users.Where(user => user.NormalizedEmail == normalizedEmail)
@@ -64,7 +65,7 @@ public static class AdminPromotionCommand
             foreach (var role in new[] { IdentitySeeder.BootstrapRole })
             {
                 if (!await roles.RoleExistsAsync(role))
-                    EnsureSuccess(await roles.CreateAsync(new IdentityRole(role)));
+                    EnsureSuccess(await roles.CreateAsync(new Rolle(role)));
                 if (!await users.IsInRoleAsync(user, role))
                     EnsureSuccess(await users.AddToRoleAsync(user, role));
             }

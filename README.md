@@ -1,359 +1,273 @@
-# HeimevernetInnlevering1
+# Beredskapsportalen – ressurs- og behovsportal for Totalforsvaret
 
-ASP.NET Core MVC-applikasjon (`net10.0`) med ASP.NET Core Identity, roller, behovsinnmelding og kartressurser lagret i MariaDB. EF Core og Identity bruker 9.0.22 sammen med Pomelo 9.0.0.
+Gruppe 5, IS-202 ved UiA. En ASP.NET Core MVC-nettside (`net10.0`) der offentlige aktører melder behov, ressursleverandører registrerer ressurser, verifiseringsansvarlig kontrollerer dem, og dispatch og kriseledelse kobler behov og ressurser sammen. Data lagres i MariaDB, og både app og database kjører i Docker.
 
-## Innlogging og tilgang
+Dette er en studentprototype, ikke en offisiell tjeneste eller en kanal for ekte nødsituasjoner.
 
-Forsiden er offentlig. Velg «Registrer» for å opprette en konto og velg en av de fem kontotypene (`OffentligAktor`, `Ressursleverandor`, `DispatchTeam`, `Kriseledelse`, `Verifiseringsansvarlig`). Kriseledelse kan endre en brukers rolle senere under «Brukere». Rollene kan også settes gjennom `ADMIN_EMAIL`-bootstrap eller operatørkommandoen. Hver konto har én rolle.
+## Innhold
 
-| Rolle | Kan | Kan ikke |
-| --- | --- | --- |
-| `OffentligAktor` | Registrere behov og se behov i eget omfang | Se ressurslister for disponering, forespørre eller tildele |
-| `Ressursleverandor` | Registrere ressurser, redigere/slette/sette tilgjengelighet på egne, svare på forespørsler om egne ressurser | Endre andres ressurser, verifisere, tildele |
-| `Verifiseringsansvarlig` | Se køen «Venter på verifisering», godkjenne eller avvise (avvisning krever begrunnelse; ikke egne ressurser) | Tildele eller endre ressurser |
-| `DispatchTeam` | Se bare verifiserte og tilgjengelige ressurser, sende forespørsler, tildele og oppdatere fremdrift | Verifisere, endre ressurser |
-| `Kriseledelse` | Overblikk og prioritering av behov, følge opp tildelinger og beslutningslogg, tildele roller, nullstille kartplasseringer | Redigere andres ressurser |
+1. [Drift](#drift)
+2. [Arkitektur](#arkitektur)
+3. [Databasen (ER-modellen)](#databasen-er-modellen)
+4. [Roller og arbeidsflyt](#roller-og-arbeidsflyt)
+5. [Sikkerhet](#sikkerhet)
+6. [Testing – scenarier og resultater](#testing--scenarier-og-resultater)
+7. [Dokumentasjon i koden](#dokumentasjon-i-koden)
+8. [Bruk av KI](#bruk-av-ki)
 
-Det finnes ingen egen Administrator-rolle. Eldre `Admin`-kontoer blir `Kriseledelse` og eldre `Bruker`-kontoer blir `Ressursleverandor` ved oppstart; de gamle rollene fjernes.
+## Drift
 
-Etter innlogging åpnes **Oversikt** (`/Home/Dashboard`), som viser det rollen skal gjøre videre med ekte data:
+### Det du trenger
 
-| Rolle | Oversikten viser |
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (må kjøre, krever virtualisering/WSL 2 på Windows)
+- [.NET SDK 10](https://dotnet.microsoft.com/download/dotnet/10.0) for å bygge, teste og lage migrasjoner lokalt
+
+### Start app og database i Docker
+
+```sh
+cp .env.example .env          # Windows PowerShell: Copy-Item .env.example .env
+# Bytt ut de to passordene i .env med lange, tilfeldige verdier
+docker compose up --build
+```
+
+Åpne <http://localhost:8080>. `docker-compose.yml` starter to containere:
+
+| Tjeneste | Innhold |
 | --- | --- |
-| `Ressursleverandor` | Egne ressurser med verifiseringsstatus og historikk, innkommende forespørsler med «Godta og reserver» / «Avslå» |
-| `Verifiseringsansvarlig` | Køen «Venter på verifisering» med «Godkjenn» og «Avvis» (begrunnelse kreves ved avvisning) |
-| `DispatchTeam` | Åpne behov med verifiserte ressurser og «Send forespørsel», forespørsler med «Opprett tildeling», aktive tildelinger med fremdrift (Bekreftet, På vei, Fremme, Fullført) |
-| `Kriseledelse` | Behov etter prioritet og status, aktive tildelinger, brukere per rolle og lenke til rolleadministrasjon |
-| `OffentligAktor` | Egne behov og skjema for å registrere nye |
+| `mariadb` | MariaDB 10.11.19. Databasen lagres i volumet `mariadb-data`. Porten er ikke åpen utenfor Docker. |
+| `heimevernet` | Nettsiden. Den venter til databasen er klar, kjører EF Core-migrasjonene (lager tabellene fra ER-modellen) og legger inn roller og demodata. |
 
-Menyen viser Oversikt, Kart og Ressurser for alle roller. Forespørsler vises for Ressursleverandør, DispatchTeam og Kriseledelse, og Brukere bare for Kriseledelse. Ressurser, forespørsler og tildelinger har en kort historikk (hvem verifiserte, forespurte og tildelte, med tidspunkt). Liste og kart bruker samme filtrering (`ResourceQueries`), slik at antall og markører samsvarer. Tomt bysøk betyr ingen filtrering.
+Nyttige kommandoer:
 
-### Nullstill kartplasseringer
+```sh
+docker compose logs -f heimevernet      # se loggen til appen
+docker compose stop                     # stopp (data beholdes)
+docker compose down -v                  # stopp og SLETT databasen
+```
 
-Kriseledelse åpner **Ressurser → Administrer kartplasseringer**, leser konsekvensene og krysser av bekreftelsen før «Nullstill alle kartplasseringer». Lenke finnes også fra kartet. Handlingen gjelder alle nåværende ressursmarkører, uavhengig av søk, typefilter eller «Mine ressurser». Den krever innlogging som Kriseledelse og POST med antiforgery-token; kartplasseringer og revisjonslogg oppdateres atomisk.
-
-Ressursene slettes ikke: de vises fortsatt i oversikten med «Ikke på kartet». Koordinater, eierskap, tilgjengelighet, godkjenning, reservasjoner og forespørselshistorikk bevares. Etterpå vises resultatet i oversikten, og kartet er tomt ved neste åpning. Velg «Rediger / plasser på kart» og lagre for å plassere en ressurs igjen; dette krever ny verifisering. Reserverte/tildelte ressurser må frigjøres gjennom eksisterende forespørselsflyt før redigering. Den additive migreringen setter eksisterende og nye ressurser på kartet som standard; utrulling alene nullstiller ikke kartet og endrer ingen ressurser i en ekstern database.
-
-## Arbeidsflyt og tilstandsmodell
-
-Dette er en studentprototype, ikke en offisiell tjeneste eller et sanntids-/offline-system. Roller og eierskap håndheves på serveren. To separate kontoer trengs for å registrere og godkjenne samme ressurs.
-
-| Begrep | Tilstander og regel |
-| --- | --- |
-| Ressurs | `VenterPåVerifisering` → `Tilgjengelig` → `Forespurt` → `Tildelt` → `IBruk` → `Returnert` → `Tilgjengelig` eller `Avvist` etter ny verifisering. Nye ressurser starter `VenterPåVerifisering`; DispatchTeam kan ikke tildele uverifiserte ressurser. |
-| Verifisering | Verifiseringsansvarlig godkjenner (`Approved`) eller avviser (`Rejected`, begrunnelse påkrevd). Siste verifiseringsresultat styrer tilgjengelighet. |
-| Gyldighet | Godkjenning har faktisk tidspunkt og utløpsdato. Utløpt er en beregnet tilstand, ikke en bakgrunnsjobb. `Workflow__VerificationValidityDays` er 30 som standard (tillatt 1–3650); endring gjelder nye beslutninger. |
-| Behov | `Ny` → `Vurderes` → `Tildelt` → `Løst` (eller avbrutt). Hoppene styres av serveren; `Tildelt` settes bare ved tildeling. Prioritet: `Low/Normal/High/Critical`. |
-| Forespørsel og tildeling | Forespørsel: `Venter`, `Godtatt`, `Avslått`. Bare ressursens eier svarer. En tildeling (`ResourceAssignment`) opprettes fra en godtatt forespørsel av DispatchTeam og går `Bekreftet` → `PåVei` → `Fremme` → `Fullført`, ett steg om gangen. Dobbelttildeling hindres av transaksjon, samtidighetstokener og unik indeks; ved konflikt vises en melding og data forblir uendret. |
-| Retur | Fullført tildeling setter ressursen `Returnert` og nullstiller godkjenning; Verifiseringsansvarlig må godkjenne på nytt før ny bruk. |
-
-Bare **tilgjengelige ressurser med eier og gyldig godkjenning** kan forespørres. Vilkårene kontrolleres igjen ved eiers aksept og tildeling. Materielle endringer i navn, type, sted/koordinater, kapasitet eller transportbehov nullstiller godkjenning; en ren tilgjengelighetsendring gjør ikke det. Kapasitet/transport er valgfrie fritekstfelt, ikke oppdiktede standardenheter for alle kategorier.
-
-MariaDB-transaksjoner og applikasjonsstyrte optimistiske versjonstoken beskytter ressurs, behov og forespørsel. Samtidige disponeringer kan ikke begge vinne; konflikter gir melding og krever ny vurdering. Endringer i kritisk arbeidsflyt registreres med aktør-ID, UTC-tid, handling og begrunnelse. Audit-historikken er et prototyperevisjonsspor, ikke et manipulasjonssikkert eksternt loggsystem. Sider viser status ved lasting; last på nytt for oppdatert informasjon. Lastfeil er ikke en tom resultatliste.
-
-### Kartarbeidsflate
-
-Kartet åpnes i **utforskingsmodus**. Søk flytter utsnittet; kartklikk registrerer ikke noe. «Registrer ressurs» i verktøylinjen ved ressurslisten åpner skjemaet og aktiverer punktvalg: klikk i kartet eller velg et stedsforslag. «Tilbake til kartvisning» lukker skjemaet og stopper punktvalg uten å lagre; feltene beholdes til du forlater siden. Redigering og ugyldige innsendinger beholder felt og valgte koordinater. Forhåndsvisning åpner aldri popup automatisk. På mobil velges Kart/Liste; «Gå til kartet» viser kartet fra skjemaet, og detaljer kan utvides. Lokale forslag og eksplisitt eksternt søk beholder personvern-/attribusjonsreglene nedenfor.
+> **Første gang etter ER-ombyggingen:** Databasen har fått nye tabeller (Bruker, Ressurs, Behov osv.) og kan ikke oppgraderes fra den gamle strukturen. Har du kjørt en eldre versjon før, må den gamle databasen slettes én gang med `docker compose down -v` før `docker compose up --build`. Det samme gjelder databasen på Render/Aiven.
 
 ### Demokontoer
 
-Med `SEED_DEMO_ACCOUNTS=true` oppretter appen ved oppstart én konto per rolle, bekrefter e-posten og gir riktig rolle, samt et lite sett demodata (tre behov, fire ressurser der én venter på verifisering, to forespørsler og én aktiv tildeling). Seedingen er idempotent: manglende kontoer opprettes, eksisterende kontoer får aldri nytt passord, og demodata opprettes bare én gang.
+`SEED_DEMO_ACCOUNTS=true` (standard i `docker-compose.yml`) lager én konto per rolle og litt demodata: en hendelse, tre behov, fire ressurser, to forespørsler og én aktiv tildeling. Passordet er `Dragoncool22!` med mindre `DEMO_ACCOUNT_PASSWORD` er satt.
 
-| E-post | Rolle | Passord |
-| --- | --- | --- |
-| `offentlig@gmail.com` | `OffentligAktor` | `Dragoncool22!` |
-| `ressurs@gmail.com` | `Ressursleverandor` | `Dragoncool22!` |
-| `dispatch@gmail.com` | `DispatchTeam` | `Dragoncool22!` |
-| `kriseledelse@gmail.com` | `Kriseledelse` | `Dragoncool22!` |
-| `verifisering@gmail.com` | `Verifiseringsansvarlig` | `Dragoncool22!` |
+| E-post | Rolle |
+| --- | --- |
+| `offentlig@gmail.com` | Offentlig aktør |
+| `ressurs@gmail.com` | Ressursleverandør |
+| `verifisering@gmail.com` | Verifiseringsansvarlig |
+| `dispatch@gmail.com` | Dispatch-team |
+| `kriseledelse@gmail.com` | Kriseledelse |
 
-- `SEED_DEMO_ACCOUNTS` (`true`/`false`, standard `false`) er slått på i `docker-compose.yml` og `appsettings.Development.json`.
-- `DEMO_ACCOUNT_PASSWORD` overstyrer passordet for kontoer som opprettes; uten verdi brukes `Dragoncool22!`. Passordet oppfyller Identity-kravene (minst 12 tegn, store og små bokstaver, tall og spesialtegn).
-- **Render:** sett miljøvariabelen `SEED_DEMO_ACCOUNTS=true` manuelt i tjenesten (valgfritt også `DEMO_ACCOUNT_PASSWORD`) og start tjenesten på nytt. Tjenesten bruker Aiven MySQL 8.4; versjonen oppdages automatisk, eller sett `DATABASE_SERVER_VERSION` (for eksempel `8.4.0-mysql` eller `10.11.19-mariadb`).
-- **Etter demodagen:** sett `SEED_DEMO_ACCOUNTS=false` og slett demokontoene under «Brukere» eller direkte i databasen. Kontoene har kjent passord og skal ikke brukes i drift.
-- `ADMIN_EMAIL`/`ADMIN_PASSWORD` fungerer som før og gir rollen Kriseledelse.
+Kontoene har kjent passord og skal bare brukes til demo. Slå av `SEED_DEMO_ACCOUNTS` og slett kontoene etterpå.
 
-### Manuell testgjennomgang
+### Første kriseledelse-konto uten demodata
 
-1. Logg inn som `ressurs@gmail.com`, registrer en ressurs via «Registrer ressurs». Den får status «Venter på verifisering» og vises ikke for dispatch.
-2. Logg inn som `verifisering@gmail.com`, godkjenn ressursen (prøv først å avvise uten begrunnelse: det avvises).
-3. Logg inn som `dispatch@gmail.com`: ressursen vises nå under «Verifiserte ressurser» på et åpent behov. Send forespørsel.
-4. Som `ressurs@gmail.com`: godta forespørselen. Som `dispatch@gmail.com`: opprett tildeling og sett den til På vei, Fremme og Fullført.
-5. Som `kriseledelse@gmail.com`: se behov etter prioritet og aktive tildelinger, og endre en brukers rolle under «Brukere».
-6. Som `offentlig@gmail.com`: registrer et nytt behov og se det i «Mine behov».
-7. Kartet: panelet «Ressurstyper» flyttes ved å dra i overskriften og kan ikke endre størrelse.
-
-### Første administrator
-
-Valgfritt, utført av operatøren lokalt:
-
-1. Bevar eksisterende `.env` og databasevolum. Sett både `ADMIN_EMAIL` og `ADMIN_PASSWORD` i lokal `.env`. For en ny konto: velg en ny, unik hemmelighet utenfor chat, minst 12 tegn med stor/liten bokstav, tall og spesialtegn. For en eksisterende vanlig konto må passordet samsvare med kontoens nåværende passord. Ikke gjenbruk passord delt i chat.
-2. Kjør `docker compose up --build -d --force-recreate heimevernet`. Konto og roller opprettes i **din lokale MariaDB når appen starter**, ikke av cloud-agenten. Uten begge innstillinger opprettes ingen administrator; én manglende verdi stopper oppstart.
-3. Logg inn (kontoen får rollen Kriseledelse). Fjern deretter begge bootstrap-verdier fra `.env` og gjenskap appcontaineren med samme kommando. Kontoen beholdes i databasen.
-
-En eksisterende vanlig konto oppgraderes bare når det konfigurerte passordet er kontrollert mot Identity-hashen; gamle innlogginger tilbakekalles. Feil passord stopper bootstrap uten rolletildeling. En eksisterende Kriseledelse-konto beholdes uten passordendring. Kriseledelse kan bruke «Administrer brukere». Hvis ingen Kriseledelse-konto er tilgjengelig og passordet ikke er kjent, kan en betrodd operatør med terminal-/databasetilgang eksplisitt oppgradere en **eksisterende** konto med engangskommandoen nedenfor. Ingen passord nullstilles, og registreringsskjemaet kan ikke tildele Kriseledelse. Cloud-agenten har ikke opprettet noen konto i brukerens lokale database eller hatt tilgang til den. Ikke legg ekte verdier i Git, logger eller skjermbilder.
-
-Ved lokal `dotnet run` må `ADMIN_EMAIL`, `ADMIN_PASSWORD` og databaseinnstillingene eksporteres som miljøvariabler (eller settes med .NET user-secrets); `.env` leses av Docker Compose, ikke av `dotnet run`. Oppstart kjører samme migreringer og administratorinitialisering i alle miljøer.
-
-Kriseledelse får fanen **Ressurshistorikk** under Ressurser, også i kartets ressurspanel. Den viser de siste 500 registreringene/slettingene med aktør og UTC-tid fra revisjonsloggen. Tilgangen kontrolleres på serveren. Eldre loggposter kan mangle ressurs-ID eller navn; manglende data fylles ikke ut med oppdiktet historikk.
-
-### Gjenopprett administrator på eksisterende konto
-
-Kontroller riktig database og konto først, og ta vanlig databasebackup. Kommandoen krever ingen `ADMIN_EMAIL`/`ADMIN_PASSWORD`, oppretter ingen konto og kjører verken migreringer, bootstrap eller HTTP-server. Databaseskjemaet må allerede være initialisert av normal oppstart. Erstatt eksempeladressen med kontoen du kontrollerer:
+Sett `ADMIN_EMAIL` og `ADMIN_PASSWORD` i `.env` før oppstart. Da lages en konto med rollen Kriseledelse, som kan gi andre brukere roller under «Brukere». Fjern verdiene fra `.env` etterpå. Har du ikke tilgang til en kriseledelse-konto, kan en eksisterende konto oppgraderes fra terminalen:
 
 ```sh
-# Lokalt fra prosjektmappen, med eksisterende ConnectionStrings__DefaultConnection
-# eller MARIADB_* miljøvariabler satt (dotnet laster ikke .env automatisk):
-dotnet run --project HeimevernetInnlevering1.csproj -- --promote-admin operator@example.test
-
-# I en allerede kjørende appcontainer, etter bygg/utrulling av denne versjonen:
-docker compose exec heimevernet dotnet HeimevernetInnlevering1.dll --promote-admin operator@example.test
+docker compose exec heimevernet dotnet HeimevernetInnlevering1.dll --promote-admin din@epost.no
 ```
 
-Prosessen avsluttes etter operasjonen: kode `0` ved suksess (også dersom kontoen allerede er Kriseledelse), `1` ved manglende/tvetydig konto eller databasefeil, `2` ved ugyldige argumenter. Konto-ID, eksisterende roller, passord og ressurser bevares. Første oppgradering fornyer sikkerhetsstempelet i samme transaksjon som rolletildelingen; eksisterende innlogginger avvises ved neste forespørsel. Logg inn på nytt. Gjentakelse endrer ikke passord eller sikkerhetsstempel. Kommandoen skriver ikke kontoopplysninger, men e-postargumentet kan vises i prosesslisten og shellhistorikk; bruk en betrodd terminal og følg lokale rutiner for historikk. Dette er ikke et offentlig endepunkt eller en automatisk oppgradering via miljøvariabler. Ikke slett database- eller nøkkelvolum.
+### Kjøre appen uten Docker
 
-Passord lagres som Identity-hasher i databasen. Gjentatte mislykkede innlogginger utløser midlertidig låsing. Informasjonskapsler er HttpOnly/SameSite; HTTPS gir Secure-cookie, mens HTTP fungerer i lokal Docker-utvikling. Bruk HTTPS i produksjon.
+Appen trenger en MariaDB og leser tilkoblingen fra `ConnectionStrings__DefaultConnection` eller fra `MARIADB_HOST`, `MARIADB_PORT`, `MARIADB_DATABASE`, `MARIADB_USER` og `MARIADB_APP_PASSWORD`. Sett disse og kjør `dotnet run`.
 
-## Prerequisites
+### Endre databasen (migrasjoner)
 
-- .NET SDK 10 for running the app locally
-- Docker Engine and Docker Compose v2 for the containerized app and database
-
-## Kartikoner og tema
-
-Kartet viser egne, lokalt lagrede, ensfargede SVG-silhuetter uten sirkelmerker for Kjøretøy (bil), Maskin (gravemaskin), Drone, Generator, Personell og Utstyr (verktøykasse), samt ukjent type. Dette er originaltegnede symboler, ikke kopiert referanse-/vannmerkekunst. Symbolene er normalt 32px (zoom 12), begrenset til 28–36px, med sentrert anker og diskret kontrastskygge. Markører, forhåndsvisning, tegnforklaring, kort og Verifiser bruker samme mapping og innholdsversjonerte SVG-adresser, slik at gamle sirkelikoner ikke blir liggende i nettleserens hurtigbuffer etter utrulling. Ingen nye koordinater eller forhåndsvisning velges ved oppstart eller etter innsending. Klikk i kartet eller velg et søkeresultat først. Forhåndsvisningen oppdateres når du velger ressurstype, uten popup eller tekst over markøren; valgt sted vises i eksisterende oppsummering. Typevalg alene lager aldri en markør. Ukjent/ikke valgt type kan vises med spørsmålstegn etter eksplisitt plassering. Lagrede ressurser beholder informative popuper ved klikk.
-
-Ikonfargen bestemmes bare av tilgjengelighet: `Tilgjengelig` (`Available`) gir grønn silhuett, og `Utilgjengelig` (`Unavailable`) gir rød. `Reserved`, `Allocated`, ukjente verdier og manglende lagret status gir også rødt symbol. Verifisering, eier og muligheten til å forespørre ressursen påvirker ikke fargen; separat statustekst forklarer disse vilkårene, og utløp oppdaterer teksten mens siden står åpen. Ulagret plasseringsforhåndsvisning og typeforklaring er nøytrale, ikke et løfte om tilgjengelighet. En ventende forespørsel reserverer ikke ressursen; først eierens aksept setter `Reserved`.
-
-Symbolene skaleres ved zoomendring, med mindre ikoner på oversiktsnivå og begrenset minimum/maksimum. Tegnforklaringen nederst til venstre bruker samme ikoner, med seks avkrysningsbokser som kun skjuler/viser lagrede markører. Alle kan slås av; verken databasen eller valgt forhåndsvisning endres. Valget beholdes ved zoom/fullskjerm. «Vis på kart» gjenaktiverer ressursens type ved behov. Tegnforklaringen er større kun i fullskjerm og kan foldes sammen på mobil. Firehjørnesymbolet nederst til høyre bruker nettleserens Fullscreen API, med CSS-reserve. Trykk knappen igjen eller Esc for å avslutte. Kontrollene følger temaet og støtter tastatur.
-
-«Rediger» åpner samme kart med eksisterende punkt og felt utfylt, uten dobbel markør. Klikk i kartet for å flytte punktet, og lagre. Servervalidering beholder et gyldig valgt punkt ved feil.
-
-Ressursnavn er brukerens tittel. Stedsnavn er en skrivebeskyttet oppsummering av valgt punkt og bestemmes på serveren; innsendt stedsnavn stoles ikke på. Reverse-oppslag bruker nærliggende adresse/tettsted (høyst 1 km fra punktet), ellers ærlige koordinater, også til havs eller ved nettverksfeil. Et flyttet punkt får straks koordinatetikett, og sene svar fra et tidligere punkt ignoreres.
-
-### Stedsoppslag og personvern
-
-Mens du skriver (minst 2, høyst 120 tegn, 250 ms ventetid), vises inntil seks lokale stedsforslag. Nettleseren laster én versjonert fil på ca. 40 KB og søker deretter lokalt, uten å sende tastetrykk til en geokoder. Piltaster velger forslag, Enter velger uten å sende ressursskjemaet, Escape lukker; klikk/berøring fungerer også. Typing/panorering lager ingen forhåndsvisning. Sene svar ignoreres og eksplisitte forespørsler avbrytes ved nytt søk.
-
-**Dekning/lisens:** 624 norske byer/tettsteder fra [GeoNames](https://www.geonames.org/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), bearbeidet norsk utvalg av `cities500` via GeoNamesCache 3.0.2. Dette er et fast øyeblikksbilde (steder over 500 innbyggere og administrative sentre), **ikke adresse-autofullføring eller alle norske steder**. Navn/koordinater kan være unøyaktige. Kilde, sjekksum, bearbeiding og attribusjon står i `wwwroot/data/NOTICE.txt`; ingen Python-pakke installeres. Oppdater ved å hente den dokumenterte distribusjonen, kontrollere SHA-256 og filtrere `cities500.json` på `countrycode == "NO"` som beskrevet i NOTICE; oppdater også dokumentert antall/test ved datasettendring.
-
-Fullt steds-/adressesøk hos Nominatim utføres bare ved «Søk» eller Enter uten åpne forslag. [Offentlig Nominatim forbyr autofullføring](https://operations.osmfoundation.org/policies/nominatim/), også bak proxy/ventetid; derfor brukes aldri denne tjenesten mens du skriver. Reverse-oppslag skjer kun etter punktvalg/lagring, aldri ved panorering/zoom. Den autentiserte serveren beholder identifiserende User-Agent, maksimalt én ekstern forespørsel per sekund for hele appinstansen, ingen arbeidskø, tids-/svarstørrelsesgrenser og begrenset hurtigbuffer (512 oppføringer, treff i 24 timer, manglende treff i 30 sekunder). Ingen nye API-nøkler kreves. Overbelastning/feil gir koordinatfallback og blokkerer ikke lagring.
-
-Vurdert alternativ: [Photon støtter søk mens du skriver og dokumentert egen drift](https://github.com/komoot/photon#setting-photon-up-with-the-release-binaries-and-extracts), men krever Java 21+/OpenSearch og separat søkedatabase/import. Offisiell planetdatabase er ca. 95 GB og anbefaler 64 GB RAM; landsuttrekk er mindre, men må fortsatt hentes, lagres og oppdateres. Derfor legges ingen tung tjeneste, offentlig demoserver eller betalt nøkkelkrav til Docker. Lokale forslag virker direkte i eksisterende Docker/publish; full adresse-autofullføring er ikke implementert.
-
-**Personvern:** Eksplisitt søketekst og valgte koordinater sendes til OpenStreetMaps Nominatim via serveren, ikke kontoopplysninger eller ressursnavn. Lokale forslag sender ingen søketekst ut av nettleseren. Kartfliser lastes fortsatt direkte fra OpenStreetMap. Ikke søk etter konfidensielle/personlige opplysninger. For sensitive plasseringer kan eksterne stedsoppslag deaktiveres med `Geocoding__Enabled=false`; lokale forslag, koordinatetiketter og manuell kartplassering fungerer fortsatt. `Geocoding__BaseUrl` (HTTPS) og `Geocoding__UserAgent` kan overstyres av operatøren uten kodeendring. Offentlig Nominatim skal kun brukes fra én appinstans; bruk egen/annen egnet tjeneste eller felles global begrensning før skalering til flere instanser. Dette er ikke en generell URL-proxy.
-
-Nettstedet starter med lyst tema, uavhengig av operativsystemets innstilling. Knappen ved menyen viser **gjeldende** modus: «Mørk modus» med måne på mørk side, «Lys modus» med sol på lys side. Tilgjengelig navn og verktøytips beskriver byttehandlingen, mens `aria-pressed` følger mørkt tema. Valget lagres i nettleseren på tvers av sider og omlasting. Hvis nettleserlagring er blokkert, virker byttet på den åpne siden; uten JavaScript brukes lyst tema. «Søk» har blå bakgrunn, hvit tekst og minst 44px høyde i begge temaer.
-
-Focused frontend checks use Node.js's built-in test runner (no npm packages):
-
-```sh
-node --test tests/Frontend/*.test.cjs
-dotnet build
-dotnet test tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj --filter 'FullyQualifiedName!~MariaDbPersistenceTests&FullyQualifiedName!~WorkflowTests&FullyQualifiedName!~AdminPromotionTests'
-```
-
-Fokuserte tester dekker tema/ARIA, zoom/felles ikonmapping, logoens proporsjoner, popupfri forhåndsvisning, samt lokal debounce/minimumslengde, hurtigbuffer, utdaterte svar, tastaturvalg, tekstescaping og nettverksfeil. Eksisterende tester beholdes; faktiske resultater og nettleser-/Docker-begrensninger oppgis i PR-en.
-
-Headeren bruker versjonerte `wwwroot/images/forsvaret-logo.png`, avledet fra prosjektets eksisterende JPG med transparent bakgrunn og bevart hvit øksedetalj. Det flate originalrasteret er proporsjonskorrigert til 588×721 etter [emblemets dokumenterte 406:498-forhold](https://commons.wikimedia.org/wiki/File:Coat_of_arms_of_the_Norwegian_Armed_Forces.svg), uten å hente eller erstatte selve kunstverket. Hele emblemet vises med automatisk bredde og `object-fit: contain`, 48px høyt på desktop / 40px på mobil, sammen med tydelig prototypebetegnelse. Bildet ligger ubetinget i delt layout og leveres som offentlig statisk fil: også anonyme besøkende på Hjem, Logg inn og Registrer ser det, uten at kart/data gjøres offentlige. En ren Docker-build inkluderer filen; ingen lokal stash eller usporet bildefil kreves. Dette publiserer ikke localhost på internett.
-
-### Oppdater lokalt etter gjennomgått og fullført PR
-
-PR-en skal ha `oliver-branch` som base og skal ikke flettes automatisk. En åpen PR betyr **ikke** at implementering og testing er ferdig; les sjekklisten og begrensningene først.
-
-```sh
-git status
-git stash list
-# Bare hvis du har nye, ulagrede CSS-endringer:
-git stash push -m "Lokal CSS før kartoppdatering" -- wwwroot/css/site.css
-git switch oliver-branch
-git pull --ff-only origin oliver-branch
-docker compose up --build -d --force-recreate heimevernet
-docker compose ps
-docker compose logs --tail=100 heimevernet
-```
-
-Bevar eksisterende CSS-stash og eventuelle lokale bilder; ikke bruk reset/clean eller overskriv dem. Ikke kjør `git stash pop` blindt: inspiser riktig stash og kombiner ønskede endringer manuelt ved konflikter. Arbeidsflaten bruker egne stiloverstyringer etter `site.css`; gamle lokale stiler må gjennomgås før de kombineres. Etter rebuild: Ctrl+F5, test kart og tema. Bevar både database- og nøkkelvolum; **aldri `docker compose down -v`**.
-
-## Run with Docker Compose
-
-**Før oppgradering med migreringer:** Appen kjører `Database.MigrateAsync()` ved oppstart. Stopp appens skriving og ta en separat, operatørstyrt databasebackup **før** du starter den nye appversjonen. Kodegrenen nedenfor er ikke en databasebackup. Ingen backup av din lokale database er opprettet av cloud-agenten.
-
-Fra lokal prosjektmappe, med eksisterende `.env` og databasecontainer:
-
-```sh
-docker compose stop heimevernet
-umask 077
-docker compose exec -T mariadb sh -c 'exec mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --single-transaction --routines --events "$MARIADB_DATABASE"' > mariadb-before-workspace.sql
-test -s mariadb-before-workspace.sql
-```
-
-Backupen inneholder konto-/Identity-data og må lagres privat utenfor Git og kontrolleres med en **prøverestaurering til en separat MariaDB-instans**. Kopier også Identity-nøkkelvolumet sikkert ved behov for full gjenoppretting. Ikke ta med databasedump i PR. Den nye migreringen er additiv: eksisterende rader og eierskap bevares, og gamle ressurser blir uverifiserte. Den tilskriver ikke eldre registreringer en historisk godkjenning.
-
-### Kode- og databaserollback
-
-Den urørte grenen `backup/oliver-before-workspace-redesign-2026-10-25` peker på `915a8cb843d51756251d58c8afc138ebad028d78` og er **bare et kodesnapshot**. Inspiser den uten å endre arbeidsgrenen:
-
-```sh
-git fetch origin backup/oliver-before-workspace-redesign-2026-10-25
-git worktree add --detach ../workspace-before-redesign origin/backup/oliver-before-workspace-redesign-2026-10-25
-```
-
-Vanlig koderollback er en gjennomgått revert-PR til `oliver-branch`, ikke reset/force-push og aldri endring av backupgrenen. Revert av kode endrer ikke databasen. Eldre kode kjenner ikke nye statuser og kan omgå nye arbeidsflytregler; ikke bruk den som skrivende app mot operativt oppgradert datasett uten vurdering.
-
-Ved nødvendig databaserestore: stopp alle skrivende apper, bevar også en kopi av tilstanden etter oppgraderingen, og prøverestaurer før bytte. På en **separat, tom kompatibel MariaDB-instans**, med riktig database/bruker konfigurert, kan dumpen leses inn med:
-
-```sh
-docker compose exec -T mariadb sh -c 'exec mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < mariadb-before-workspace.sql
-```
-
-Dette er en operatørhandling for den valgte restore-instansen, ikke en kommando som skal kjøres blindt mot eksisterende data. En pre-migreringsbackup mister senere forespørsler/beslutninger ved gjenoppretting; avklar disse før tilbakeføring. Automatisk nedmigrering eller sletting av Docker-volumer er ikke normal rollback. Bevar migreringshistorikk og database/kode som et kompatibelt par.
-
-Create a local environment file and replace both placeholder values with different, strong random passwords. Hexadecimal values avoid connection-string delimiter issues:
-
-```sh
-cp .env.example .env
-openssl rand -hex 32
-openssl rand -hex 32
-```
-
-Put the generated values in `MARIADB_ROOT_PASSWORD` and `MARIADB_APP_PASSWORD` in `.env`. `.env` is ignored by Git; do not commit it or put real passwords in tracked files.
-
-Validate the Compose configuration and start the app and database:
-
-```sh
-docker compose config --quiet
-docker compose up --build -d
-docker compose ps
-```
-
-Open <http://localhost:8080>. The app waits for the MariaDB health check and applies EF Core migrations at startup. MariaDB is not published on a host port; only the app is available on port 8080. The app connects to the `mariadb` Compose service on port 3306 using the non-root `heimevernet_app` database account.
-
-Useful operations:
-
-```sh
-docker compose logs -f heimevernet mariadb
-docker compose stop
-docker compose down
-```
-
-The named `mariadb-data` volume persists database files across container restarts and ordinary `docker compose down` / `up` cycles. Do not remove volumes as part of normal startup or shutdown. To verify persistence manually, submit a form and a map resource, run `docker compose restart mariadb`, wait for the database to become healthy, then check the application's data and map pages.
-
-Etter oppdatering må appen bygges på nytt: `docker compose up --build -d`. Identity-tabeller og nullable eierkoblinger legges til med en ny migrering; eksisterende tabeller/data slettes ikke. Ikke bruk `docker compose down -v`, volumfjerning eller databaseresett.
-
-Volumet `identity-keys` lagrer ASP.NET Core Data Protection-nøkler i appcontainerens `/app/keys`, slik at innloggings- og antiforgery-cookies tåler gjenoppretting av containeren. Bevar og beskytt både dette volumet og `mariadb-data` ved sikkerhetskopiering. Nøkkelfilene er ikke kryptert i hvile; begrens tilgang til Docker-verten/volumet. Eksisterende cookies fra før denne endringen kan kreve én ny innlogging. Lokal kjøring bruker en vedvarende nøkkelmappe utenfor kildekoden; `DataProtection__KeyPath` kan overstyre plasseringen.
-
-## Local app with MariaDB
-
-The app requires an explicit connection configuration. It accepts either the standard `ConnectionStrings__DefaultConnection` environment variable or these component variables: `MARIADB_HOST`, `MARIADB_PORT`, `MARIADB_DATABASE`, `MARIADB_USER`, and `MARIADB_APP_PASSWORD`. There is no SQLite or local-file fallback.
-
-To run the app on the host while using the Compose database, create an untracked `docker-compose.local.yml` containing:
-
-```yaml
-services:
-  mariadb:
-    ports:
-      - "127.0.0.1:3307:3306"
-```
-
-Start only the database with that local-only port binding and run the web app:
-
-```sh
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d mariadb
-set -a
-. ./.env
-set +a
-unset MARIADB_ROOT_PASSWORD
-export MARIADB_HOST=127.0.0.1
-export MARIADB_PORT=3307
-export MARIADB_DATABASE=heimevernet
-export MARIADB_USER=heimevernet_app
-dotnet restore
-dotnet run
-```
-
-The database port is bound only to loopback in this optional local setup. For a separately installed MariaDB, create the database and application user yourself, then provide a connection string or the component variables above. The server should be MariaDB 10.11.19 for the same tested configuration as Compose.
-
-## Troubleshooting
-
-- If Compose reports a missing password variable, check that `.env` exists and both values have been replaced.
-- If the app cannot connect, inspect `docker compose ps` and `docker compose logs heimevernet mariadb`; confirm the database is healthy and that the app password matches the account initialized in the existing database volume.
-- Changing a password in `.env` does not change credentials already stored in a MariaDB data volume. Update the database account deliberately rather than deleting the volume.
-- If migration application fails, inspect the app logs and preserve a database backup before attempting any schema repair.
-
-## Database provider and schema
-
-The project targets `net10.0`. Pomelo's published `9.0.0` compatibility documentation specifies EF Core 9.x and .NET 8.0 or later, and lists MariaDB 10.11 among its tested servers. The published provider line does not support EF Core 10, so this project aligns its EF Core design dependency to 9.0.22 and uses Pomelo 9.0.0 while retaining the .NET 10 target. Do not mix the EF Core 10 packages with this provider.
-
-- [Pomelo 9.0.0 compatibility and setup](https://github.com/PomeloFoundation/Pomelo.EntityFrameworkCore.MySql/tree/9.0.0#compatibility)
-- [Pomelo 9.0.0 NuGet package](https://www.nuget.org/packages/Pomelo.EntityFrameworkCore.MySql/9.0.0)
-- [MariaDB 10.11 Docker image tags](https://hub.docker.com/_/mariadb)
-
-Compose pins `mariadb:10.11.19`; the EF provider detects the server version at startup (`ServerVersion.AutoDetect`), so MariaDB and MySQL 8 both work. Set `DATABASE_SERVER_VERSION` (for example `8.4.0-mysql`) to skip detection. If the database cannot be reached after ten attempts, startup fails with the underlying connection error. The initial migration creates the two existing submission tables with integer identity keys, existing string bounds and nullability, `double` coordinates, `datetime(6)` timestamps, and `utf8mb4` text storage.
-
-Create future schema changes as EF migrations rather than using `EnsureCreated` or hand-written startup DDL. Install the EF tool matching the EF design package, set `ConnectionStrings__DefaultConnection` to a valid MariaDB connection string, then run:
+Endrer dere en entitetsklasse i `Models/Entities` eller oppsettet i `Data/AppDbContext.cs`, lag en ny migrasjon og commit den:
 
 ```sh
 dotnet tool install --global dotnet-ef --version 9.0.22
-dotnet ef migrations add DescribeYourChange
+dotnet ef migrations add BeskrivendeNavn
 ```
 
-Review and commit the generated migration and model snapshot. The app applies committed migrations at startup; invalid configuration or an unavailable database produces a clear startup failure after a bounded readiness check.
+Migrasjonen kjøres automatisk når appen starter. EF Core 9.0.22 og Pomelo 9.0.0 brukes fordi Pomelo ikke støtter EF Core 10 ennå.
 
-## Integration smoke tests
+## Arkitektur
 
-The opt-in test project exercises migrations and real MariaDB persistence, including Identity users/roles, resource ownership, Norwegian characters, nullable form locations, map coordinates and timestamps, and map-resource create/read/update/delete. Workflow tests additionally exercise decisions, expiry, owner access, allocation conflicts and return/reverification. Kriseledelse recovery tests cover explicit opt-in versus bootstrap/public signup, missing accounts, repeat invocation, password/resource preservation, transactional security-stamp failure and CLI exit without HTTP hosting. Its source is excluded from the web project's compile glob. Tests without MariaDB can run using the filtered command above; run the complete suite only against an isolated test database with the documented MariaDB environment variables.
+```text
+Nettleser ──► Controllers ──► WorkflowService / DashboardService ──► AppDbContext (EF Core) ──► MariaDB
+                 │                         (forretningsregler)            (ER-modellen)
+                 └──► Views (Razor) + wwwroot (CSS, JS, Leaflet-kart, ikoner)
+```
 
-Run against a new, isolated Compose project name to exercise an empty database and fresh schema without touching the normal application volume. If `heimevernet-smoke` was used before, choose a different project name; Compose keeps named volumes after `down`.
+| Mappe | Innhold |
+| --- | --- |
+| `Models/Entities` | De 12 tabellene fra ER-diagrammet som C#-klasser, og `Statuser.cs` med gyldige statusverdier |
+| `Data/AppDbContext.cs` | Oversetter klassene til tabeller: navn, kolonner, lengder, nøkler, fremmednøkler og kardinaliteter |
+| `Data/SeedData.cs` | Behovstyper, ressurstyper og koblingen mellom dem (legges inn av migrasjonen) |
+| `Migrations` | EF Core-migrasjonen `ErModell` som lager databasen |
+| `Services/WorkflowService.cs` | All forretningslogikk: registrering, verifisering, forespørsel, tildeling og fremdrift. Sjekker rolle og eierskap og logger hver handling. |
+| `Services/DashboardService.cs` | Henter det hver rolle skal se på «Oversikt» |
+| `Controllers` | `Home` (forside, kart, ressurser), `Behov` (meld behov), `Hendelse`, `Operations` (forespørsler/tildelinger), `Account`, `Admin` |
+| `Views` | Razor-sider. Kart med Leaflet ligger i `Views/Home/Map.cshtml` og `Views/Behov/Registrer.cshtml`. |
+| `wwwroot/lib/leaflet` | Kartbiblioteket Leaflet 1.9.4, lagret lokalt (ingen ekstern CDN) |
+| `tests` | Integrasjonstester mot MariaDB (`MariaDbIntegrationTests`) og frontend-tester (`Frontend`) |
+
+**Kart:** Kartflisene hentes fra OpenStreetMap. Stedsnavn for et punkt hentes av serveren fra OpenStreetMap Nominatim, med koordinater som reserve. Stedsforslag mens man skriver søkes lokalt i `wwwroot/data/norway-localities.json` (GeoNames, CC BY 4.0), så tastetrykk sendes ikke ut.
+
+## Databasen (ER-modellen)
+
+Tabellene lages fra ER-diagrammet i rapporten (mappeinnlevering 1):
+
+| Tabell | Primærnøkkel | Fremmednøkler |
+| --- | --- | --- |
+| Bruker | BrukerID | – |
+| Rolle | RolleID | – |
+| BrukerRolle | (BrukerID, RolleID) | Bruker, Rolle |
+| Hendelse | HendelseID | OpprettetAv → Bruker |
+| Behovstype | BehovstypeID | – |
+| Ressurstype | RessurstypeID | – |
+| BehovstypeRessurstype | (BehovstypeID, RessurstypeID) | Behovstype, Ressurstype |
+| Behov | BehovID | BehovstypeID, RegistrertAv → Bruker, HendelseID (kan være tom) |
+| Ressurs | RessursID | RessurstypeID, EierID → Bruker |
+| Verifisering | VerifiseringID | RessursID, VerifisertAv → Bruker |
+| Forespørsel | ForespørselID | BehovID, RessursID, SendtAv → Bruker |
+| Tildeling | TildelingID | ForespørselID (unik: én tildeling per forespørsel) |
+
+Kardinalitetene fra rapporten håndheves av fremmednøklene, for eksempel Forespørsel 1 – 0..1 Tildeling med en unik indeks. Brukere med data kan ikke slettes ved et uhell (`ON DELETE RESTRICT`).
+
+Statusfeltene er `VARCHAR` med verdiene fra rapporten, og koden sjekker at bare disse brukes (`Models/Entities/Statuser.cs`):
+
+| Felt | Verdier |
+| --- | --- |
+| Ressurs.Status | venter på verifisering, tilgjengelig, forespurt, tildelt, i bruk, returnert, utilgjengelig, avvist |
+| Behov.Status / Prioritet | ny, vurderes, tildelt, løst / akutt, planlagt |
+| Forespørsel.Svar | venter, godtatt, avslått (+ avbrutt) |
+| Tildeling.Fremdrift | bekreftet, på vei, fremme, fullført |
+| Verifisering.Resultat | godkjent, avvist |
+| Hendelse.Status | aktiv, avsluttet |
+
+**Avvik fra ER-diagrammet, og hvorfor:**
+
+- **ASP.NET Core Identity** bruker Bruker, Rolle og BrukerRolle til innlogging og legger til noen tekniske kolonner (`UserName`, `SecurityStamp`, `LockoutEnd` osv.) som trengs for sikker innlogging og utestenging. TofaktorNøkkel lagres av Identity i hjelpetabellen `BrukerToken`. Identity har også hjelpetabellene `BrukerClaim`, `BrukerInnlogging` og `RolleClaim`.
+- **Stedsnavn** på Ressurs og Behov er lagt til, slik at sider og kart kan vise «Hamar» i stedet for bare koordinater.
+- **Hendelseslogg** er en ekstra tabell som logger hvem som gjorde hva, når og hvorfor. Den brukes til historikken på hver ressurs og forespørsel.
+- **Forespørsel.Svar = «avbrutt»** brukes når dispatch trekker en forespørsel tilbake før tildeling.
+- **Samtidighetskontroll:** Ressurs.Status, Behov.Status, Forespørsel.Svar og Tildeling.Fremdrift brukes som samtidighetsfelt i EF Core. Prøver to dispatchere å forespørre eller tildele samme ressurs samtidig, lykkes bare den ene, uten ekstra kolonner.
+- **Ressurs.Status lagres** (bevisst unntak fra 3NF, som beskrevet i rapporten), slik at kart og lister kan filtrere raskt.
+
+## Roller og arbeidsflyt
+
+| Rolle | Kan |
+| --- | --- |
+| Offentlig aktør | Melde behov med type, antall, frist, kontaktperson og punkt i kartet, og knytte behovet til en hendelse. Se egne behov. |
+| Ressursleverandør | Registrere, redigere og slette egne ressurser med punkt i kartet, sette tilgjengelig/utilgjengelig og svare på forespørsler |
+| Verifiseringsansvarlig | Godkjenne eller avvise ressurser (avvisning krever begrunnelse, ikke egne ressurser) |
+| Dispatch-team | Se åpne behov med passende verifiserte ressurser (filtrert via BehovstypeRessurstype), sende forespørsler, tildele og oppdatere fremdrift |
+| Kriseledelse | Opprette og avslutte hendelser, prioritere og lukke behov, følge tildelinger og hendelsesloggen, og gi brukere roller |
+
+Flyten fra rapporten:
+
+1. En ressurs registreres og får status **venter på verifisering**.
+2. Verifiseringsansvarlig godkjenner den, og ressursen blir **tilgjengelig**. Godkjenningen gjelder i 30 dager.
+3. En offentlig aktør melder et behov (**ny**).
+4. Dispatch sender en forespørsel. Ressursen blir **forespurt** og behovet **vurderes**.
+5. Eieren **godtar** eller **avslår**. Ved avslag blir ressursen tilgjengelig igjen.
+6. Dispatch tildeler (bare etter at eieren har godtatt). Ressursen og behovet blir **tildelt**.
+7. Fremdrift: **bekreftet → på vei → fremme** (ressursen er **i bruk**) **→ fullført** (ressursen er **returnert**).
+8. En returnert ressurs må verifiseres på nytt før den kan brukes igjen. Kriseledelsen setter behovet til **løst**.
+
+## Sikkerhet
+
+- **Passord** lagres bare som hash av ASP.NET Core Identity. De må ha minst 12 tegn med store og små bokstaver og minst ett tall. Spesialtegn kreves ikke, fordi lengde gir mer sikkerhet enn rare tegn og gjør passordet lettere å huske.
+- **Utestenging:** Kontoen låses i 15 minutter etter 5 feil passord.
+- **Rollebasert tilgang:** Alle kontrollere har `[Authorize]`, og hver handling sjekker rolle og eierskap en gang til i `WorkflowService`. Det holder altså ikke å skjule knapper.
+- **Registrering:** Man kan bare velge Ressursleverandør eller Offentlig aktør selv. Dispatch, Kriseledelse og Verifiseringsansvarlig tildeles av kriseledelsen. En verifiseringsansvarlig kan ikke godkjenne sin egen ressurs.
+- **Rolleendring:** Brukeren logges ut ved neste forespørsel (security stamp sjekkes ved hver forespørsel).
+- **CSRF-beskyttelse:** Alle POST-skjemaer har antiforgery-token.
+- **SQL-injeksjon:** EF Core bruker parametriserte spørringer.
+- **Informasjonskapsler** er `HttpOnly` og `SameSite=Lax`. Data Protection-nøklene lagres i volumet `identity-keys`.
+- **Hemmeligheter:** Passord ligger i `.env`, som ikke er i Git. Databasen er ikke tilgjengelig utenfor Docker-nettverket, og appen bruker en egen databasebruker, ikke root.
+- **Stedsnavn** settes av serveren, slik at det nettleseren sender ikke stoles på. Stedsnavn og tekst HTML-escapes i visning.
+- **Kjent svakhet:** NuGet varsler om en moderat sårbarhet i `MySqlConnector 2.4.0` (GHSA-473q-m89c-ghf8), som følger med Pomelo 9.0.0. Den bør oppdateres når Pomelo gir ut en ny versjon.
+
+## Testing – scenarier og resultater
+
+### Automatiske tester
 
 ```sh
-docker compose -p heimevernet-smoke --profile integration run --build --rm mariadb-integration-tests
-docker compose -p heimevernet-smoke down
+# Frontend-tester (Node.js, ingen pakker kreves)
+node --test tests/Frontend/*.test.cjs
+
+# Integrasjonstester mot ekte MariaDB: sett MARIADB_HOST/PORT/DATABASE/USER/APP_PASSWORD først.
+# Hver test lager og sletter sin egen database, så brukeren må ha rett til CREATE/DROP DATABASE.
+dotnet test tests/MariaDbIntegrationTests/MariaDbIntegrationTests.csproj
+
+# Eller i Docker, mot en isolert database:
+docker compose -p heimevernet-test --profile integration run --build --rm mariadb-integration-tests
+docker compose -p heimevernet-test down -v
 ```
 
-The test container connects to MariaDB over the internal Compose network; the database port is not exposed. The test removes the rows it creates. Restart persistence can also be checked manually using the steps above. These persistence and focused authorization checks do not replace browser or full system testing.
+Resultat 3. november 2026: **61 av 61** integrasjonstester og **131 av 131** frontend-tester bestått.
 
-## Existing SQLite data
+| Testfil | Hva testes |
+| --- | --- |
+| `ErModellTests` | Alle 12 tabellene har kolonnene fra ER-diagrammet. Oppslagsdata finnes, og hver behovstype har minst én ressurstype. Unik ForespørselID i Tildeling. Bruker kan ikke slettes når den eier data. Norske tegn og koordinater lagres uendret. |
+| `WorkflowTests` | Hele flyten fra registrering til returnert. En verifiseringsansvarlig kan ikke godkjenne egen ressurs, og avvisning krever begrunnelse. En uverifisert eller allerede forespurt ressurs kan ikke forespørres. Bare eier kan svare. Tildeling krever godtatt forespørsel. Fremdrift går ett steg om gangen. To samtidige forespørsler gir bare én vinner. Endret plassering krever ny verifisering. Ressurser med historikk kan ikke slettes. Feil rolle avvises. Hendelser kobles til behov. |
+| `SeedingOgRegistreringTests` | Demodata gir én konto per rolle og kan kjøres flere ganger. Registrering lagrer navn og telefon. Man kan ikke gi seg selv Kriseledelse, Dispatch eller Verifisering. Bootstrap av admin krever riktig passord. |
+| `ResourceAuthorizationTests` | Bare eieren med rollen Ressursleverandør kan endre en ressurs |
+| `PlaceGeocoderTests`, `DatabaseProviderConfigurationTests` | Stedsoppslag (grenser, hurtigbuffer, feil) og tilkoblingsoppsett |
+| `tests/Frontend` | Kartlogikk, ikoner, tema, tastaturnavigasjon, stedssøk og at sidene har riktige skjemaer og rollestyring |
 
-Starting this Compose setup creates a new MariaDB database. It does **not** import records from a previous `Data/heimevernet.db` file or the old `heimevernet-data` Docker volume. Existing records are not deleted by this migration, and no automatic conversion is performed.
+### Systemtest (gjennomført i nettleser, Playwright mot MariaDB)
 
-Before changing or removing an old SQLite deployment, stop the old app and make a separate backup. For a local database file, SQLite's backup command is:
+| # | Scenario | Forventet | Resultat |
+| --- | --- | --- | --- |
+| 1 | Ny bruker registrerer seg | Kan bare velge Ressursleverandør/Offentlig aktør, og navn og telefon lagres | OK |
+| 2 | Offentlig aktør melder akutt transportbehov, knytter det til «Flom i Glomma» og klikker i kartet | Behovet lagres med koordinater og vises på oversikten | OK |
+| 3 | Ressursleverandør registrerer «Minibuss 9 seter» med kartpunkt | Status «venter på verifisering», ikke synlig for dispatch | OK |
+| 4 | Verifiseringsansvarlig godkjenner minibussen | Status «tilgjengelig», rad i Verifisering | OK |
+| 5 | Dispatch åpner transportbehovet | Minibussen vises som passende ressurs (Transport → Kjøretøy) | OK |
+| 6 | Dispatch sender forespørsel, eieren godtar, dispatch tildeler | Forespørsel «godtatt», tildeling «bekreftet», ressurs «tildelt» | OK |
+| 7 | Dispatch setter på vei → fremme → fullført | Ressurs «i bruk» og deretter «returnert», Tildeling.Fullført satt | OK |
+| 8 | Kriseledelse oppretter hendelsen «Strømbrudd i Hamar» og gir en ny bruker rollen Verifiseringsansvarlig | Hendelse lagret, og rollen endres i BrukerRolle | OK |
 
-```sh
-sqlite3 Data/heimevernet.db ".backup 'heimevernet.sqlite.backup'"
-```
+### Sikkerhetstest
 
-For an existing Docker container, copy its database file after stopping the app:
+| # | Scenario | Forventet | Resultat |
+| --- | --- | --- | --- |
+| 1 | Ikke innlogget åpner `/Home/Dashboard` | Sendes til innlogging (302 → `/Account/Login`) | OK |
+| 2 | Offentlig aktør åpner `/Admin/Index` | Ingen tilgang (302 → `/Account/AccessDenied`) | OK |
+| 3 | Offentlig aktør sender POST til `/Operations/Verify` uten token | Avvist, og ingen endring i databasen | OK |
+| 4 | Registrering med rollen Kriseledelse sendt direkte (forbi nedtrekkslisten) | Avvist på serveren, ingen bruker lagres | OK (automatisk test) |
+| 5 | Ressursleverandør prøver å svare på en forespørsel om en annens ressurs | Avvist | OK (automatisk test) |
 
-```sh
-docker cp <old-app-container>:/app/Data/heimevernet.db ./heimevernet.sqlite.backup
-```
+### Brukervennlighetstest
 
-Confirm the backup exists and can be opened before proceeding. Keep the old named volume until its data has been reviewed and any separately planned transfer has been verified. Moving SQLite records to MariaDB requires an explicit, separately tested transfer; it is not part of normal application startup.
+Planlagt protokoll med medstudenter. Bruk demokontoene og ikke forklar fremgangsmåten på forhånd:
 
-## AI assistance
+1. Som offentlig aktør: meld et behov og plasser det i kartet.
+2. Som ressursleverandør: registrer en ressurs og finn den igjen i listen.
+3. Som dispatch: finn en passende ressurs til et behov og send forespørsel.
+4. Gjør en ugyldig innsending (f.eks. uten kartpunkt) og rett feilen.
+5. Gjenta oppgave 1 på mobil eller smal skjerm.
 
-GitHub Copilot hjalp med arbeidsflateredesign, domenemodell for tilgjengelighet/verifisering/behov/forespørsler, konkurransekontroll, additive migreringer, tester og dokumentasjon i denne endringen. Eksisterende teknologi, lokale originale symboler og stedsoppslag beholdes. Testkommandoer, faktiske resultater, nettleserbilder og begrensninger oppgis i PR-en. Ingen virkelige personlige kontoer/passord fra chat brukes; eventuelle røykprøvekontoer er syntetiske i en isolert testdatabase. Gruppen må gjennomgå AI-generert kode og gjøre egen brukertest før den vurderes for annet enn prototypebruk.
+Noter for hver oppgave om den ble fullført, tidsbruk, hvor deltakeren nølte og hvilke feil som ble gjort. *Resultatene fylles inn av gruppen når testen er gjennomført.*
 
-### Kort brukertest for medstudenter
+## Dokumentasjon i koden
 
-Bruk syntetiske data og en separat testdatabase. Ikke forklar fremgangsmåten på forhånd:
+Klassene og metodene som bærer logikken, har XML-kommentarer (`///`) på norsk som forklarer hva de gjør og hvorfor:
 
-1. Finn en ressurs ved et oppgitt sted; forklar forskjellen mellom registrert, tilgjengelig og disponibel.
-2. Registrer en egen ressurs og velg plassering. Finn tilbake til den.
-3. Endre egen ressurs og tilgjengelighet; forklar eventuell ny verifisering.
-4. Fremprovoser en ugyldig innsending (f.eks. manglende navn) og rett feilen uten å miste valgte data.
-5. Med to autoriserte kontoer: vurder ressurs, send forespørsel, svar som eier, tildel og returner. Forklar hvorfor ny tildeling ikke er mulig før ny godkjenning.
-6. Gjenta kart/liste og søk med tastatur og på smal skjerm.
+- `Data/AppDbContext.cs` forklarer hver tabell og kardinalitet
+- `Services/WorkflowService.cs` forklarer reglene for hver overgang
+- `Models/Entities/*` forklarer hva hver tabell betyr
+- Controllerne forklarer tilgangsstyringen
 
-Registrer per oppgave: fullført/ikke fullført, tidsbruk, hvor deltakeren nølte, feilhandling, behov for hjelp og deltakerens forklaring av status. Ikke samle virkelige kontaktdata. Ingen brukerfunn er påstått; denne protokollen må faktisk gjennomføres før resultater skrives i rapporten.
+## Bruk av KI
 
-GitHub Copilot hjalp med transparent lokal logo, originale enklere ressursikoner, tema-/søkekontrast, popupfri forhåndsvisning, samlet Verifiser-side, tre nye tester og trygg lokal administratorveiledning. Ingen brukerpassord er brukt, og ingen konto er opprettet i brukerens lokale database. Faktisk utførte sjekker og begrensninger rapporteres i PR-en.
+KI ble brukt som støtteverktøy. Gruppen leser, tester og forklarer koden før den committes.
 
-GitHub Copilot hjalp også med denne kart-/navigasjonsoppryddingen: eksplisitt punktvalg, skrivebeskyttet stedsoppslag med koordinatfallback, Nominatim-policy, filter-/fullskjermkontroller, logo-/menyretting og fokuserte tester. Faktisk kjørte tester og nettlesersjekker, inkludert eventuelle nettverksbegrensninger, oppgis i PR-en; dokumentasjonen er ikke en påstand om fullført testing.
+| Verktøy | Brukt til |
+| --- | --- |
+| GitHub Copilot | Første prototype og videreutvikling på `oliver-branch`: kartarbeidsflate, ikoner, tema, stedssøk, Identity og roller, arbeidsflyt, demodata, Docker/MariaDB og tester |
+| Claude (Anthropic) | Ombygging av databasen til ER-diagrammet fra rapporten (12 tabeller, norske navn og statuser), ny migrasjon, tilpasning av tjenester, kontrollere og sider, skjemaet «Meld behov» med kart, hendelser, strammere rolleregistrering, lokal Leaflet, nye integrasjonstester og denne README-en |
 
-GitHub Copilot hjalp med Identity/roller, eierkontroll og CRUD, additive migreringer, kartkontroller, tester og denne dokumentasjonen. Faktisk utførte valideringer og begrensninger rapporteres i PR-en; AI-generert kode må fortsatt gjennomgås av prosjektgruppen.
+Eksempler på prompts:
 
-GitHub Copilot also assisted with the local resource SVGs, allowlisted marker mapping, light/dark theme controls and styling, and focused frontend checks in this update. Validation results and any browser-testing limitations are recorded in the pull request.
+- «Gå gjennom prototypen og sammenlign den med ER-diagrammet og kravene.»
+- «Bygg om databasen slik at UML/ER-diagrammet fungerer som database, men behold designet fra oliver-branch.»
+- «Test hele flyten i nettleseren for hver rolle og ta skjermbilder.»
 
-GitHub Copilot was used for this MariaDB migration to inspect the existing persistence and Docker configuration, check provider compatibility, draft the provider configuration and EF migration, and prepare integration coverage and operations documentation. Prompts in this work asked for the SQLite-to-MariaDB change, EF/provider version verification, Docker readiness and persistence, and focused migration tests. The resulting changes were reviewed and validated with restore/build and MariaDB-backed checks where available. This note describes AI assistance for this migration only; it does not make claims about earlier work by the group.
+Alle endringer er bygget og testet (se tallene over) før de ble gitt til gruppen. KI-generert kode kan inneholde feil, og gruppen må gjennomgå den selv.

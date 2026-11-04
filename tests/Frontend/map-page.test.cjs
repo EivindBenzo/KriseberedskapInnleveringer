@@ -337,13 +337,11 @@ test('saved markers retain operational state through zoom and filters while pend
         }
     }
     const view = read('Views/Home/Map.cshtml');
-    assert.match(view, /status = resourceStatuses\[r.Id\]/);
-    assert.match(view, /ViewBag.ResourceStatuses/);
+    assert.match(view, /status = resourceStatuses\[r.RessursID\]/);
     assert.match(view, /data-resource-status="/);
-    assert.match(view, /<summary>[\s\S]*?<small data-resource-status-text="@r.Id">@status.Availability · Godkjenning: @status.Verification<\/small>[\s\S]*?<\/summary>/);
+    assert.match(view, /<summary>[\s\S]*?<small data-resource-status-text="@r.RessursID">@status.Availability · Godkjenning: @status.Verification<\/small>[\s\S]*?<\/summary>/);
     assert.doesNotMatch(view, /@status.StatusText/);
     assert.doesNotMatch(view, /<dt>(?:Tilgjengelighet|Verifisering)<\/dt>|VerificationLabel/);
-    assert.match(view, /@AvailabilityLabel\(Model.Availability\)/);
     assert.match(view, /watchAvailability/);
 });
 
@@ -683,12 +681,11 @@ test('map-first markup keeps search outside registration and exposes persisted o
     assert.ok(view.indexOf('id="citySearch"') < view.indexOf('<form method="post"'));
     assert.match(view, /Context\.Request\.Query\["register"\] == "true"/);
     assert.match(view, /!ViewData\.ModelState\.IsValid/);
-    assert.match(view, /type="hidden" asp-for="Version"/);
-    for (const field of ['Availability', 'Capability', 'TransportRequirements']) {
-        assert.ok(view.includes(`asp-for="${field}"`));
+    for (const field of ['Navn', 'Ressurstype', 'Beskrivelse', 'TilgjengeligFra', 'TilgjengeligTil', 'Kontaktperson', 'Kontakttelefon', 'Breddegrad', 'Lengdegrad']) {
+        assert.ok(view.includes(`name="${field}"`), field);
     }
     assert.match(view, /ResourceOperationalStatus\.From/);
-    assert.match(view, /r\.UpdatedAtUtc \?\? r\.CreatedAtUtc/);
+    assert.match(view, /r\.Registrert\.ToString/);
     assert.match(view, /"Lagre endringer" : "Registrer ressurs"/);
     const css = read('wwwroot/css/workspace-map.css');
     assert.match(css, /grid-template-columns:/);
@@ -698,11 +695,11 @@ test('map-first markup keeps search outside registration and exposes persisted o
 
 test('map provides owner-gated management links and readonly place summary; primary navigation has no stale tabs', () => {
     const view = read('Views/Home/Map.cshtml');
-    assert.match(view, /ResourcePermissions\.CanManage\(User, r.OwnerId\)/);
+    assert.match(view, /ResourcePermissions\.CanManage\(User, r.EierID\)/);
     assert.match(view, /asp-action="Edit"/);
     assert.match(view, /asp-action="Delete"/);
-    assert.match(view, /asp-action="Delete" asp-route-id="@r\.Id" class="btn-danger"/);
-    assert.doesNotMatch(view, /name="LocationName"/);
+    assert.match(view, /asp-action="Delete" asp-route-id="@r\.RessursID" class="btn-danger"/);
+    assert.doesNotMatch(view, /name="Stedsnavn"/);
     assert.match(view, /selectedPoint \? startLat : ""/);
     for (const path of ['Views/Home/Index.cshtml', 'Views/Shared/_Layout.cshtml']) {
         assert.doesNotMatch(read(path), /asp-action="(?:Form|Data)"/);

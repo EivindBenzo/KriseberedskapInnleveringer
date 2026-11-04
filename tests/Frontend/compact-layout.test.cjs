@@ -28,5 +28,5 @@ test('compact pages retain readable controls and hide only empty feedback', () =
         assert.doesNotMatch(styles, /(?:^|[;{\s])zoom\s*:|transform:\s*scale\(/);
     }
     assert.match(css, /\.main-content \{[^}]*min-height: 0/);
-    assert.match(read('Views/Home/Form.cshtml'), />Meld behov<\/button>/);
+    assert.match(read('Views/Behov/Registrer.cshtml'), />Meld behov<\/button>/);
 });

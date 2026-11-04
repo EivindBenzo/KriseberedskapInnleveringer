@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HeimevernetInnlevering1.Controllers;
 
 [Authorize(Roles = AppRoles.Kriseledelse)]
-public class AdminController(UserManager<IdentityUser> users) : Controller
+public class AdminController(UserManager<Bruker> users) : Controller
 {
     [HttpGet]
     public async Task<IActionResult> Index()
@@ -17,17 +17,17 @@ public class AdminController(UserManager<IdentityUser> users) : Controller
         foreach (var user in accounts)
         {
             var assigned = await users.GetRolesAsync(user);
-            model.Add(new AdminUserViewModel(user.Id, user.Email ?? user.UserName ?? "Ukjent bruker",
-                AppRoles.All.FirstOrDefault(assigned.Contains)));
+            model.Add(new AdminUserViewModel(user.Id, user.FulltNavn, user.Email ?? user.UserName ?? "Ukjent bruker",
+                user.Organisasjon, AppRoles.All.FirstOrDefault(assigned.Contains)));
         }
         return View(model);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetRole(string id, string role)
+    public async Task<IActionResult> SetRole(int id, string role)
     {
-        var user = await users.FindByIdAsync(id ?? string.Empty);
-        if (user == null || !AppRoles.All.Contains(role) || users.GetUserId(User) == user.Id)
+        var user = await users.FindByIdAsync(id.ToString());
+        if (user == null || !AppRoles.All.Contains(role) || users.GetUserId(User) == user.Id.ToString())
         {
             TempData["AdminError"] = "Kunne ikke endre rollen. Du kan ikke endre din egen rolle.";
             return RedirectToAction(nameof(Index));

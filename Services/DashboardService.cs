@@ -6,77 +6,91 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HeimevernetInnlevering1.Services;
 
-/// <summary>Loads what each role should act on next. Every query is scoped by the caller's roles.</summary>
+/// <summary>Henter det hver rolle skal jobbe med på «Oversikt». Alle spørringer er avgrenset etter rollen.</summary>
 public class DashboardService(AppDbContext db)
 {
     public async Task<DashboardViewModel> BuildAsync(ClaimsPrincipal user, DateTime nowUtc)
     {
-        var actorId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException();
+        var actorId = ResourcePermissions.BrukerId(user) ?? throw new InvalidOperationException();
         var provider = user.IsInRole(AppRoles.Ressursleverandor);
         var verifier = user.IsInRole(AppRoles.Verifiseringsansvarlig);
         var dispatch = user.IsInRole(AppRoles.DispatchTeam);
         var leader = user.IsInRole(AppRoles.Kriseledelse);
         var publicActor = user.IsInRole(AppRoles.OffentligAktor);
 
-        List<MapSubmission> own = [], queue = [], matching = [];
-        List<ResourceRequest> incoming = [], requests = [];
-        List<ResourceAssignment> assignments = [];
-        var needs = new Dictionary<int, OperationalNeed>();
+        List<Ressurs> own = [], queue = [], matching = [];
+        List<Forespørsel> incoming = [], requests = [];
+        List<Tildeling> assignments = [];
+        List<Hendelse> incidents = [];
+        var needs = new Dictionary<int, Behov>();
         IReadOnlyList<(string, int)> roleCounts = [];
+
+        IQueryable<Ressurs> Ressurser() => ResourceQueries.WithDetails(db.Ressurser.AsNoTracking());
+        IQueryable<Forespørsel> Forespørsler() => db.Forespørsler.AsNoTracking()
+            .Include(f => f.Ressurs!).ThenInclude(r => r.Ressurstype)
+            .Include(f => f.Behov!).ThenInclude(b => b.Behovstype)
+            .Include(f => f.Tildeling);
+        IQueryable<Behov> BehovMedDetaljer() => db.Behov.AsNoTracking()
+            .Include(b => b.Behovstype!).ThenInclude(t => t.PassendeRessurstyper)
+            .Include(b => b.Hendelse);
 
         if (provider)
         {
-            own = await db.MapSubmissions.AsNoTracking().Where(r => r.OwnerId == actorId)
-                .OrderByDescending(r => r.CreatedAtUtc).ToListAsync();
-            incoming = await db.ResourceRequests.AsNoTracking().Include(r => r.Resource).Include(r => r.Need)
-                .Where(r => r.Resource.OwnerId == actorId).OrderByDescending(r => r.CreatedAtUtc).Take(20).ToListAsync();
+            own = await Ressurser().Where(r => r.EierID == actorId)
+                .OrderByDescending(r => r.Registrert).AsSplitQuery().ToListAsync();
+            incoming = await Forespørsler().Where(f => f.Ressurs!.EierID == actorId)
+                .OrderByDescending(f => f.Sendt).Take(20).ToListAsync();
         }
         if (verifier)
         {
-            queue = await db.MapSubmissions.AsNoTracking()
-                .Where(r => r.Availability != ResourceAvailability.Reserved &&
-                    r.Availability != ResourceAvailability.Allocated && r.Availability != ResourceAvailability.InUse &&
-                    (r.VerificationStatus == ResourceVerificationStatus.Pending ||
-                     (r.VerificationStatus == ResourceVerificationStatus.Approved && !(r.VerificationExpiresAtUtc > nowUtc))))
-                .OrderBy(r => r.CreatedAtUtc).ToListAsync();
+            queue = await Ressurser().Where(WorkflowEligibility.TrengerVerifisering(nowUtc))
+                .OrderBy(r => r.Registrert).AsSplitQuery().ToListAsync();
         }
         if (dispatch || leader)
         {
-            requests = await db.ResourceRequests.AsNoTracking().Include(r => r.Resource).Include(r => r.Need)
-                .Where(r => r.Status == ResourceRequestStatus.Pending || r.Status == ResourceRequestStatus.Accepted)
-                .OrderByDescending(r => r.CreatedAtUtc).ToListAsync();
-            assignments = await db.ResourceAssignments.AsNoTracking().Include(a => a.Resource).Include(a => a.Need)
-                .Where(a => a.Status != AssignmentStatus.Completed).OrderByDescending(a => a.CreatedAtUtc).ToListAsync();
-            foreach (var need in await db.OperationalNeeds.AsNoTracking()
-                         .Where(n => n.Status != NeedStatus.Completed && n.Status != NeedStatus.Cancelled).ToListAsync())
-                needs[need.Id] = need;
+            requests = await Forespørsler()
+                .Where(f => f.Svar == Statuser.Svar.Venter || (f.Svar == Statuser.Svar.Godtatt && f.Tildeling == null))
+                .OrderByDescending(f => f.Sendt).ToListAsync();
+            assignments = await db.Tildelinger.AsNoTracking()
+                .Include(t => t.Forespørsel!).ThenInclude(f => f.Ressurs!).ThenInclude(r => r.Ressurstype)
+                .Include(t => t.Forespørsel!).ThenInclude(f => f.Behov)
+                .Where(t => t.Fremdrift != Statuser.Fremdrift.Fullført)
+                .OrderByDescending(t => t.Tildelt).ToListAsync();
+            foreach (var behov in await BehovMedDetaljer().Where(b => b.Status != Statuser.Behov.Løst).ToListAsync())
+                needs[behov.BehovID] = behov;
         }
         if (dispatch)
-            matching = await db.MapSubmissions.AsNoTracking().Where(ResourceQueries.EligibleNow(nowUtc))
-                .OrderBy(r => r.ResourceName).ToListAsync();
+            matching = await Ressurser().Where(WorkflowEligibility.EligibleExpression(nowUtc))
+                .OrderBy(r => r.Navn).AsSplitQuery().ToListAsync();
         if (leader)
+        {
+            incidents = await db.Hendelser.AsNoTracking().Where(h => h.Status == Statuser.Hendelse.Aktiv)
+                .OrderByDescending(h => h.Starttidspunkt).ToListAsync();
             roleCounts = (await (from ur in db.UserRoles
                                  join role in db.Roles on ur.RoleId equals role.Id
                                  group ur by role.Name into g
                                  select new { Role = g.Key, Count = g.Count() }).ToListAsync())
                 .Where(x => x.Role != null && AppRoles.All.Contains(x.Role))
                 .OrderBy(x => AppRoles.All.ToList().IndexOf(x.Role!)).Select(x => (x.Role!, x.Count)).ToList();
+        }
         if (publicActor)
-            foreach (var need in await db.OperationalNeeds.AsNoTracking().Where(n => n.CreatedById == actorId).ToListAsync())
-                needs[need.Id] = need;
+            foreach (var behov in await BehovMedDetaljer().Where(b => b.RegistrertAvID == actorId).ToListAsync())
+                needs[behov.BehovID] = behov;
 
-        var resourceIds = own.Concat(queue).Concat(matching).Select(r => r.Id).ToHashSet();
-        var requestIds = incoming.Concat(requests).Select(r => r.Id)
-            .Concat(assignments.Select(a => a.RequestId)).ToHashSet();
-        var audits = await (from audit in db.WorkflowAudits.AsNoTracking()
-                            where (audit.ResourceId != null && resourceIds.Contains(audit.ResourceId.Value)) ||
-                                  (audit.RequestId != null && requestIds.Contains(audit.RequestId.Value))
-                            join actor in db.Users.AsNoTracking() on audit.ActorId equals actor.Id into actors
+        var resourceIds = own.Concat(queue).Concat(matching).Select(r => r.RessursID).ToHashSet();
+        var requestIds = incoming.Concat(requests).Select(f => f.ForespørselID)
+            .Concat(assignments.Select(t => t.ForespørselID)).ToHashSet();
+        var audits = await (from logg in db.Hendelseslogg.AsNoTracking()
+                            where (logg.RessursID != null && resourceIds.Contains(logg.RessursID.Value)) ||
+                                  (logg.ForespørselID != null && requestIds.Contains(logg.ForespørselID.Value))
+                            join actor in db.Users.AsNoTracking() on logg.UtførtAvID equals actor.Id into actors
                             from actor in actors.DefaultIfEmpty()
-                            orderby audit.OccurredAtUtc, audit.Id
-                            select new { audit.ResourceId, audit.RequestId, audit.Action, audit.OccurredAtUtc,
-                                Actor = actor == null ? "Ukjent bruker" : (actor.Email ?? actor.UserName ?? "Ukjent bruker") })
-            .ToListAsync();
+                            orderby logg.Tidspunkt, logg.LoggID
+                            select new
+                            {
+                                logg.RessursID, logg.ForespørselID, logg.Handling, logg.Tidspunkt,
+                                Actor = actor == null ? "Ukjent bruker" : (actor.Email ?? actor.UserName ?? "Ukjent bruker")
+                            }).ToListAsync();
         TimelineEntry Entry(string action, string actor, DateTime at) => new(WorkflowLabels.Action(action), actor, at);
 
         return new DashboardViewModel
@@ -84,18 +98,20 @@ public class DashboardService(AppDbContext db)
             OwnResources = own,
             IncomingRequests = incoming,
             VerificationQueue = queue,
-            Needs = needs.Values.OrderByDescending(n => n.Priority).ThenBy(n => n.CreatedAtUtc).ToList(),
+            Needs = needs.Values.OrderBy(b => WorkflowTransitions.PriorityRank(b.Prioritet))
+                .ThenBy(b => b.Frist ?? DateTime.MaxValue).ThenBy(b => b.Registrert).ToList(),
             MatchingResources = matching,
             Requests = requests,
             Assignments = assignments,
+            ActiveIncidents = incidents,
             RoleCounts = roleCounts,
-            ResourceTimeline = audits.Where(a => a.ResourceId != null)
-                .GroupBy(a => a.ResourceId!.Value).ToDictionary(g => g.Key,
-                    g => (IReadOnlyList<TimelineEntry>)g.Select(a => Entry(a.Action, a.Actor, a.OccurredAtUtc)).ToList()),
-            RequestTimeline = audits.Where(a => a.RequestId != null).GroupBy(a => a.RequestId!.Value).ToDictionary(g => g.Key,
-                g => (IReadOnlyList<TimelineEntry>)g.Select(a => Entry(a.Action, a.Actor, a.OccurredAtUtc)).ToList()),
-            AssignmentTimeline = assignments.ToDictionary(a => a.Id, a => (IReadOnlyList<TimelineEntry>)audits
-                .Where(x => x.RequestId == a.RequestId).Select(x => Entry(x.Action, x.Actor, x.OccurredAtUtc)).ToList())
+            ResourceTimeline = audits.Where(a => a.RessursID != null)
+                .GroupBy(a => a.RessursID!.Value).ToDictionary(g => g.Key,
+                    g => (IReadOnlyList<TimelineEntry>)g.Select(a => Entry(a.Handling, a.Actor, a.Tidspunkt)).ToList()),
+            RequestTimeline = audits.Where(a => a.ForespørselID != null).GroupBy(a => a.ForespørselID!.Value).ToDictionary(g => g.Key,
+                g => (IReadOnlyList<TimelineEntry>)g.Select(a => Entry(a.Handling, a.Actor, a.Tidspunkt)).ToList()),
+            AssignmentTimeline = assignments.ToDictionary(t => t.TildelingID, t => (IReadOnlyList<TimelineEntry>)audits
+                .Where(x => x.ForespørselID == t.ForespørselID).Select(x => Entry(x.Handling, x.Actor, x.Tidspunkt)).ToList())
         };
     }
 }

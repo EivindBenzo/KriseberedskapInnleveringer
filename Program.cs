@@ -4,6 +4,7 @@ using HeimevernetInnlevering1.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using HeimevernetInnlevering1.Models;
 
 if (args.Any(arg => arg.StartsWith("--promote-admin", StringComparison.Ordinal)))
 {
@@ -21,10 +22,12 @@ builder.Services.Configure<GeocodingOptions>(builder.Configuration.GetSection("G
 builder.Services.AddSingleton<IPlaceGeocoder>(services => new PlaceGeocoder(
     new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }),
     services.GetRequiredService<Microsoft.Extensions.Options.IOptions<GeocodingOptions>>()));
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+builder.Services.AddIdentity<Bruker, Rolle>(options =>
 {
     options.User.RequireUniqueEmail = true;
     options.Password.RequiredLength = 12;
+    // Spesialtegn kreves ikke. Et langt passord (minst 12 tegn) med store og små bokstaver og tall er like sikkert og lettere å huske.
+    options.Password.RequireNonAlphanumeric = false;
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     options.Lockout.MaxFailedAccessAttempts = 5;
 }).AddEntityFrameworkStores<AppDbContext>().AddDefaultTokenProviders();

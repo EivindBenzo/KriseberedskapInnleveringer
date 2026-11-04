@@ -303,10 +303,9 @@ test('overlay uses the authorized resource view, existing permission gates and a
     assert.match(controller, /\[Authorize\(Roles = AppRoles.Any\)\]\s*public class HomeController/);
     assert.match(controller, /overlay \|\| fragment \? PartialView\("Verify", model\) : View\("Verify", model\)/);
     const view = read('Views/Home/Verify.cshtml');
-    assert.match(view, /ResourcePermissions.CanManage\(User, r.OwnerId\)/);
+    assert.match(view, /ResourcePermissions.CanManage\(User, r.EierID\)/);
     assert.match(view, /User.IsInRole\(AppRoles.Kriseledelse\)/);
-    assert.match(view, /asp-action="ResetMap" method="post"/);
-    assert.match(controller, /\[HttpPost\]\s*\[Authorize\(Roles = AppRoles.Kriseledelse\)\]\s*\[ValidateAntiForgeryToken\]\s*public async Task<IActionResult> ResetMap/);
+    assert.match(controller, /if \(history && !User.IsInRole\(AppRoles.Kriseledelse\)\) return Forbid\(\);/);
     assert.doesNotMatch(view, /target="_blank"|actionTarget|ny fane|Rediger \//);
     assert.match(view, /@if \(!overlay\)/);
     assert.doesNotMatch(view, /asp-route-overlay=/, 'modified tab clicks must open the standalone view');

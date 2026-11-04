@@ -111,7 +111,6 @@
             opener = link;
             error.textContent = '';
             deleteForm.action = link.href;
-            deleteForm.elements.version.value = link.dataset.version;
             root.querySelector('#resourceDeleteName').textContent = link.dataset.resourceName;
             dialog.showModal();
             cancel.focus();

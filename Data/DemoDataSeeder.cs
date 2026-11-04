@@ -4,18 +4,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HeimevernetInnlevering1.Data;
 
-/// <summary>Small demo data set so every role has something to work with. Runs once; see <see cref="Marker"/>.</summary>
+/// <summary>Et lite sett demodata slik at hver rolle har noe å jobbe med. Kjøres én gang (se <see cref="Marker"/>).</summary>
 public static class DemoDataSeeder
 {
-    public const string Marker = "DemoDataSeeded";
+    public const string Marker = "DemodataOpprettet";
 
     public static async Task SeedAsync(IServiceProvider services)
     {
         var db = services.GetRequiredService<AppDbContext>();
-        if (await db.WorkflowAudits.AnyAsync(a => a.Action == Marker)) return;
+        if (await db.Hendelseslogg.AnyAsync(a => a.Handling == Marker)) return;
 
-        var users = services.GetRequiredService<UserManager<IdentityUser>>();
-        async Task<string> Id(string role) =>
+        var users = services.GetRequiredService<UserManager<Bruker>>();
+        async Task<int> Id(string role) =>
             (await users.FindByEmailAsync(IdentitySeeder.DemoAccounts.First(a => a.Role == role).Email))?.Id
             ?? throw new InvalidOperationException("Demokontoene mangler.");
         var publicActor = await Id(AppRoles.OffentligAktor);
@@ -25,92 +25,105 @@ public static class DemoDataSeeder
         var leader = await Id(AppRoles.Kriseledelse);
 
         var now = DateTime.UtcNow;
-        var validity = TimeSpan.FromDays(30);
-        MapSubmission Resource(string name, string type, string place, double lat, double lng, string capability,
-            bool approved, ResourceAvailability availability, int createdHoursAgo) => new()
+        var today = DateOnly.FromDateTime(now);
+        int Type(string navn) => SeedData.Ressurstyper.Single(t => t.Navn == navn).Id;
+        int Behovstype(string navn) => SeedData.Behovstyper.Single(t => t.Navn == navn).Id;
+
+        Ressurs Resource(string name, string type, string place, decimal lat, decimal lng, string description,
+            string status, int createdHoursAgo) => new()
         {
-            ResourceName = name, ResourceType = type, LocationName = place, Latitude = lat, Longitude = lng,
-            Capability = capability, OwnerId = provider, Availability = availability,
-            CreatedAtUtc = now.AddHours(-createdHoursAgo), UpdatedAtUtc = now.AddHours(-createdHoursAgo),
-            VerificationStatus = approved ? ResourceVerificationStatus.Approved : ResourceVerificationStatus.Pending,
-            VerifiedAtUtc = approved ? now.AddHours(-createdHoursAgo + 1) : null,
-            VerificationExpiresAtUtc = approved ? now.AddHours(-createdHoursAgo + 1).Add(validity) : null
+            Navn = name, RessurstypeID = Type(type), Stedsnavn = place, Breddegrad = lat, Lengdegrad = lng,
+            Beskrivelse = description, EierID = provider, Status = status, TilgjengeligFra = today.AddDays(-2),
+            Kontaktperson = "Rita Ressurs", Kontakttelefon = "40000000", Registrert = now.AddHours(-createdHoursAgo)
         };
 
-        var truck = Resource("Terrengbil 4x4", "Kjøretøy", "Hamar", 60.7945, 11.0680,
-            "Plass til 8 personer, vinterutstyr", true, ResourceAvailability.Available, 30);
-        var drone = Resource("Drone med varmekamera", "Drone", "Lillehammer", 61.1153, 10.4662,
-            "Rekkevidde 6 km, 40 min flytid", true, ResourceAvailability.Available, 28);
-        var generator = Resource("Aggregat 20 kVA", "Generator", "Elverum", 60.8819, 11.5623,
-            "230/400 V, tilhenger", true, ResourceAvailability.Allocated, 26);
-        var excavator = Resource("Beltegraver 14 tonn", "Maskin", "Kongsvinger", 60.1904, 12.0014,
-            "Transport med trailer", false, ResourceAvailability.Available, 2);
-        db.MapSubmissions.AddRange(truck, drone, generator, excavator);
+        var truck = Resource("Terrengbil 4x4", "Kjøretøy", "Hamar", 60.7945m, 11.0680m,
+            "Plass til 8 personer, vinterutstyr", Statuser.Ressurs.Tilgjengelig, 30);
+        var drone = Resource("Drone med varmekamera", "Drone", "Lillehammer", 61.1153m, 10.4662m,
+            "Rekkevidde 6 km, 40 min flytid", Statuser.Ressurs.Forespurt, 28);
+        var generator = Resource("Aggregat 20 kVA", "Generator", "Elverum", 60.8819m, 11.5623m,
+            "230/400 V, på tilhenger", Statuser.Ressurs.Tildelt, 26);
+        var excavator = Resource("Beltegraver 14 tonn", "Maskin", "Kongsvinger", 60.1904m, 12.0014m,
+            "Transport med trailer", Statuser.Ressurs.VenterPåVerifisering, 2);
+        db.Ressurser.AddRange(truck, drone, generator, excavator);
 
-        var flood = new OperationalNeed
+        var flom = new Hendelse
         {
-            Description = "Evakuering av 12 beboere fra flomutsatt område. Trenger kjøretøy med god bakkeklaring.",
-            Place = "Elverum", Priority = NeedPriority.High, Status = NeedStatus.Open,
-            CreatedAtUtc = now.AddHours(-5), CreatedById = publicActor
+            OpprettetAvID = leader, Navn = "Flom i Glomma", Område = "Innlandet",
+            Beskrivelse = "Høy vannstand langs Glomma etter kraftig regn.", Starttidspunkt = now.AddHours(-30),
+            Status = Statuser.Hendelse.Aktiv
         };
-        var power = new OperationalNeed
-        {
-            Description = "Strøm til midlertidig mottak i idrettshallen.",
-            Place = "Hamar", Priority = NeedPriority.Critical, Status = NeedStatus.Assigned,
-            CreatedAtUtc = now.AddHours(-24), CreatedById = publicActor
-        };
-        var search = new OperationalNeed
-        {
-            Description = "Søk etter savnet person i skogsområde nord for tettstedet.",
-            Place = "Kongsvinger", Priority = NeedPriority.Normal, Status = NeedStatus.InProgress,
-            CreatedAtUtc = now.AddHours(-8), CreatedById = publicActor
-        };
-        db.OperationalNeeds.AddRange(flood, power, search);
+        db.Hendelser.Add(flom);
         await db.SaveChangesAsync();
 
-        var allocated = new ResourceRequest
+        foreach (var (ressurs, hoursAgo) in new[] { (truck, 29), (drone, 27), (generator, 25) })
+            db.Verifiseringer.Add(new Verifisering
+            {
+                RessursID = ressurs.RessursID, VerifisertAvID = verifier, Tidspunkt = now.AddHours(-hoursAgo),
+                Resultat = Statuser.Resultat.Godkjent
+            });
+
+        Behov Need(string type, string description, string place, decimal lat, decimal lng, string priority,
+            string status, int antall, int hoursAgo, bool knyttTilFlom) => new()
         {
-            NeedId = power.Id, ResourceId = generator.Id, Status = ResourceRequestStatus.Allocated,
-            CreatedAtUtc = now.AddHours(-22), CreatedById = dispatch, Reason = "Aggregatet dekker behovet i hallen."
+            BehovstypeID = Behovstype(type), RegistrertAvID = publicActor, Beskrivelse = description,
+            Stedsnavn = place, Breddegrad = lat, Lengdegrad = lng, Prioritet = priority, Status = status,
+            Antall = antall, Frist = now.AddHours(24 - hoursAgo), Kontaktperson = "Olav Offentlig",
+            Kontakttelefon = "40000000", Registrert = now.AddHours(-hoursAgo),
+            HendelseID = knyttTilFlom ? flom.HendelseID : null
         };
-        var pending = new ResourceRequest
-        {
-            NeedId = search.Id, ResourceId = drone.Id, Status = ResourceRequestStatus.Pending,
-            CreatedAtUtc = now.AddHours(-1), CreatedById = dispatch, Reason = "Varmekamera trengs til søk i skogen."
-        };
-        db.ResourceRequests.AddRange(allocated, pending);
+        var evakuering = Need("Transport", "Evakuering av 12 beboere fra flomutsatt område. Trenger kjøretøy med god bakkeklaring.",
+            "Elverum", 60.8819m, 11.5623m, Statuser.Prioritet.Akutt, Statuser.Behov.Ny, 2, 5, true);
+        var strøm = Need("Strøm", "Strøm til midlertidig mottak i idrettshallen.",
+            "Hamar", 60.7945m, 11.0680m, Statuser.Prioritet.Akutt, Statuser.Behov.Tildelt, 1, 24, true);
+        var søk = Need("Søk og overvåking", "Søk etter savnet person i skogsområde nord for tettstedet.",
+            "Kongsvinger", 60.1904m, 12.0014m, Statuser.Prioritet.Planlagt, Statuser.Behov.Vurderes, 1, 8, false);
+        db.Behov.AddRange(evakuering, strøm, søk);
         await db.SaveChangesAsync();
 
-        db.ResourceAssignments.Add(new ResourceAssignment
+        var tildelt = new Forespørsel
         {
-            RequestId = allocated.Id, ResourceId = generator.Id, NeedId = power.Id,
-            Status = AssignmentStatus.EnRoute, ActiveResourceId = generator.Id,
-            CreatedAtUtc = now.AddHours(-20), UpdatedAtUtc = now.AddHours(-19), CreatedById = dispatch
+            BehovID = strøm.BehovID, RessursID = generator.RessursID, SendtAvID = dispatch,
+            Sendt = now.AddHours(-22), Svar = Statuser.Svar.Godtatt, Svart = now.AddHours(-21)
+        };
+        var venter = new Forespørsel
+        {
+            BehovID = søk.BehovID, RessursID = drone.RessursID, SendtAvID = dispatch,
+            Sendt = now.AddHours(-1), Svar = Statuser.Svar.Venter
+        };
+        db.Forespørsler.AddRange(tildelt, venter);
+        await db.SaveChangesAsync();
+
+        db.Tildelinger.Add(new Tildeling
+        {
+            ForespørselID = tildelt.ForespørselID, Fremdrift = Statuser.Fremdrift.PåVei,
+            Tildelt = now.AddHours(-20), SistOppdatert = now.AddHours(-19)
         });
 
-        void Audit(string actor, string action, string reason, double hoursAgo, int? resourceId = null,
+        void Logg(int actor, string action, string reason, double hoursAgo, int? resourceId = null,
             int? needId = null, int? requestId = null) =>
-            db.WorkflowAudits.Add(new WorkflowAudit
+            db.Hendelseslogg.Add(new Hendelseslogg
             {
-                ActorId = actor, Action = action, Reason = reason, OccurredAtUtc = now.AddHours(-hoursAgo),
-                ResourceId = resourceId, NeedId = needId, RequestId = requestId
+                UtførtAvID = actor, Handling = action, Begrunnelse = reason, Tidspunkt = now.AddHours(-hoursAgo),
+                RessursID = resourceId, BehovID = needId, ForespørselID = requestId
             });
-        Audit(provider, "ResourceRegistered", "Kjøretøy: Terrengbil 4x4", 30, truck.Id);
-        Audit(verifier, "ResourceApproved", "Godkjent av verifiseringsansvarlig.", 29, truck.Id);
-        Audit(provider, "ResourceRegistered", "Drone: Drone med varmekamera", 28, drone.Id);
-        Audit(verifier, "ResourceApproved", "Godkjent av verifiseringsansvarlig.", 27, drone.Id);
-        Audit(provider, "ResourceRegistered", "Generator: Aggregat 20 kVA", 26, generator.Id);
-        Audit(verifier, "ResourceApproved", "Godkjent av verifiseringsansvarlig.", 25, generator.Id);
-        Audit(provider, "ResourceRegistered", "Maskin: Beltegraver 14 tonn", 2, excavator.Id);
-        Audit(publicActor, "NeedCreated", power.Description, 24, needId: power.Id);
-        Audit(publicActor, "NeedCreated", search.Description, 8, needId: search.Id);
-        Audit(publicActor, "NeedCreated", flood.Description, 5, needId: flood.Id);
-        Audit(dispatch, "RequestCreated", allocated.Reason, 22, generator.Id, power.Id, allocated.Id);
-        Audit(provider, "RequestAccept", "Aggregatet er klart.", 21, generator.Id, power.Id, allocated.Id);
-        Audit(dispatch, "RequestAllocate", "Tildelt til mottaket.", 20, generator.Id, power.Id, allocated.Id);
-        Audit(dispatch, "AssignmentEnRoute", "Aggregatet er på vei.", 19, generator.Id, power.Id, allocated.Id);
-        Audit(dispatch, "RequestCreated", pending.Reason, 1, drone.Id, search.Id, pending.Id);
-        Audit(leader, Marker, "Demodata opprettet.", 0);
+        Logg(leader, "HendelseOpprettet", flom.Navn, 30);
+        Logg(provider, "RessursRegistrert", "Kjøretøy: Terrengbil 4x4", 30, truck.RessursID);
+        Logg(verifier, "RessursGodkjent", "Godkjent av verifiseringsansvarlig.", 29, truck.RessursID);
+        Logg(provider, "RessursRegistrert", "Drone: Drone med varmekamera", 28, drone.RessursID);
+        Logg(verifier, "RessursGodkjent", "Godkjent av verifiseringsansvarlig.", 27, drone.RessursID);
+        Logg(provider, "RessursRegistrert", "Generator: Aggregat 20 kVA", 26, generator.RessursID);
+        Logg(verifier, "RessursGodkjent", "Godkjent av verifiseringsansvarlig.", 25, generator.RessursID);
+        Logg(provider, "RessursRegistrert", "Maskin: Beltegraver 14 tonn", 2, excavator.RessursID);
+        Logg(publicActor, "BehovRegistrert", strøm.Beskrivelse, 24, needId: strøm.BehovID);
+        Logg(publicActor, "BehovRegistrert", søk.Beskrivelse, 8, needId: søk.BehovID);
+        Logg(publicActor, "BehovRegistrert", evakuering.Beskrivelse, 5, needId: evakuering.BehovID);
+        Logg(dispatch, "ForespørselSendt", "Aggregatet dekker behovet i hallen.", 22, generator.RessursID, strøm.BehovID, tildelt.ForespørselID);
+        Logg(provider, "ForespørselGodtatt", "Aggregatet er klart.", 21, generator.RessursID, strøm.BehovID, tildelt.ForespørselID);
+        Logg(dispatch, "Tildelt", "Tildelt til mottaket.", 20, generator.RessursID, strøm.BehovID, tildelt.ForespørselID);
+        Logg(dispatch, "FremdriftPåVei", "Aggregatet er på vei.", 19, generator.RessursID, strøm.BehovID, tildelt.ForespørselID);
+        Logg(dispatch, "ForespørselSendt", "Varmekamera trengs til søk i skogen.", 1, drone.RessursID, søk.BehovID, venter.ForespørselID);
+        Logg(leader, Marker, "Demodata opprettet.", 0);
         await db.SaveChangesAsync();
     }
 }

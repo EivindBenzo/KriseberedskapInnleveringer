@@ -21,8 +21,8 @@ public sealed record ResourceCity(string Name, int Count)
         return city.Length is > 0 and <= 120 && city.Any(char.IsLetter) ? city : null;
     }
 
-    public static IReadOnlyList<ResourceCity> Aggregate(IEnumerable<MapSubmission> resources) =>
-        resources.Select(r => FromLocation(r.LocationName)).OfType<string>()
+    public static IReadOnlyList<ResourceCity> Aggregate(IEnumerable<Ressurs> resources) =>
+        resources.Select(r => FromLocation(r.Stedsnavn)).OfType<string>()
             .GroupBy(c => c, StringComparer.OrdinalIgnoreCase)
             .Select(g => new ResourceCity(g.OrderBy(c => c == c.ToLowerInvariant() || c == c.ToUpperInvariant())
                 .ThenBy(c => c, StringComparer.Ordinal).First(), g.Count()))

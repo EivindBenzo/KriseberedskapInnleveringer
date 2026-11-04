@@ -12,8 +12,18 @@
         ['Personell', 'personnel'],
         ['Utstyr', 'toolbox']
     ]);
+    // Typer brukerne har lagt til selv (f.eks. «Snøscooter») deler ett felles symbol og
+    // én rad i kartlista, slik at det ikke trengs et nytt symbol for hver nye type.
+    const otherType = 'Annet';
+    const otherFile = 'other';
 
-    const entries = Object.freeze(Array.from(icons, ([type, file]) => Object.freeze({ type, file })));
+    const entries = Object.freeze([...Array.from(icons, ([type, file]) => Object.freeze({ type, file })),
+        Object.freeze({ type: otherType, file: otherFile })]);
+
+    /** Gruppen en ressurstype hører til i kartlista: sin egen type, eller «Annet». */
+    function group(type) {
+        return icons.has(type) ? type : otherType;
+    }
 
     function stateFor(type, status, preview = false) {
         if (preview || !status) return 'neutral';
@@ -36,11 +46,13 @@
 
     function get(type, status = null, preview = false) {
         const known = icons.has(type);
-        const file = known ? icons.get(type) : 'unknown';
+        const chosen = typeof type === 'string' && type.trim() !== '';
+        const file = known ? icons.get(type) : chosen ? otherFile : 'unknown';
         const state = stateFor(type, status, preview);
         const asset = state === 'neutral' ? file : file + '-' + state;
         return {
-            label: known ? type : 'Ukjent / ikke valgt ressurstype',
+            label: known ? type : !chosen ? 'Ukjent / ikke valgt ressurstype'
+                : type === '__annen__' ? 'Annen type' : type,
             state,
             url: versionedUrls[asset] || base + asset + '.svg?v=' + assetVersion
         };
@@ -94,7 +106,7 @@
         schedule();
     }
 
-    window.ResourceIcons = Object.freeze({ entries, get, stateFor, statusText, summaryText, sizeForZoom, markerOptions, watchAvailability, initializeImages });
+    window.ResourceIcons = Object.freeze({ entries, group, otherType, get, stateFor, statusText, summaryText, sizeForZoom, markerOptions, watchAvailability, initializeImages });
     window.resourceMarkerOptions = markerOptions;
     window.resourceIconUrl = (type, status) => get(type, status).url;
 

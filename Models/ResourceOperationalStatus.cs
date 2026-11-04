@@ -1,8 +1,12 @@
 using System.Text.Json.Serialization;
-using HeimevernetInnlevering1.Controllers;
 
 namespace HeimevernetInnlevering1.Models;
 
+/// <summary>
+/// Statusen til en ressurs slik kartet og listene viser den. JSON-navnene brukes av
+/// wwwroot/js/resource-icons.js (grønt ikon når availability er «Tilgjengelig»).
+/// Krever at Ressurstype og Verifiseringer er lastet.
+/// </summary>
 public sealed record ResourceOperationalStatus(
     [property: JsonPropertyName("isEligible")] bool IsEligible,
     [property: JsonPropertyName("availability")] string Availability,
@@ -14,38 +18,25 @@ public sealed record ResourceOperationalStatus(
     [JsonPropertyName("lifecycle")]
     public string Lifecycle { get; init; } = string.Empty;
 
-    public static ResourceOperationalStatus From(MapSubmission resource, DateTime nowUtc)
+    public static ResourceOperationalStatus From(Ressurs ressurs, DateTime nowUtc, int dager = WorkflowEligibility.StandardGyldighetDager)
     {
-        var knownType = MapSubmissionViewModel.ResourceTypes.Contains(resource.ResourceType);
-        var hasOwner = !string.IsNullOrWhiteSpace(resource.OwnerId);
-        var eligible = knownType && hasOwner && WorkflowEligibility.IsEligible(resource, nowUtc);
-        var availability = resource.Availability switch
+        var eligible = WorkflowEligibility.IsEligible(ressurs, nowUtc, dager);
+        var godkjent = WorkflowEligibility.SisteGodkjenning(ressurs);
+        var gyldigTil = godkjent?.AddDays(dager);
+        var availability = Statuser.Visning(ressurs.Status);
+        var verification = ressurs.Status switch
         {
-            ResourceAvailability.Available => "Tilgjengelig",
-            ResourceAvailability.Unavailable => "Utilgjengelig",
-            ResourceAvailability.Reserved => "Reservert",
-            ResourceAvailability.Allocated => "Tildelt",
-            ResourceAvailability.InUse => "I bruk",
-            ResourceAvailability.Returned => "Returnert",
-            _ => "Ukjent tilgjengelighet"
+            Statuser.Ressurs.Avvist => "Avvist",
+            Statuser.Ressurs.VenterPåVerifisering or Statuser.Ressurs.Returnert => "Venter på verifisering",
+            _ when godkjent is null => "Venter på verifisering",
+            _ when gyldigTil <= nowUtc => "Godkjenning utløpt",
+            _ => "Godkjent"
         };
-        var verification = resource.VerificationStatus switch
-        {
-            ResourceVerificationStatus.Pending => "Venter på verifisering",
-            ResourceVerificationStatus.Rejected => "Avvist",
-            ResourceVerificationStatus.Approved when WorkflowEligibility.HasCurrentApproval(resource, nowUtc) => "Godkjent",
-            ResourceVerificationStatus.Approved when !resource.VerifiedAtUtc.HasValue ||
-                !resource.VerificationExpiresAtUtc.HasValue => "Godkjenning mangler gyldighetsdata",
-            ResourceVerificationStatus.Approved when resource.VerifiedAtUtc > nowUtc => "Godkjenning ikke gyldig ennå",
-            ResourceVerificationStatus.Approved => "Godkjenning utløpt",
-            _ => "Ukjent verifiseringsstatus"
-        };
-        var statusText = eligible ? "Kan forespørres nå · Tilgjengelig · Godkjent" :
-            $"Kan ikke forespørres nå · {availability} · {verification}" +
-            (!hasOwner ? " · Mangler eier" : "") + (!knownType ? " · Ukjent ressurstype" : "");
-        return new(eligible, availability, verification, AsUtc(resource.VerifiedAtUtc),
-            AsUtc(resource.VerificationExpiresAtUtc), statusText)
-        { Lifecycle = WorkflowTransitions.Lifecycle(resource, nowUtc) };
+        var statusText = eligible
+            ? "Kan forespørres nå · Tilgjengelig · Godkjent"
+            : $"Kan ikke forespørres nå · {availability} · {verification}";
+        return new(eligible, availability, verification, AsUtc(godkjent), AsUtc(gyldigTil), statusText)
+        { Lifecycle = availability };
     }
 
     private static DateTime? AsUtc(DateTime? value) =>

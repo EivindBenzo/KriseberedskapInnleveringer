@@ -1,396 +1,306 @@
-using System.Security.Claims;
 using HeimevernetInnlevering1.Controllers;
-using HeimevernetInnlevering1.Data;
 using HeimevernetInnlevering1.Models;
 using HeimevernetInnlevering1.Services;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace MariaDbIntegrationTests;
 
+/// <summary>
+/// Tester arbeidsflyten fra rapporten mot ekte MariaDB:
+/// ressurs → verifisering → forespørsel → svar fra eier → tildeling → fremdrift → returnert.
+/// </summary>
 public class WorkflowTests
 {
-    [Fact]
-    public void ApprovalAndAvailabilityAreIndependentAndPendingByDefault()
+    private static RessursSkjemaViewModel Ressurs(string navn = "Minibuss", string type = "Kjøretøy") => new()
     {
-        var resource = new MapSubmission();
-        Assert.Equal(ResourceVerificationStatus.Pending, resource.VerificationStatus);
-        Assert.Equal(ResourceAvailability.Available, resource.Availability);
-        Assert.False(WorkflowEligibility.IsEligible(resource, DateTime.UtcNow));
-        resource.VerificationStatus = ResourceVerificationStatus.Approved;
-        resource.VerifiedAtUtc = DateTime.UtcNow.AddDays(-1);
-        resource.VerificationExpiresAtUtc = DateTime.UtcNow;
-        Assert.False(WorkflowEligibility.IsEligible(resource, resource.VerificationExpiresAtUtc.Value));
-        resource.VerificationExpiresAtUtc = DateTime.UtcNow.AddDays(1);
-        Assert.True(WorkflowEligibility.IsEligible(resource, DateTime.UtcNow));
-        resource.Availability = ResourceAvailability.Unavailable;
-        Assert.False(WorkflowEligibility.IsEligible(resource, DateTime.UtcNow));
-        Assert.Equal(30, new WorkflowOptions().VerificationValidityDays);
-    }
+        Navn = navn, Ressurstype = type, Beskrivelse = "9 seter", TilgjengeligFra = DateOnly.FromDateTime(DateTime.UtcNow),
+        Kontaktperson = "Rita", Kontakttelefon = "40000000", Stedsnavn = "Hamar", Breddegrad = 60.79, Lengdegrad = 11.07
+    };
 
-    [Theory]
-    [InlineData("Verify", AppRoles.Verifiseringsansvarlig)]
-    [InlineData("CreateNeed", AppRoles.OffentligAktor)]
-    [InlineData("NeedStatus", AppRoles.Kriseledelse)]
-    [InlineData("Prioritize", AppRoles.Kriseledelse)]
-    [InlineData("CreateRequest", AppRoles.DispatchTeam)]
-    [InlineData("Allocate", AppRoles.DispatchTeam)]
-    [InlineData("Cancel", AppRoles.DispatchTeam)]
-    [InlineData("Assignment", AppRoles.DispatchTeam)]
-    [InlineData("Respond", AppRoles.Ressursleverandor)]
-    [InlineData("Availability", AppRoles.Ressursleverandor)]
-    public void OperationsActionsRequireAuthenticationAntiforgeryAndTheirOwnRole(string name, string role)
+    private static BehovSkjemaViewModel Behov(int behovstype = 1) => new()
     {
-        var type = typeof(OperationsController);
-        Assert.Equal(AppRoles.Any, type.GetCustomAttributes(typeof(AuthorizeAttribute), true)
-            .Cast<AuthorizeAttribute>().Single().Roles);
-        Assert.NotNull(Attribute.GetCustomAttribute(type, typeof(AutoValidateAntiforgeryTokenAttribute)));
-        var method = type.GetMethod(name)!;
-        Assert.Equal(role, method.GetCustomAttributes(typeof(AuthorizeAttribute), true)
-            .Cast<AuthorizeAttribute>().Single().Roles);
-        Assert.NotNull(Attribute.GetCustomAttribute(method, typeof(HttpPostAttribute)));
-    }
+        BehovstypeID = behovstype, Beskrivelse = "Transport av seks personer", Prioritet = Statuser.Prioritet.Akutt,
+        Antall = 6, Kontaktperson = "Olav", Kontakttelefon = "40000000", Stedsnavn = "Hamar", Breddegrad = 60.8, Lengdegrad = 11.1
+    };
 
-    [Fact]
-    public async Task OwnerAcceptsBeforeDispatchAllocationAndCompletedAssignmentRequiresReverification()
-    {
-        await using var test = await Scenario.Create();
-        var requestId = await test.Request();
-        Assert.Equal(ResourceAvailability.Available, (await test.Resource()).Availability);
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.AllocateAsync(requestId,
-            test.RequestToken(requestId), test.Dispatch, "For tidlig"));
-        await test.Service.RespondAsync(requestId, true, test.RequestToken(requestId), test.Owner, "Kan levere");
-        Assert.Equal(ResourceAvailability.Reserved, (await test.Resource()).Availability);
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.AllocateAsync(requestId,
-            test.RequestToken(requestId), test.Owner, "Ikke koordinator"));
-        await test.Service.AllocateAsync(requestId, test.RequestToken(requestId), test.Dispatch, "Tildelt til innsats");
-        Assert.Equal(ResourceAvailability.Allocated, (await test.Resource()).Availability);
-        var assignmentId = await test.AssignmentId(requestId);
-        foreach (var step in new[] { AssignmentStatus.EnRoute, AssignmentStatus.Arrived, AssignmentStatus.Completed })
-            await test.Service.UpdateAssignmentAsync(assignmentId, step, test.AssignmentToken(assignmentId), test.Dispatch, "Fremdrift");
-        var resource = await test.Resource();
-        Assert.Equal(ResourceAvailability.Returned, resource.Availability);
-        Assert.Equal(ResourceVerificationStatus.Pending, resource.VerificationStatus);
-        Assert.Null(resource.VerifiedAtUtc);
-        Assert.Null(resource.VerificationExpiresAtUtc);
-        Assert.False(WorkflowEligibility.IsEligible(resource, DateTime.UtcNow));
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Request());
-        var audit = await test.Db.WorkflowAudits.Where(a => a.ResourceId == resource.Id).ToListAsync();
-        Assert.Contains(audit, a => a.Action == "RequestAccept" && a.ActorId == test.OwnerId);
-        Assert.Contains(audit, a => a.Action == "RequestAllocate" && a.ActorId == test.DispatchId);
-        Assert.Contains(audit, a => a.Action == "AssignmentCompleted" && a.ActorId == test.DispatchId);
-        Assert.All(audit, a => { Assert.False(string.IsNullOrWhiteSpace(a.Reason)); Assert.NotEqual(default, a.OccurredAtUtc); });
-    }
+    private sealed record Aktører(
+        System.Security.Claims.ClaimsPrincipal Eier, System.Security.Claims.ClaimsPrincipal Verifiserer,
+        System.Security.Claims.ClaimsPrincipal Dispatch, System.Security.Claims.ClaimsPrincipal Offentlig,
+        System.Security.Claims.ClaimsPrincipal Leder);
 
-    [Fact]
-    public async Task OtherProvidersCannotRespondOrChangeResourcesAndAllFailuresAreAtomic()
-    {
-        await using var test = await Scenario.Create();
-        var requestId = await test.Request();
-        var token = test.RequestToken(requestId);
-        var other = Principal("other-provider", AppRoles.Ressursleverandor);
-        var audits = await test.Db.WorkflowAudits.CountAsync(a => a.ResourceId == test.ResourceId);
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.VerifyAsync(test.ResourceId, true,
-            test.ResourceToken(), Principal(test.OwnerId, AppRoles.Verifiseringsansvarlig, AppRoles.Ressursleverandor), "Egen godkjenning"));
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.RespondAsync(requestId, true, token, other, "Feil eier"));
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.RespondAsync(requestId, true, token, test.Dispatch, "Dispatch er ikke eier"));
-        await Assert.ThrowsAsync<WorkflowException>(async () => await test.Service.CreateNeedAsync("Uautorisert", "Oslo", NeedPriority.Normal, other));
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.UpdateResourceAvailabilityAsync(test.ResourceId,
-            ResourceAvailability.Unavailable, test.ResourceToken(), other, "Ikke min"));
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.RespondAsync(requestId, true, token, test.Owner, " "));
-        Assert.Equal(ResourceAvailability.Available, (await test.Resource()).Availability);
-        Assert.Equal(ResourceRequestStatus.Pending, (await test.Db.ResourceRequests.FindAsync(requestId))!.Status);
-        Assert.Equal(audits, await test.Db.WorkflowAudits.CountAsync(a => a.ResourceId == test.ResourceId));
-    }
+    private static async Task<Aktører> AktørerAsync(TestDatabase test) => new(
+        (await test.BrukerAsync(AppRoles.Ressursleverandor)).Principal,
+        (await test.BrukerAsync(AppRoles.Verifiseringsansvarlig)).Principal,
+        (await test.BrukerAsync(AppRoles.DispatchTeam)).Principal,
+        (await test.BrukerAsync(AppRoles.OffentligAktor)).Principal,
+        (await test.BrukerAsync(AppRoles.Kriseledelse)).Principal);
 
-    [Fact]
-    public async Task ExpiredAndUnavailableResourcesCannotBeRequestedOrAllocated()
+    private static async Task<string> RessursStatus(TestDatabase test, int id)
     {
-        await using var test = await Scenario.Create();
-        var requestId = await test.Request();
-        await test.Service.UpdateResourceAvailabilityAsync(test.ResourceId, ResourceAvailability.Unavailable,
-            test.ResourceToken(), test.Owner, "I vedlikehold");
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.RespondAsync(requestId, true,
-            test.RequestToken(requestId), test.Owner, "Kan ikke reserveres"));
-        await test.Service.UpdateResourceAvailabilityAsync(test.ResourceId, ResourceAvailability.Available,
-            test.ResourceToken(), test.Owner, "Klar");
-        var resource = await test.Resource();
-        resource.VerificationExpiresAtUtc = DateTime.UtcNow.AddMinutes(-1);
-        await test.Db.SaveChangesAsync();
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Request());
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.RespondAsync(requestId, true,
-            test.RequestToken(requestId), test.Owner, "Utløpt"));
-        await test.Service.VerifyAsync(test.ResourceId, true, test.ResourceToken(), test.Verifier, "Kontrollert igjen");
-        await test.Service.RespondAsync(requestId, true, test.RequestToken(requestId), test.Owner, "Reserver");
-        resource = await test.Resource();
-        resource.VerificationExpiresAtUtc = DateTime.UtcNow.AddMinutes(-1);
-        await test.Db.SaveChangesAsync();
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.AllocateAsync(requestId,
-            test.RequestToken(requestId), test.Dispatch, "Godkjenning utløpt"));
-        Assert.Equal(ResourceAvailability.Reserved, (await test.Resource()).Availability);
-        await test.Service.CancelAsync(requestId, test.RequestToken(requestId), test.Dispatch, "Frigjør for ny kontroll");
-    }
-
-    [Fact]
-    public async Task ConcurrentOwnerAcceptancesCannotDoubleReserve()
-    {
-        await using var test = await Scenario.Create();
-        var first = await test.Request();
-        var secondNeed = await test.Service.CreateNeedAsync("Andre behov", "Bergen", NeedPriority.Critical, test.Public);
-        var second = await test.Service.CreateRequestAsync(secondNeed, test.ResourceId, test.ResourceToken(),
-            (await test.Db.OperationalNeeds.FindAsync(secondNeed))!.ConcurrencyToken, test.Dispatch, "Alternativ innsats");
-        var firstToken = test.RequestToken(first);
-        var secondToken = test.RequestToken(second);
-        async Task<bool> Accept(int id, string token)
-        {
-            await using var db = new AppDbContext(test.Options);
-            try
-            {
-                await new WorkflowService(db, Microsoft.Extensions.Options.Options.Create(new WorkflowOptions()))
-                    .RespondAsync(id, true, token, test.Owner, "Samtidig aksept");
-                return true;
-            }
-            catch (WorkflowException) { return false; }
-        }
-        var results = await Task.WhenAll(Accept(first, firstToken), Accept(second, secondToken));
-        Assert.Single(results, r => r);
         test.Db.ChangeTracker.Clear();
-        Assert.Equal(1, await test.Db.ResourceRequests.CountAsync(r => r.ResourceId == test.ResourceId &&
-            r.Status == ResourceRequestStatus.Accepted));
-        Assert.Equal(ResourceAvailability.Reserved, (await test.Resource()).Availability);
-        Assert.Equal(1, await test.Db.WorkflowAudits.CountAsync(a => a.ResourceId == test.ResourceId && a.Action == "RequestAccept"));
+        return (await test.Db.Ressurser.SingleAsync(r => r.RessursID == id)).Status;
     }
 
     [Fact]
-    public async Task StaleTokensPreventVerificationEditsAndRequestDecisions()
+    public async Task HeleFlytenFraRegistreringTilReturnert()
     {
-        await using var test = await Scenario.Create();
-        var oldResourceToken = test.ResourceToken();
-        await test.Service.UpdateResourceAvailabilityAsync(test.ResourceId, ResourceAvailability.Unavailable,
-            oldResourceToken, test.Owner, "Vedlikehold");
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.VerifyAsync(test.ResourceId, true,
-            oldResourceToken, test.Verifier, "Gammelt skjema"));
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.DeleteResourceAsync(test.ResourceId,
-            oldResourceToken, test.Owner, "Gammel sletting"));
-        await test.Service.UpdateResourceAvailabilityAsync(test.ResourceId, ResourceAvailability.Available,
-            test.ResourceToken(), test.Owner, "Klar");
-        var oldNeedToken = test.NeedToken();
-        var id = await test.Request();
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.ChangeNeedStatusAsync(test.NeedId,
-            NeedStatus.InProgress, oldNeedToken, test.Leader, "Utdatert behovsskjema"));
-        var oldRequestToken = test.RequestToken(id);
-        await test.Service.RespondAsync(id, true, oldRequestToken, test.Owner, "Aksepter");
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.CancelAsync(id, oldRequestToken, test.Dispatch, "Gammelt skjema"));
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.UpdateResourceAvailabilityAsync(test.ResourceId,
-            ResourceAvailability.Available, test.ResourceToken(), test.Owner, "Omgå reservasjon"));
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+
+        var ressursId = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
+        Assert.Equal(Statuser.Ressurs.VenterPåVerifisering, await RessursStatus(test, ressursId));
+
+        await test.Workflow.VerifyAsync(ressursId, true, a.Verifiserer, null);
+        Assert.Equal(Statuser.Ressurs.Tilgjengelig, await RessursStatus(test, ressursId));
+        Assert.Equal(1, await test.Db.Verifiseringer.CountAsync(v => v.RessursID == ressursId && v.Resultat == Statuser.Resultat.Godkjent));
+
+        var behovId = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+        var forespørselId = await test.Workflow.CreateRequestAsync(behovId, ressursId, a.Dispatch);
+        Assert.Equal(Statuser.Ressurs.Forespurt, await RessursStatus(test, ressursId));
+        Assert.Equal(Statuser.Behov.Vurderes, (await test.Db.Behov.SingleAsync(b => b.BehovID == behovId)).Status);
+
+        await test.Workflow.RespondAsync(forespørselId, true, a.Eier, null);
+        await test.Workflow.AllocateAsync(forespørselId, a.Dispatch);
+        Assert.Equal(Statuser.Ressurs.Tildelt, await RessursStatus(test, ressursId));
+        var tildeling = await test.Db.Tildelinger.SingleAsync(t => t.ForespørselID == forespørselId);
+        Assert.Equal(Statuser.Fremdrift.Bekreftet, tildeling.Fremdrift);
+        Assert.Equal(Statuser.Behov.Tildelt, (await test.Db.Behov.SingleAsync(b => b.BehovID == behovId)).Status);
+
+        foreach (var steg in new[] { Statuser.Fremdrift.PåVei, Statuser.Fremdrift.Fremme, Statuser.Fremdrift.Fullført })
+            await test.Workflow.UpdateAssignmentAsync(tildeling.TildelingID, steg, a.Dispatch, null);
+        Assert.Equal(Statuser.Ressurs.Returnert, await RessursStatus(test, ressursId));
+        Assert.NotNull((await test.Db.Tildelinger.SingleAsync(t => t.TildelingID == tildeling.TildelingID)).Fullført);
+
+        // Etter retur må ressursen verifiseres på nytt før den kan forespørres igjen.
+        var nyttBehov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.CreateRequestAsync(nyttBehov, ressursId, a.Dispatch));
+        await test.Workflow.ChangeNeedStatusAsync(behovId, Statuser.Behov.Løst, a.Leder, "Ferdig");
+        Assert.True(await test.Db.Hendelseslogg.CountAsync(l => l.RessursID == ressursId) >= 7);
     }
 
     [Fact]
-    public async Task RejectCancelNeedCompletionAndHistoryAreSafe()
+    public async Task VerifiseringsansvarligKanIkkeGodkjenneEgenRessursOgAvvisningKreverBegrunnelse()
     {
-        await using var test = await Scenario.Create();
-        var id = await test.Request();
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.ChangeNeedStatusAsync(test.NeedId,
-            NeedStatus.Completed, test.NeedToken(), test.Leader, "For tidlig"));
-        await test.Service.RespondAsync(id, false, test.RequestToken(id), test.Owner, "Kan ikke levere");
-        Assert.Equal(ResourceAvailability.Available, (await test.Resource()).Availability);
-        var next = await test.Request();
-        await test.Service.RespondAsync(next, true, test.RequestToken(next), test.Owner, "Aksepter");
-        await test.Service.CancelAsync(next, test.RequestToken(next), test.Dispatch, "Behov endret");
-        Assert.Equal(ResourceAvailability.Available, (await test.Resource()).Availability);
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.ChangeNeedStatusAsync(test.NeedId,
-            NeedStatus.Completed, test.NeedToken(), test.Leader, "Hopper over tildeling"));
-        var assignmentId = await test.Allocated();
-        Assert.Equal(NeedStatus.Assigned, (await test.Db.OperationalNeeds.AsNoTracking().SingleAsync(n => n.Id == test.NeedId)).Status);
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.ChangeNeedStatusAsync(test.NeedId,
-            NeedStatus.Completed, test.NeedToken(), test.Leader, "Tildelingen pågår"));
-        foreach (var step in new[] { AssignmentStatus.EnRoute, AssignmentStatus.Arrived, AssignmentStatus.Completed })
-            await test.Service.UpdateAssignmentAsync(assignmentId, step, test.AssignmentToken(assignmentId), test.Dispatch, "Fremdrift");
-        await test.Service.ChangeNeedStatusAsync(test.NeedId, NeedStatus.Completed, test.NeedToken(), test.Leader, "Oppdrag fullført");
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Request());
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.ChangeNeedStatusAsync(test.NeedId,
-            NeedStatus.Open, test.NeedToken(), test.Leader, "Gjenåpne"));
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Service.DeleteResourceAsync(test.ResourceId,
-            test.ResourceToken(), test.Owner, "Slett historikk"));
+        await using var test = await TestDatabase.CreateAsync();
+        var (bruker, _) = await test.BrukerAsync(AppRoles.Ressursleverandor);
+        var begge = TestDatabase.Principal(bruker.Id, AppRoles.Ressursleverandor, AppRoles.Verifiseringsansvarlig);
+        var id = await test.Workflow.RegisterResourceAsync(Ressurs(), begge);
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.VerifyAsync(id, true, begge, null));
+
+        var verifiserer = (await test.BrukerAsync(AppRoles.Verifiseringsansvarlig)).Principal;
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.VerifyAsync(id, false, verifiserer, " "));
+        await test.Workflow.VerifyAsync(id, false, verifiserer, "Mangler dokumentasjon");
+        Assert.Equal(Statuser.Ressurs.Avvist, await RessursStatus(test, id));
+        Assert.Equal("Mangler dokumentasjon", (await test.Db.Verifiseringer.SingleAsync()).Begrunnelse);
     }
 
     [Fact]
-    public async Task ResourceEditsInvalidateApprovalAndConfiguredValidityIsApplied()
+    public async Task UverifisertRessursKanIkkeForespørresOgForespurtRessursKanIkkeForespørresIgjen()
     {
-        await using var test = await Scenario.Create();
-        var custom = new WorkflowService(test.Db, Options.Create(new WorkflowOptions { VerificationValidityDays = 7 }));
-        await custom.VerifyAsync(test.ResourceId, true, test.ResourceToken(), test.Verifier, "Ukentlig kontroll");
-        var resource = await test.Resource();
-        Assert.Equal(TimeSpan.FromDays(7), resource.VerificationExpiresAtUtc - resource.VerifiedAtUtc);
-        await custom.UpdateResourceAsync(test.ResourceId, new MapSubmission
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
+        var behov1 = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+        var behov2 = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.CreateRequestAsync(behov1, ressurs, a.Dispatch));
+        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        await test.Workflow.CreateRequestAsync(behov1, ressurs, a.Dispatch);
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.CreateRequestAsync(behov2, ressurs, a.Dispatch));
+    }
+
+    [Fact]
+    public async Task BareEierenKanSvareOgTildelingKreverGodtattForespørsel()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var annenLeverandør = (await test.BrukerAsync(AppRoles.Ressursleverandor)).Principal;
+        var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
+        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+        var forespørsel = await test.Workflow.CreateRequestAsync(behov, ressurs, a.Dispatch);
+
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.RespondAsync(forespørsel, true, annenLeverandør, null));
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.AllocateAsync(forespørsel, a.Dispatch));
+
+        await test.Workflow.RespondAsync(forespørsel, false, a.Eier, "Ikke ledig likevel");
+        Assert.Equal(Statuser.Ressurs.Tilgjengelig, await RessursStatus(test, ressurs));
+        Assert.Equal(Statuser.Svar.Avslått, (await test.Db.Forespørsler.SingleAsync()).Svar);
+    }
+
+    [Fact]
+    public async Task DispatchKanAvbryteForespørselOgRessursenBlirTilgjengeligIgjen()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
+        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+        var forespørsel = await test.Workflow.CreateRequestAsync(behov, ressurs, a.Dispatch);
+        await test.Workflow.RespondAsync(forespørsel, true, a.Eier, null);
+        await test.Workflow.CancelAsync(forespørsel, a.Dispatch, "Behovet ble dekket på annen måte");
+        Assert.Equal(Statuser.Ressurs.Tilgjengelig, await RessursStatus(test, ressurs));
+        Assert.Equal(Statuser.Svar.Avbrutt, (await test.Db.Forespørsler.SingleAsync()).Svar);
+    }
+
+    [Fact]
+    public async Task FremdriftGårBareEttStegOmGangen()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
+        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+        var forespørsel = await test.Workflow.CreateRequestAsync(behov, ressurs, a.Dispatch);
+        await test.Workflow.RespondAsync(forespørsel, true, a.Eier, null);
+        await test.Workflow.AllocateAsync(forespørsel, a.Dispatch);
+        var tildeling = await test.Db.Tildelinger.SingleAsync();
+        await Assert.ThrowsAsync<WorkflowException>(() =>
+            test.Workflow.UpdateAssignmentAsync(tildeling.TildelingID, Statuser.Fremdrift.Fullført, a.Dispatch, null));
+        await test.Workflow.UpdateAssignmentAsync(tildeling.TildelingID, Statuser.Fremdrift.PåVei, a.Dispatch, null);
+        await test.Workflow.UpdateAssignmentAsync(tildeling.TildelingID, Statuser.Fremdrift.Fremme, a.Dispatch, null);
+        Assert.Equal(Statuser.Ressurs.IBruk, await RessursStatus(test, ressurs));
+    }
+
+    [Fact]
+    public async Task ToSamtidigeForespørslerOmSammeRessursGirBareEnVinner()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
+        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        var behov1 = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+        var behov2 = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+
+        // To dispatchere i hver sin databasekobling forsøker samtidig.
+        await using var scope1 = test.Services.CreateAsyncScope();
+        await using var scope2 = test.Services.CreateAsyncScope();
+        var w1 = scope1.ServiceProvider.GetRequiredService<WorkflowService>();
+        var w2 = scope2.ServiceProvider.GetRequiredService<WorkflowService>();
+        var results = await Task.WhenAll(
+            Try(() => w1.CreateRequestAsync(behov1, ressurs, a.Dispatch)),
+            Try(() => w2.CreateRequestAsync(behov2, ressurs, a.Dispatch)));
+        Assert.Equal(1, results.Count(ok => ok));
+        Assert.Equal(1, await test.Db.Forespørsler.CountAsync(f => f.RessursID == ressurs));
+
+        static async Task<bool> Try(Func<Task> action)
         {
-            ResourceName = "Endret ressurs", ResourceType = resource.ResourceType,
-            LocationName = resource.LocationName, Latitude = resource.Latitude, Longitude = resource.Longitude
-        }, ResourceAvailability.Available, resource.ConcurrencyToken, test.Owner, "Endret kapasitet");
-        Assert.Equal(ResourceVerificationStatus.Pending, (await test.Resource()).VerificationStatus);
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Request());
-        await custom.VerifyAsync(test.ResourceId, false, test.ResourceToken(), test.Verifier, "Mangler dokumentasjon");
-        Assert.Equal(ResourceVerificationStatus.Rejected, (await test.Resource()).VerificationStatus);
-        Assert.Null((await test.Resource()).VerificationExpiresAtUtc);
-        var again = await Assert.ThrowsAsync<WorkflowException>(() => custom.VerifyAsync(test.ResourceId, false,
-            test.ResourceToken(), test.Verifier, "Samme avvisning"));
-        Assert.Equal("Ressursen er allerede avvist.", again.Message);
-    }
-
-    [Fact]
-    public async Task RejectingRequiresAReasonAndOnlyVerifiersMayVerify()
-    {
-        await using var test = await Scenario.Create();
-        var pending = new MapSubmission
-        {
-            ResourceName = $"Ny {test.OwnerId}", ResourceType = "Drone", LocationName = "Oslo",
-            Latitude = 59.91, Longitude = 10.75, CreatedAtUtc = DateTime.UtcNow, OwnerId = test.OwnerId
-        };
-        test.Db.MapSubmissions.Add(pending);
-        await test.Db.SaveChangesAsync();
-        try
-        {
-            Assert.Equal(ResourceVerificationStatus.Pending, pending.VerificationStatus);
-            var missing = await Assert.ThrowsAsync<WorkflowException>(() => test.Service.VerifyAsync(
-                pending.Id, false, pending.ConcurrencyToken, test.Verifier, "  "));
-            Assert.Equal("Oppgi en begrunnelse når en ressurs avvises.", missing.Message);
-            foreach (var actor in new[] { test.Owner, test.Dispatch, test.Leader, test.Public })
-                await Assert.ThrowsAsync<WorkflowException>(() => test.Service.VerifyAsync(
-                    pending.Id, true, pending.ConcurrencyToken, actor, "Forsøk"));
-            Assert.Equal(ResourceVerificationStatus.Pending, (await test.Db.MapSubmissions.AsNoTracking()
-                .SingleAsync(r => r.Id == pending.Id)).VerificationStatus);
+            try { await action(); return true; } catch (WorkflowException) { return false; }
         }
-        finally
-        {
-            test.Db.ChangeTracker.Clear();
-            await test.Db.MapSubmissions.Where(r => r.Id == pending.Id).ExecuteDeleteAsync();
-        }
     }
 
     [Fact]
-    public async Task DatabaseConcurrencyTokenProtectsIndependentResourceWriters()
+    public async Task EndringAvNavnEllerPlasseringKreverNyVerifisering()
     {
-        await using var test = await Scenario.Create();
-        await using var other = new AppDbContext(test.Options);
-        var stale = await other.MapSubmissions.SingleAsync(r => r.Id == test.ResourceId);
-        await test.Service.UpdateResourceAvailabilityAsync(test.ResourceId, ResourceAvailability.Unavailable,
-            test.ResourceToken(), test.Owner, "Vedlikehold");
-        stale.ResourceName = "Utdatert endring";
-        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => other.SaveChangesAsync());
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
+        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+
+        var bareKontakt = Ressurs(); bareKontakt.Kontaktperson = "Ny kontakt";
+        Assert.False(await test.Workflow.UpdateResourceAsync(ressurs, bareKontakt, a.Eier));
+        Assert.Equal(Statuser.Ressurs.Tilgjengelig, await RessursStatus(test, ressurs));
+
+        var flyttet = Ressurs(); flyttet.Breddegrad = 61.0;
+        Assert.True(await test.Workflow.UpdateResourceAsync(ressurs, flyttet, a.Eier));
+        Assert.Equal(Statuser.Ressurs.VenterPåVerifisering, await RessursStatus(test, ressurs));
     }
 
     [Fact]
-    public async Task ProviderQueueContainsOnlyOwnedRequestsAndNoAuditLog()
+    public async Task RessursMedForespørselshistorikkKanIkkeSlettes()
     {
-        await using var test = await Scenario.Create();
-        var id = await test.Request();
-        var controller = new OperationsController(test.Db, test.Service)
-        {
-            ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext { User = test.Owner }
-            }
-        };
-        var ownResult = Assert.IsType<ViewResult>(await controller.Index());
-        var own = Assert.IsType<OperationsViewModel>(ownResult.Model);
-        Assert.Single(own.Requests, r => r.Id == id);
-        Assert.All(own.Requests, r => Assert.Equal(test.OwnerId, r.Resource.OwnerId));
-        Assert.All(own.Resources, r => Assert.Equal(test.OwnerId, r.OwnerId));
-        Assert.Empty(own.Audit);
-        controller.HttpContext.User = Principal("unrelated-provider", AppRoles.Ressursleverandor);
-        var other = Assert.IsType<OperationsViewModel>(Assert.IsType<ViewResult>(await controller.Index()).Model);
-        Assert.Empty(other.Requests);
-        Assert.Empty(other.Resources);
-        Assert.Empty(other.Needs);
-        Assert.Empty(other.Audit);
-        controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity([], "integration"));
-        Assert.IsType<ForbidResult>(await controller.Index());
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var ny = await test.Workflow.RegisterResourceAsync(Ressurs("Ny"), a.Eier);
+        await test.Workflow.DeleteResourceAsync(ny, a.Eier, null);
+        Assert.False(await test.Db.Ressurser.AnyAsync(r => r.RessursID == ny));
+
+        var brukt = await test.Workflow.RegisterResourceAsync(Ressurs("Brukt"), a.Eier);
+        await test.Workflow.VerifyAsync(brukt, true, a.Verifiserer, null);
+        var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+        var f = await test.Workflow.CreateRequestAsync(behov, brukt, a.Dispatch);
+        await test.Workflow.RespondAsync(f, false, a.Eier, null);
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.DeleteResourceAsync(brukt, a.Eier, null));
     }
 
-    internal static ClaimsPrincipal Principal(string id, params string[] roles)
+    [Fact]
+    public async Task RessursleverandørKanLeggeTilEnNyRessurstype()
     {
-        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, id) };
-        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
-        return new ClaimsPrincipal(new ClaimsIdentity(claims, "integration"));
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var antallFør = await test.Db.Ressurstyper.CountAsync();
+        var id = await test.Workflow.RegisterResourceAsync(Ressurs("Snøscooter 1", "snøscooter"), a.Eier);
+
+        var ressurs = await test.Db.Ressurser.Include(r => r.Ressurstype).SingleAsync(r => r.RessursID == id);
+        Assert.Equal("Snøscooter", ressurs.Ressurstype!.Navn);
+        Assert.Equal(antallFør + 1, await test.Db.Ressurstyper.CountAsync());
+
+        // Neste gang brukes den samme raden, det lages ikke en kopi.
+        await test.Workflow.RegisterResourceAsync(Ressurs("Snøscooter 2", "Snøscooter"), a.Eier);
+        Assert.Equal(antallFør + 1, await test.Db.Ressurstyper.CountAsync());
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.RegisterResourceAsync(Ressurs("Ukjent ting", "1"), a.Eier));
     }
 
-    internal sealed class Scenario : IAsyncDisposable
+    [Fact]
+    public async Task OffentligAktørKanMeldeBehovMedEnNyBehovstype()
     {
-        public required AppDbContext Db { get; init; }
-        public required DbContextOptions<AppDbContext> Options { get; init; }
-        public required WorkflowService Service { get; init; }
-        public string OwnerId { get; } = Guid.NewGuid().ToString();
-        public string DispatchId { get; } = Guid.NewGuid().ToString();
-        public string VerifierId { get; } = Guid.NewGuid().ToString();
-        public string LeaderId { get; } = Guid.NewGuid().ToString();
-        public string PublicId { get; } = Guid.NewGuid().ToString();
-        private string[] ActorIds => [OwnerId, DispatchId, VerifierId, LeaderId, PublicId];
-        public ClaimsPrincipal Owner => Principal(OwnerId, AppRoles.Ressursleverandor);
-        public ClaimsPrincipal Dispatch => Principal(DispatchId, AppRoles.DispatchTeam);
-        public ClaimsPrincipal Verifier => Principal(VerifierId, AppRoles.Verifiseringsansvarlig);
-        public ClaimsPrincipal Leader => Principal(LeaderId, AppRoles.Kriseledelse);
-        public ClaimsPrincipal Public => Principal(PublicId, AppRoles.OffentligAktor);
-        public int ResourceId { get; private set; }
-        public int NeedId { get; private set; }
-        public Task<MapSubmission> Resource() => Db.MapSubmissions.SingleAsync(r => r.Id == ResourceId);
-        public string ResourceToken() => Db.MapSubmissions.Single(r => r.Id == ResourceId).ConcurrencyToken;
-        public string NeedToken() => Db.OperationalNeeds.Single(n => n.Id == NeedId).ConcurrencyToken;
-        public string RequestToken(int id) => Db.ResourceRequests.Single(r => r.Id == id).ConcurrencyToken;
-        public Task<int> Request() => Service.CreateRequestAsync(NeedId, ResourceId, ResourceToken(), NeedToken(), Dispatch, "Behov for transport");
-        public Task<int> AssignmentId(int requestId) => Db.ResourceAssignments.Where(a => a.RequestId == requestId).Select(a => a.Id).SingleAsync();
-        public string AssignmentToken(int id) => Db.ResourceAssignments.Single(a => a.Id == id).ConcurrencyToken;
-        public async Task<int> Allocated()
-        {
-            var id = await Request();
-            await Service.RespondAsync(id, true, RequestToken(id), Owner, "Kan levere");
-            await Service.AllocateAsync(id, RequestToken(id), Dispatch, "Tildelt");
-            return await AssignmentId(id);
-        }
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var antallFør = await test.Db.Behovstyper.CountAsync();
+        var behov = Behov(BehovSkjemaViewModel.AnnenType); behov.NyBehovstype = "vannforsyning";
+        var id = await test.Workflow.CreateNeedAsync(behov, a.Offentlig);
 
-        public static async Task<Scenario> Create()
-        {
-            var configuration = new ConfigurationBuilder().AddEnvironmentVariables().Build();
-            var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-            DatabaseProviderConfiguration.Configure(optionsBuilder, DatabaseProviderConfiguration.GetRequiredConnectionString(configuration));
-            var db = new AppDbContext(optionsBuilder.Options);
-            await db.Database.MigrateAsync();
-            var test = new Scenario
-            {
-                Db = db, Options = optionsBuilder.Options,
-                Service = new WorkflowService(db, Microsoft.Extensions.Options.Options.Create(new WorkflowOptions()))
-            };
-            foreach (var id in test.ActorIds)
-                db.Users.Add(new IdentityUser { Id = id, UserName = $"{id}@example.test" });
-            var resource = new MapSubmission
-            {
-                ResourceName = $"Test {test.OwnerId}", ResourceType = "Kjøretøy", LocationName = "Oslo",
-                Latitude = 59.91, Longitude = 10.75, CreatedAtUtc = DateTime.UtcNow, OwnerId = test.OwnerId
-            };
-            db.MapSubmissions.Add(resource);
-            await db.SaveChangesAsync();
-            test.ResourceId = resource.Id;
-            await test.Service.VerifyAsync(resource.Id, true, resource.ConcurrencyToken, test.Verifier, "Kontrollert kapasitet");
-            test.NeedId = await test.Service.CreateNeedAsync("Transport av utstyr", "Oslo", NeedPriority.High, test.Public);
-            return test;
-        }
+        var lagret = await test.Db.Behov.Include(b => b.Behovstype).SingleAsync(b => b.BehovID == id);
+        Assert.Equal("Vannforsyning", lagret.Behovstype!.Navn);
+        Assert.Equal(antallFør + 1, await test.Db.Behovstyper.CountAsync());
 
-        public async ValueTask DisposeAsync()
-        {
-            Db.ChangeTracker.Clear();
-            var actors = ActorIds;
-            await Db.WorkflowAudits.Where(a => actors.Contains(a.ActorId)).ExecuteDeleteAsync();
-            await Db.ResourceAssignments.Where(a => a.ResourceId == ResourceId).ExecuteDeleteAsync();
-            await Db.ResourceRequests.Where(r => r.ResourceId == ResourceId).ExecuteDeleteAsync();
-            await Db.OperationalNeeds.Where(n => n.CreatedById == PublicId).ExecuteDeleteAsync();
-            await Db.MapSubmissions.Where(r => r.Id == ResourceId).ExecuteDeleteAsync();
-            await Db.Users.Where(u => actors.Contains(u.Id)).ExecuteDeleteAsync();
-            await Db.DisposeAsync();
-        }
+        // Samme navn igjen gjenbruker raden, og ugyldige navn avvises.
+        var igjen = Behov(BehovSkjemaViewModel.AnnenType); igjen.NyBehovstype = "Vannforsyning";
+        await test.Workflow.CreateNeedAsync(igjen, a.Offentlig);
+        Assert.Equal(antallFør + 1, await test.Db.Behovstyper.CountAsync());
+        var ugyldig = Behov(BehovSkjemaViewModel.AnnenType); ugyldig.NyBehovstype = "7";
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.CreateNeedAsync(ugyldig, a.Offentlig));
+    }
+
+    [Fact]
+    public async Task FeilRolleAvvisesPåServeren()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.RegisterResourceAsync(Ressurs(), a.Offentlig));
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.CreateNeedAsync(Behov(), a.Eier));
+        var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.VerifyAsync(ressurs, true, a.Dispatch, null));
+        await Assert.ThrowsAsync<WorkflowException>(() =>
+            test.Workflow.CreateIncidentAsync(new HendelseSkjemaViewModel { Navn = "Flom", Område = "Agder" }, a.Dispatch));
+    }
+
+    [Fact]
+    public async Task BehovKanKnyttesTilAktivHendelseMenIkkeAvsluttet()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var hendelse = await test.Workflow.CreateIncidentAsync(
+            new HendelseSkjemaViewModel { Navn = "Flom i Otra", Område = "Agder", Starttidspunkt = DateTime.UtcNow }, a.Leder);
+        var behov = Behov(); behov.HendelseID = hendelse;
+        var id = await test.Workflow.CreateNeedAsync(behov, a.Offentlig);
+        Assert.Equal(hendelse, (await test.Db.Behov.SingleAsync(b => b.BehovID == id)).HendelseID);
+
+        await test.Workflow.CloseIncidentAsync(hendelse, a.Leder);
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.CreateNeedAsync(behov, a.Offentlig));
+    }
+
+    [Fact]
+    public async Task BehovKanIkkeLøsesMensForespørselVenter()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
+        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+        await test.Workflow.CreateRequestAsync(behov, ressurs, a.Dispatch);
+        await Assert.ThrowsAsync<WorkflowException>(() =>
+            test.Workflow.ChangeNeedStatusAsync(behov, Statuser.Behov.Løst, a.Leder, "Ferdig"));
     }
 }

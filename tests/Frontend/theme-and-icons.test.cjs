@@ -93,13 +93,13 @@ test('compact icons clamp and scale with zoom while marker, legend and overview 
     const api = context.window.ResourceIcons;
     const mapping = [
         ['Kjøretøy', 'car'], ['Maskin', 'excavator'], ['Drone', 'drone'],
-        ['Generator', 'generator'], ['Personell', 'personnel'], ['Utstyr', 'toolbox']
+        ['Generator', 'generator'], ['Personell', 'personnel'], ['Utstyr', 'toolbox'], ['Annet', 'other']
     ];
     assert.deepEqual(Array.from(api.entries, entry => [entry.type, entry.file]), mapping);
     assert.equal(api.sizeForZoom(), 32);
     for (const [zoom, size] of [[-10, 28], [0, 28], [8, 28], [10, 30], [12, 32], [14, 34], [16, 36], [30, 36], [NaN, 32], [Infinity, 32]]) {
         assert.equal(api.sizeForZoom(zoom), size);
-        for (const [type, file] of [...mapping, ['not-a-type', 'unknown']]) {
+        for (const [type, file] of [...mapping, ['Snøscooter', 'other'], ['', 'unknown']]) {
             for (const preview of [false, true]) {
                 const marker = api.markerOptions(type, preview, zoom);
                 assert.equal(marker.icon.iconUrl, `/images/resources/${file}${preview ? '' : '-unavailable'}.svg?v=original-outline-1px-20261026`);
@@ -115,7 +115,7 @@ test('compact icons clamp and scale with zoom while marker, legend and overview 
     }
 });
 
-test('six types use distinct local SVGs; unknown types use a safe fallback', () => {
+test('six types use distinct local SVGs; user-added types share «Annet»; no type uses a safe fallback', () => {
     const context = {
         document: { currentScript: { dataset: { iconBase: '/images/resources/' } }, querySelectorAll: () => [] },
         window: {},
@@ -136,10 +136,19 @@ test('six types use distinct local SVGs; unknown types use a safe fallback', () 
         assert.ok(existsSync(resolve(root, 'wwwroot', saved.icon.iconUrl.slice(1).split('?')[0])));
         assert.equal(saved.icon.iconAnchor[0], saved.icon.iconSize[0] / 2);
     }
-    for (const type of ['', null, '__proto__', '<svg onload=alert(1)>', '../../other']) {
+    for (const type of ['', null, '   ']) {
         assert.equal(options(type).icon.iconUrl, '/images/resources/unknown-unavailable.svg?v=original-outline-1px-20261026');
         assert.equal(options(type).alt, 'Ukjent / ikke valgt ressurstype · Kan ikke forespørres nå · Ukjent status');
     }
+    // Typer brukerne har lagt til selv får «Annet»-symbolet, men beholder sitt eget navn.
+    for (const type of ['Snøscooter', '__proto__', '<svg onload=alert(1)>', '../../other']) {
+        assert.equal(options(type).icon.iconUrl, '/images/resources/other-unavailable.svg?v=original-outline-1px-20261026');
+        assert.equal(options(type).alt, type + ' · Kan ikke forespørres nå · Ukjent status');
+        assert.doesNotMatch(options(type).icon.html, /<svg onload/, 'the name is escaped in marker HTML');
+        assert.equal(context.window.ResourceIcons.group(type), 'Annet');
+    }
+    assert.equal(options('__annen__', true).alt, 'Ny ressurs (ikke lagret): Annen type');
+    assert.ok(existsSync(resolve(root, 'wwwroot/images/resources/other.svg')));
 });
 
 test('overview icon URLs and image initialization share the mapping without requiring Leaflet', () => {
@@ -171,8 +180,8 @@ test('overview icon URLs and image initialization share the mapping without requ
         assert.equal(images[0].src, context.window.ResourceIcons.get('Drone', {}).url);
         assert.equal(images[0].alt, 'Drone · Kan ikke forespørres nå · Ukjent status');
         assert.equal(images[1].alt, '', 'explicit decorative alt is preserved');
-        assert.equal(images[2].src, '/app/images/resources/unknown-unavailable.svg?v=original-outline-1px-20261026');
-        assert.equal(images[2].alt, 'Ukjent / ikke valgt ressurstype · Kan ikke forespørres nå · Ukjent status');
+        assert.equal(images[2].src, '/app/images/resources/other-unavailable.svg?v=original-outline-1px-20261026');
+        assert.equal(images[2].alt, '../../invalid · Kan ikke forespørres nå · Ukjent status');
     }
 });
 
@@ -207,19 +216,19 @@ test('every rendered consumer loads the cache-versioned shared mapping, not priv
         assert.match(view, /src="~\/js\/resource-icons\.js" asp-append-version="true" data-icon-base="@Url\.Content\("~\/images\/resources\/"\)"/);
         assert.match(view, /FileVersionProvider\.AddFileVersionToPath\(Context\.Request\.PathBase,/);
         assert.match(view, /data-icon-urls="@System\.Text\.Json\.JsonSerializer\.Serialize\(resourceIconUrls\)"/);
-        assert.match(view, /<img\b(?=[^>]*data-resource-icon="@r\.ResourceType")(?=[^>]*alt="")(?=[^>]*width="32")(?=[^>]*height="32")/);
+        assert.match(view, /<img\b(?=[^>]*data-resource-icon="@typeNavn")(?=[^>]*alt="")(?=[^>]*width="32")(?=[^>]*height="32")/);
         assert.doesNotMatch(view, /images\/resources\/(?:car|excavator|drone|generator|personnel|toolbox|unknown)\.svg/);
     }
     const controls = source('map-controls.js');
     assert.match(controls, /ResourceIcons/);
     assert.doesNotMatch(controls, /images\/resources\/|\.svg['"]/);
-    assert.match(readFileSync(resolve(root, 'Views/Home/Verify.cshtml'), 'utf8'), /data-resource-icon="@r\.ResourceType"/);
+    assert.match(readFileSync(resolve(root, 'Views/Home/Verify.cshtml'), 'utf8'), /data-resource-icon="@typeNavn"/);
     assert.match(readFileSync(resolve(root, 'Views/Home/Verify.cshtml'), 'utf8'),
         /asp-controller="Operations" asp-action="Index" asp-fragment="needs"/);
 });
 
 test('server-generated per-asset versions flow through markers, legends, cards and unknown fallback under a path base', () => {
-    const files = ['car', 'excavator', 'drone', 'generator', 'personnel', 'toolbox', 'unknown']
+    const files = ['car', 'excavator', 'drone', 'generator', 'personnel', 'toolbox', 'other', 'unknown']
         .flatMap(file => [file, file + '-available', file + '-unavailable']);
     const urls = Object.fromEntries(files.map(file => [file, `/app/images/resources/${file}.svg?v=${file}-content-hash`]));
     const images = [
@@ -236,7 +245,7 @@ test('server-generated per-asset versions flow through markers, legends, cards a
     };
     vm.runInNewContext(source('resource-icons.js'), context);
     const api = context.window.ResourceIcons;
-    for (const entry of [...api.entries, { type: 'invalid', file: 'unknown' }]) {
+    for (const entry of [...api.entries, { type: 'invalid', file: 'other' }, { type: '', file: 'unknown' }]) {
         assert.equal(api.get(entry.type).url, urls[entry.file]);
         assert.equal(api.markerOptions(entry.type).icon.iconUrl, urls[entry.file + '-unavailable']);
         assert.equal(api.markerOptions(entry.type, true).icon.iconUrl, urls[entry.file]);
@@ -244,7 +253,7 @@ test('server-generated per-asset versions flow through markers, legends, cards a
     }
     assert.equal(images[0].src, urls['drone-unavailable']);
     assert.equal(images[0].alt, '', 'cards already show the type in adjacent text');
-    assert.equal(images[1].src, urls['unknown-unavailable']);
+    assert.equal(images[1].src, urls['other-unavailable']);
     const verify = readFileSync(resolve(root, 'Views/Home/Verify.cshtml'), 'utf8');
     assert.match(verify, /IFileVersionProvider FileVersionProvider/);
     assert.match(verify, /FileVersionProvider\.AddFileVersionToPath\(Context\.Request\.PathBase,/);

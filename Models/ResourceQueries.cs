@@ -1,55 +1,47 @@
-using System.Linq.Expressions;
 using System.Security.Claims;
-using HeimevernetInnlevering1.Controllers;
 using HeimevernetInnlevering1.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeimevernetInnlevering1.Models;
 
-/// <summary>Filter shared by the resource list and the map so both always show the same resources.</summary>
+/// <summary>Filter som deles av ressurslisten og kartet, slik at begge alltid viser de samme ressursene.</summary>
 public sealed record ResourceFilter(string? Type = null, string? Query = null, string? City = null,
-    bool Mine = false, bool Eligible = false, string? OwnerId = null)
+    bool Mine = false, bool Eligible = false, int? OwnerId = null)
 {
     public static ResourceFilter For(ClaimsPrincipal user, string? type, string? query, string? city, bool mine, bool eligible) =>
-        new(type, query, city, mine, eligible || AppRoles.DispatchOnly(user),
-            user.FindFirstValue(ClaimTypes.NameIdentifier));
+        new(type, query, city, mine, eligible || AppRoles.DispatchOnly(user), ResourcePermissions.BrukerId(user));
 }
 
 public static class ResourceQueries
 {
-    public static Expression<Func<MapSubmission, bool>> EligibleNow(DateTime nowUtc) => r =>
-        r.Availability == ResourceAvailability.Available &&
-        r.VerificationStatus == ResourceVerificationStatus.Approved &&
-        r.VerifiedAtUtc <= nowUtc && r.VerificationExpiresAtUtc > nowUtc &&
-        r.OwnerId != null && r.OwnerId.Trim() != "" &&
-        MapSubmissionViewModel.ResourceTypes.Contains(r.ResourceType);
+    /// <summary>Ressurser med type, eier og verifiseringer lastet, slik visningene trenger.</summary>
+    public static IQueryable<Ressurs> WithDetails(IQueryable<Ressurs> ressurser) =>
+        ressurser.Include(r => r.Ressurstype).Include(r => r.Eier).Include(r => r.Verifiseringer);
 
-    public static IQueryable<MapSubmission> Scope(IQueryable<MapSubmission> resources, ResourceFilter filter, DateTime nowUtc)
+    public static IQueryable<Ressurs> Scope(IQueryable<Ressurs> resources, ResourceFilter filter, DateTime nowUtc)
     {
-        if (filter.Mine) resources = resources.Where(r => r.OwnerId == filter.OwnerId);
-        if (!string.IsNullOrWhiteSpace(filter.Type)) resources = resources.Where(r => r.ResourceType == filter.Type);
+        if (filter.Mine) resources = resources.Where(r => r.EierID == filter.OwnerId);
+        if (!string.IsNullOrWhiteSpace(filter.Type)) resources = resources.Where(r => r.Ressurstype!.Navn == filter.Type);
         if (!string.IsNullOrWhiteSpace(filter.Query))
         {
             var query = filter.Query.Trim();
-            resources = resources.Where(r => r.ResourceName.Contains(query) || r.LocationName.Contains(query));
+            resources = resources.Where(r => r.Navn.Contains(query) || r.Stedsnavn.Contains(query));
         }
-        if (filter.Eligible) resources = resources.Where(EligibleNow(nowUtc));
+        if (filter.Eligible) resources = resources.Where(WorkflowEligibility.EligibleExpression(nowUtc));
         return resources;
     }
 
-    public static bool MatchesCity(MapSubmission resource, string? city)
+    public static bool MatchesCity(Ressurs resource, string? city)
     {
         var wanted = ResourceCity.Normalize(city);
-        return wanted.Length == 0 || string.Equals(ResourceCity.FromLocation(resource.LocationName), wanted,
+        return wanted.Length == 0 || string.Equals(ResourceCity.FromLocation(resource.Stedsnavn), wanted,
             StringComparison.OrdinalIgnoreCase);
     }
 
-    public static async Task<List<MapSubmission>> LoadAsync(AppDbContext db, ResourceFilter filter, DateTime nowUtc,
-        bool onMapOnly = false)
+    public static async Task<List<Ressurs>> LoadAsync(AppDbContext db, ResourceFilter filter, DateTime nowUtc)
     {
-        var resources = Scope(db.MapSubmissions.AsNoTracking(), filter, nowUtc);
-        if (onMapOnly) resources = resources.Where(r => r.IsOnMap);
-        var loaded = await resources.OrderByDescending(r => r.CreatedAtUtc).ToListAsync();
+        var resources = Scope(WithDetails(db.Ressurser.AsNoTracking()), filter, nowUtc);
+        var loaded = await resources.OrderByDescending(r => r.Registrert).AsSplitQuery().ToListAsync();
         return loaded.Where(r => MatchesCity(r, filter.City)).ToList();
     }
 }

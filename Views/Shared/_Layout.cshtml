@@ -68,8 +68,13 @@
                                 <li><a asp-controller="Operations" asp-action="Index" class="nav-link">Forespørsler</a></li>
                             }
                         }
+                        @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.OffentligAktor))
+                        {
+                            <li><a asp-controller="Behov" asp-action="Registrer" class="nav-link">Meld behov</a></li>
+                        }
                         @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
                         {
+                            <li><a asp-controller="Hendelse" asp-action="Index" class="nav-link">Hendelser</a></li>
                             <li><a asp-controller="Admin" asp-action="Index" class="nav-link">Brukere</a></li>
                         }
                     }
@@ -87,6 +92,7 @@
         @RenderBody()
     </main>
 
+    <script src="~/js/scroll-position.js" asp-append-version="true"></script>
     <script>
         const menuToggle = document.getElementById('menuToggle');
         const navMenu = document.getElementById('navMenu');

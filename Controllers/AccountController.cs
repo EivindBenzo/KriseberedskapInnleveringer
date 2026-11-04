@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HeimevernetInnlevering1.Controllers;
 
-public class AccountController(UserManager<IdentityUser> users, SignInManager<IdentityUser> signIn) : Controller
+public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> signIn) : Controller
 {
     private const string LoginError = "Kunne ikke logge inn. Kontroller opplysningene eller prøv igjen senere.";
 
@@ -50,7 +50,12 @@ public class AccountController(UserManager<IdentityUser> users, SignInManager<Id
             return View(model);
 
         var email = model.Email.Trim();
-        var user = new IdentityUser { UserName = email, Email = email };
+        var user = new Bruker
+        {
+            UserName = email, Email = email, Fornavn = model.Fornavn.Trim(), Etternavn = model.Etternavn.Trim(),
+            PhoneNumber = model.Telefon.Trim(),
+            Organisasjon = string.IsNullOrWhiteSpace(model.Organisasjon) ? null : model.Organisasjon.Trim()
+        };
         var result = await users.CreateAsync(user, model.Password);
         if (result.Succeeded)
         {

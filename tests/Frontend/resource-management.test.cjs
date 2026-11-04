@@ -195,12 +195,11 @@ test('standalone city selection fetches partial results instead of navigating th
     assert.equal(p.requests[0].options.credentials, 'same-origin');
 });
 
-test('delete confirmation uses safe text, version and antiforgery form, cancel and Escape restore focus', async () => {
+test('delete confirmation uses safe text and antiforgery form, cancel and Escape restore focus', async () => {
     const p = setup();
     p.root.handlers.click(p.event({ target: p.link }));
     assert.equal(p.dialog.open, true);
     assert.equal(p.nodes['#resourceDeleteName'].textContent, '<img> Drone');
-    assert.equal(p.deleteForm.elements.version.value, 'current-version');
     assert.equal(p.document.activeElement, p.nodes['[data-delete-cancel]']);
     p.nodes['[data-delete-cancel]'].handlers.click();
     await settle();

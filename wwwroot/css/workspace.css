@@ -182,3 +182,86 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .progress-steps li { padding: .2rem .65rem; border: 1px solid var(--border); border-radius: 1rem; color: var(--muted); font-size: .85rem; }
 .progress-steps li.done { color: var(--heading); border-color: var(--accent); background: var(--hover); }
 .progress-steps li[aria-current="step"] { font-weight: 700; }
+
+/* Skjemaet «Meld behov»: skjema til venstre, kart til høyre (under hverandre på mobil). */
+.need-form-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.need-map-panel {
+    position: sticky;
+    top: 1rem;
+}
+
+.need-map {
+    width: 100%;
+    height: min(70vh, 620px);
+    min-height: 320px;
+    border-radius: 12px;
+    border: 1px solid var(--border, #cbd5e1);
+}
+
+.form-row-compact {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.workflow-item-highlight {
+    border-color: #f5c542;
+    box-shadow: 0 0 0 2px rgba(245, 197, 66, 0.35);
+}
+
+@media (max-width: 900px) {
+    .need-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .need-map-panel {
+        position: static;
+        order: -1;
+    }
+
+    .need-map {
+        height: 45vh;
+    }
+}
+
+@media (max-width: 480px) {
+    .form-row-compact {
+        grid-template-columns: 1fr;
+    }
+}
+
+.need-form-page .need-form {
+    max-width: none;
+    margin: 0;
+    padding: 1rem;
+}
+
+.need-form-page .registration-section {
+    min-width: 0;
+    margin: 0 0 1rem;
+    padding: .85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flow-root;
+}
+
+.need-form-page .registration-section legend {
+    float: inline-start;
+    width: 100%;
+    margin: 0 0 .75rem;
+    padding: 0 0 .65rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--heading);
+    font-size: .9rem;
+    font-weight: 650;
+}
+
+.need-form-page .form-group:last-child {
+    margin-bottom: 0;
+}
