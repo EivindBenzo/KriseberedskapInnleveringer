@@ -1,5 +1,7 @@
 # Beredskapsportalen – ressurs- og behovsportal for Totalforsvaret
 
+Vi i gruppen holder på å lage applikasjonen slik at den har offentlig aktører som melder behov, ressursleverandør som registrerer ressurser, slik at dispatch team kan koble dem sammen. Kriseledelsen funker som administrator og kan tildele roller til brukere, registrere hendelser, i tillegg til å ha større oversikt over de ulike delene av applikasjonen. Dette er en prototype fortsatt.
+
 ## Innhold
 
 1. [Drift](#drift)
