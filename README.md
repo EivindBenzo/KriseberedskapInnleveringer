@@ -1,9 +1,5 @@
 # Beredskapsportalen – ressurs- og behovsportal for Totalforsvaret
 
-Gruppe 5, IS-202 ved UiA. En ASP.NET Core MVC-nettside (`net10.0`) der offentlige aktører melder behov, ressursleverandører registrerer ressurser, verifiseringsansvarlig kontrollerer dem, og dispatch og kriseledelse kobler behov og ressurser sammen. Data lagres i MariaDB, og både app og database kjører i Docker.
-
-Dette er en studentprototype, ikke en offisiell tjeneste eller en kanal for ekte nødsituasjoner.
-
 ## Innhold
 
 1. [Drift](#drift)
