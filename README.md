@@ -103,7 +103,9 @@ Nettleser ──► Controllers ──► WorkflowService / DashboardService ─
 | `wwwroot/lib/leaflet` | Kartbiblioteket Leaflet 1.9.4, lagret lokalt (ingen ekstern CDN) |
 | `tests` | Integrasjonstester mot MariaDB (`MariaDbIntegrationTests`) og frontend-tester (`Frontend`) |
 
-**Kart:** Kartflisene hentes fra OpenStreetMap. Stedsnavn for et punkt hentes av serveren fra OpenStreetMap Nominatim, med koordinater som reserve. Stedsforslag mens man skriver søkes lokalt i `wwwroot/data/norway-localities.json` (GeoNames, CC BY 4.0), så tastetrykk sendes ikke ut.
+**Kart:** Nesten alt lages på serveren i C#: hvor kartet starter, hvilke ressurser som vises (filteret), symbolene og popup-teksten (`KartVisning` og `RessursIkon`). Det eneste JavaScript-et er `wwwroot/js/kart.js`, som tegner dette med Leaflet og fyller ut breddegrad/lengdegrad når man klikker i kartet i et skjema. Kartflisene hentes fra OpenStreetMap. Stedsnavn for et punkt finner serveren hos OpenStreetMap Nominatim når skjemaet lagres, med koordinater som reserve. «Finn sted» søker på serveren i `wwwroot/data/norway-localities.json` (GeoNames, CC BY 4.0), og spør bare Nominatim hvis stedet ikke finnes der (`Services/Stedssok.cs`).
+
+**Uten JavaScript:** Menyen på mobil åpnes med en avkrysningsboks og CSS, feltet for «Annen type …» vises med CSS (`:has`), lys/mørk modus lagres i en informasjonskapsel som C# leser (`TemaController`), og etter en statusendring sender serveren deg tilbake til samme sted på siden med et `#anker` i adressen.
 
 ## Databasen (ER-modellen)
 
@@ -198,7 +200,7 @@ docker compose -p heimevernet-test --profile integration run --build --rm mariad
 docker compose -p heimevernet-test down -v
 ```
 
-Resultat 3. november 2026: **61 av 61** integrasjonstester og **131 av 131** frontend-tester bestått.
+Resultat 4. november 2026: **68 av 68** integrasjonstester og **38 av 38** frontend-tester bestått.
 
 | Testfil | Hva testes |
 | --- | --- |
@@ -207,7 +209,8 @@ Resultat 3. november 2026: **61 av 61** integrasjonstester og **131 av 131** fro
 | `SeedingOgRegistreringTests` | Demodata gir én konto per rolle og kan kjøres flere ganger. Registrering lagrer navn og telefon. Man kan ikke gi seg selv Kriseledelse, Dispatch eller Verifisering. Bootstrap av admin krever riktig passord. |
 | `ResourceAuthorizationTests` | Bare eieren med rollen Ressursleverandør kan endre en ressurs |
 | `PlaceGeocoderTests`, `DatabaseProviderConfigurationTests` | Stedsoppslag (grenser, hurtigbuffer, feil) og tilkoblingsoppsett |
-| `tests/Frontend` | Kartlogikk, ikoner, tema, tastaturnavigasjon, stedssøk og at sidene har riktige skjemaer og rollestyring |
+| `KartOgTemaTests` | Riktig symbol per ressurstype, «Annet»-filteret, «Finn sted» (lokalt søk uten aksenter) og at temaknappen lagrer valget og bare sender til lokale adresser |
+| `tests/Frontend` | At `kart.js` bare tegner det serveren har bestemt, at sidene ikke har annen JavaScript, CSS for meny og «Annen type …», og at sidene har riktige skjemaer og rollestyring |
 
 ### Systemtest (gjennomført i nettleser, Playwright mot MariaDB)
 

@@ -12,9 +12,10 @@ test('desktop workspace uses remaining viewport with internal results scrolling'
     assert.match(css, /overflow-y: auto/);
     assert.doesNotMatch(css, /min-height: 480px/);
     assert.doesNotMatch(css, /--workspace-height|min-height: 3[23]0px|overflow: hidden/);
-    assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.workspace-sidebar \{[^}]*max-height: 45%;[^}]*overflow-y: auto/);
-    assert.match(css, /data-registration-open="true"\] \.workspace-sidebar \{[^}]*max-height: 60%/);
-    assert.match(css, /data-mobile-view="list"\] \.workspace-sidebar \{[^}]*max-height: 100%/);
+    // På mobil vises kartet øverst og listen under, uten en egen Kart/Liste-knapp.
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.workspace-map-region \{[^}]*order: -1/);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*#map \{[^}]*height: 60vh/);
+    assert.doesNotMatch(css, /data-mobile-view/);
 });
 
 test('compact pages retain readable controls and hide only empty feedback', () => {

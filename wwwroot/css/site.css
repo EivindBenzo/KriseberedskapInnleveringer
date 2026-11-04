@@ -149,10 +149,6 @@ header::after {
     cursor: pointer;
 }
 
-.theme-toggle[hidden] {
-    display: none;
-}
-
 .theme-toggle:hover {
     background: #1e40af;
 }
@@ -168,7 +164,7 @@ header::after {
 }
 
 .menu-toggle:hover,
-.menu-toggle.open {
+.menu-checkbox:checked ~ .nav-actions .menu-toggle {
     background: rgba(255, 255, 255, 0.2);
 }
 
@@ -181,15 +177,15 @@ header::after {
     transition: all 0.3s ease;
 }
 
-.menu-toggle.open span:nth-child(1) {
+.menu-checkbox:checked ~ .nav-actions .menu-toggle span:nth-child(1) {
     transform: translateY(8px) rotate(45deg);
 }
 
-.menu-toggle.open span:nth-child(2) {
+.menu-checkbox:checked ~ .nav-actions .menu-toggle span:nth-child(2) {
     opacity: 0;
 }
 
-.menu-toggle.open span:nth-child(3) {
+.menu-checkbox:checked ~ .nav-actions .menu-toggle span:nth-child(3) {
     transform: translateY(-8px) rotate(-45deg);
 }
 
@@ -216,7 +212,20 @@ header::after {
     z-index: 2000;
 }
 
-.nav-menu.open {
+/* Menyen åpnes når den skjulte avkrysningsboksen (#menuToggle) er krysset av. Knappen er en <label> for boksen. */
+.menu-checkbox {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.menu-checkbox:focus-visible ~ .nav-actions .menu-toggle {
+    outline: 3px solid white;
+    outline-offset: 3px;
+}
+
+.menu-checkbox:checked ~ .nav-menu {
     opacity: 1;
     visibility: visible;
     transform: translateY(0);
@@ -516,45 +525,6 @@ li {
     z-index: 20;
 }
 
-.city-suggestions {
-    display: none;
-    position: absolute;
-    top: calc(100% - 1rem);
-    left: 0;
-    right: 0;
-    margin: 0;
-    padding: 0.4rem;
-    list-style: none;
-    background: var(--surface);
-    border: 1px solid rgba(96, 165, 250, 0.45);
-    border-radius: 0 0 12px 12px;
-    box-shadow: 0 18px 35px rgba(0, 0, 0, 0.45);
-    max-height: 280px;
-    overflow-y: auto;
-    z-index: 100;
-}
-
-.city-suggestions.open {
-    display: block;
-}
-
-.city-suggestion-item {
-    margin: 0;
-    padding: 0.85rem 1rem;
-    color: var(--heading);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-}
-
-.city-suggestion-item:hover,
-.city-suggestion-item:focus {
-    color: #ffffff;
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    transform: translateX(4px);
-    outline: none;
-}
-
 .leaflet-container {
     font-family: inherit;
     background: #cbd5e1;
@@ -608,13 +578,9 @@ th {
     color: var(--accent);
 }
 
-.resource-marker,
-.map-legend img,
-img[data-resource-icon] {
-    filter: none;
-}
-
-img[data-resource-icon] {
+img.resource-icon,
+.resource-card summary img,
+.resource-row h2 img {
     display: inline-block;
     vertical-align: middle;
     object-fit: contain;

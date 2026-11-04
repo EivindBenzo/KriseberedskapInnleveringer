@@ -18,7 +18,9 @@ public class BehovController(AppDbContext db, WorkflowService workflow, IPlaceGe
     {
         // Kontaktfeltene starter tomme og viser bare eksempeltekst.
         await FyllValgAsync();
-        return View(new BehovSkjemaViewModel());
+        var model = new BehovSkjemaViewModel();
+        ByggKart(model);
+        return View(model);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -56,7 +58,25 @@ public class BehovController(AppDbContext db, WorkflowService workflow, IPlaceGe
             }
         }
         await FyllValgAsync();
+        ByggKart(model);
         return View(model);
+    }
+
+    /// <summary>
+    /// Kartet i skjemaet: starter over Innlandet (eller over punktet som allerede er valgt),
+    /// og et klikk i kartet fyller ut feltene needLat og needLng.
+    /// </summary>
+    private void ByggKart(BehovSkjemaViewModel model)
+    {
+        var harPunkt = PlaceGeocoder.ValidPoint(model.Breddegrad, model.Lengdegrad);
+        var senter = harPunkt
+            ? new KartVisning(model.Breddegrad!.Value, model.Lengdegrad!.Value, 13)
+            : new KartVisning(60.7945, 11.0680, 8);
+        ViewBag.Kart = senter with
+        {
+            Plassering = new KartPlassering("needLat", "needLng", "needPlace",
+                harPunkt ? model.Breddegrad : null, harPunkt ? model.Lengdegrad : null)
+        };
     }
 
     private async Task FyllValgAsync()

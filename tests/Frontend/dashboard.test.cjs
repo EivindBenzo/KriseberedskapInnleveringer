@@ -17,7 +17,7 @@ test('registration only offers self-service roles and explains that the rest are
 
 test('navigation shows Oversikt to every role and role-specific entries only to their roles', () => {
     const layout = read('Views/Shared/_Layout.cshtml');
-    assert.match(layout, /asp-action="Dashboard" class="nav-link">Oversikt/);
+    assert.match(layout, /asp-action="Dashboard" class="nav-link" aria-current="@Aktiv\("Home", "Dashboard"\)">Oversikt/);
     const operations = layout.slice(layout.indexOf('@if (canUseOperations)'), layout.indexOf('@if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.OffentligAktor))'));
     assert.match(layout, /AppRoles\.OffentligAktor\)\)\s*\{\s*<li><a asp-controller="Behov" asp-action="Registrer"/);
     assert.match(layout, /AppRoles\.Kriseledelse\)\)\s*\{\s*<li><a asp-controller="Hendelse"/);
@@ -41,7 +41,11 @@ test('dashboard sections are gated per role and post to the server-side workflow
         const body = view.slice(start, view.indexOf('\n@if (', start + 1) === -1 ? undefined : view.indexOf('\n@if (', start + 1));
         for (const needle of needles) assert.ok(body.includes(needle), `${gate}: ${needle}`);
     }
-    assert.match(view, /name="returnUrl" value="@back"/);
+    // Etter en handling sendes brukeren tilbake til samme element (#anker), ikke til toppen av siden.
+    assert.match(view, /string Tilbake\(string anker\) => Url\.Action\("Dashboard", "Home"\) \+ "#" \+ anker;/);
+    assert.match(view, /<article id="tildeling-@assignment\.TildelingID"/);
+    assert.match(view, /name="returnUrl" value="@Tilbake\("tildeling-" \+ assignment\.TildelingID\)"/);
+    assert.doesNotMatch(view, /value="@back"/);
     assert.match(view, /Begrunnelse \(kreves ved avvisning\)/);
     assert.match(view, /@if \(dispatch \|\| leader\)[\s\S]*asp-action="Assignment"/);
 });
@@ -51,11 +55,4 @@ test('timeline partial and styles reuse the existing design tokens', () => {
     const css = read('wwwroot/css/workspace.css');
     assert.match(css, /\.timeline ol/);
     assert.match(css, /\.progress-steps li\.done \{[^}]*var\(--accent\)/);
-});
-
-test('legend header shows a grab cursor and the panel cannot be resized', () => {
-    const css = read('wwwroot/css/map-controls.css');
-    assert.match(css, /\.map-legend summary \{[^}]*cursor: grab;[^}]*touch-action: none/);
-    assert.match(css, /\.map-legend summary:active \{\s*cursor: grabbing/);
-    assert.doesNotMatch(css, /resize:\s*(?:both|vertical|horizontal)/);
 });

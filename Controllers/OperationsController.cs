@@ -15,9 +15,11 @@ namespace HeimevernetInnlevering1.Controllers;
 [AutoValidateAntiforgeryToken]
 public class OperationsController(AppDbContext db, WorkflowService workflow) : Controller
 {
+    /// <param name="vis">Seksjonen som skal være åpen når siden lastes: «resources» eller «needs».</param>
     [HttpGet]
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(string? vis = null)
     {
+        ViewBag.Vis = vis is "resources" or "needs" ? vis : null;
         if (ResourcePermissions.BrukerId(User) is not int actorId) return Forbid();
         var provider = User.IsInRole(AppRoles.Ressursleverandor);
         var dispatch = User.IsInRole(AppRoles.DispatchTeam);

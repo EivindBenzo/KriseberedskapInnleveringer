@@ -2,29 +2,28 @@
     var canUseOperations = User.Identity?.IsAuthenticated == true
         && !string.IsNullOrEmpty(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value)
         && HeimevernetInnlevering1.Models.AppRoles.HasAny(User);
+    var tema = HeimevernetInnlevering1.Controllers.TemaController.Gjeldende(Context.Request);
+    var mørk = tema == HeimevernetInnlevering1.Controllers.TemaController.Mørk;
+    var gjeldendeSide = Context.Request.Path + Context.Request.QueryString;
+
+    // Markerer menypunktet for siden brukeren er på (aria-current="page"). Razor dropper attributtet når verdien er null.
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    string? Aktiv(string c, params string[] actions) =>
+        string.Equals(controller, c, StringComparison.OrdinalIgnoreCase)
+        && actions.Any(a => string.Equals(action, a, StringComparison.OrdinalIgnoreCase)) ? "page" : null;
 }
 <!DOCTYPE html>
-<html lang="no">
+<html lang="no" data-theme="@tema">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Beredskapsportalen</title>
-    <script src="~/js/theme.js" asp-append-version="true"></script>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/workspace.css" asp-append-version="true" />
 </head>
 <body>
-    <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
-        <defs>
-            <filter id="resource-map-outline" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-                <feMorphology in="SourceAlpha" operator="dilate" radius="1" result="outline" />
-                <feFlood flood-color="#000" />
-                <feComposite in2="outline" operator="in" />
-                <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-        </defs>
-    </svg>
     <a class="skip-link" href="#main">Hopp til innhold</a>
     <header>
         <nav class="navbar" aria-label="Hovedmeny">
@@ -34,54 +33,60 @@
                     <span>Beredskapsportalen<small>Studentprosjekt · prototype</small></span>
                 </a>
 
+                @* Menyen åpnes og lukkes med en avkrysningsboks og CSS (site.css), uten JavaScript. *@
+                <input type="checkbox" id="menuToggle" class="menu-checkbox" aria-controls="navMenu" />
+
                 <div class="nav-actions">
-                <button type="button" class="theme-toggle" id="themeToggle" aria-label="Bytt til mørk modus" aria-pressed="false" hidden>
-                    <span id="themeIcon" aria-hidden="true">☀</span>
-                    <span id="themeLabel">Lys modus</span>
-                </button>
+                <form asp-controller="Tema" asp-action="Bytt" method="post">
+                    <input type="hidden" name="returnUrl" value="@gjeldendeSide" />
+                    <button type="submit" class="theme-toggle" aria-label="@(mørk ? "Bytt til lys modus" : "Bytt til mørk modus")">
+                        <span aria-hidden="true">@(mørk ? "☾" : "☀")</span>
+                        <span>@(mørk ? "Mørk modus" : "Lys modus")</span>
+                    </button>
+                </form>
                 @if (User.Identity?.IsAuthenticated == true)
                 {
                     <form asp-controller="Account" asp-action="Logout" method="post">
                         <button type="submit" class="nav-signout">Logg ut</button>
                     </form>
                 }
-                <button type="button" class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="navMenu" aria-label="Åpne meny">
+                <label for="menuToggle" class="menu-toggle" aria-label="Meny">
                     <span></span>
                     <span></span>
                     <span></span>
-                </button>
+                </label>
                 </div>
 
                 <ul class="nav-menu" id="navMenu">
-                    <li><a asp-controller="Home" asp-action="Index" class="nav-link">Hjem</a></li>
+                    <li><a asp-controller="Home" asp-action="Index" class="nav-link" aria-current="@Aktiv("Home", "Index")">Hjem</a></li>
                     @if (User.Identity?.IsAuthenticated == true)
                     {
-                        <li><a asp-controller="Home" asp-action="Dashboard" class="nav-link">Oversikt</a></li>
-                        <li><a asp-controller="Home" asp-action="Map" class="nav-link">Kart</a></li>
-                        <li><a asp-controller="Home" asp-action="Resources" class="nav-link">Ressurser</a></li>
+                        <li><a asp-controller="Home" asp-action="Dashboard" class="nav-link" aria-current="@Aktiv("Home", "Dashboard")">Oversikt</a></li>
+                        <li><a asp-controller="Home" asp-action="Map" class="nav-link" aria-current="@Aktiv("Home", "Map")">Kart</a></li>
+                        <li><a asp-controller="Home" asp-action="Resources" class="nav-link" aria-current="@Aktiv("Home", "Resources", "Mine", "Edit", "Delete")">Ressurser</a></li>
                         @if (canUseOperations)
                         {
                             @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Ressursleverandor)
                                 || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.DispatchTeam)
                                 || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
                             {
-                                <li><a asp-controller="Operations" asp-action="Index" class="nav-link">Forespørsler</a></li>
+                                <li><a asp-controller="Operations" asp-action="Index" class="nav-link" aria-current="@Aktiv("Operations", "Index")">Forespørsler</a></li>
                             }
                         }
                         @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.OffentligAktor))
                         {
-                            <li><a asp-controller="Behov" asp-action="Registrer" class="nav-link">Meld behov</a></li>
+                            <li><a asp-controller="Behov" asp-action="Registrer" class="nav-link" aria-current="@Aktiv("Behov", "Registrer")">Meld behov</a></li>
                         }
                         @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
                         {
-                            <li><a asp-controller="Hendelse" asp-action="Index" class="nav-link">Hendelser</a></li>
-                            <li><a asp-controller="Admin" asp-action="Index" class="nav-link">Brukere</a></li>
+                            <li><a asp-controller="Hendelse" asp-action="Index" class="nav-link" aria-current="@Aktiv("Hendelse", "Index")">Hendelser</a></li>
+                            <li><a asp-controller="Admin" asp-action="Index" class="nav-link" aria-current="@Aktiv("Admin", "Index")">Brukere</a></li>
                         }
                     }
                     else
                     {
-                        <li><a asp-controller="Account" asp-action="Login" class="nav-link">Logg inn</a></li>
-                        <li><a asp-controller="Account" asp-action="Register" class="nav-link">Registrer bruker</a></li>
+                        <li><a asp-controller="Account" asp-action="Login" class="nav-link" aria-current="@Aktiv("Account", "Login")">Logg inn</a></li>
+                        <li><a asp-controller="Account" asp-action="Register" class="nav-link" aria-current="@Aktiv("Account", "Register")">Registrer bruker</a></li>
                     }
                 </ul>
             </div>
@@ -92,61 +97,5 @@
         @RenderBody()
     </main>
 
-    <script src="~/js/scroll-position.js" asp-append-version="true"></script>
-    <script>
-        const menuToggle = document.getElementById('menuToggle');
-        const navMenu = document.getElementById('navMenu');
-        function updateCurrentNavigation() {
-            document.querySelectorAll('#navMenu a').forEach(function (link) {
-                const path = window.location.pathname.toLowerCase();
-                const samePage = link.pathname.toLowerCase() === path ||
-                    (link.pathname === '/' && path === '/home/index') ||
-                    (link.pathname.toLowerCase() === '/home/resources' &&
-                        ['/home/mine', '/home/edit', '/home/delete'].some(route => path === route || path.startsWith(route + '/')));
-                if (samePage && (!link.hash || link.hash === window.location.hash)) {
-                    link.setAttribute('aria-current', 'page');
-                } else {
-                    link.removeAttribute('aria-current');
-                }
-            });
-        }
-        updateCurrentNavigation();
-        window.addEventListener('hashchange', updateCurrentNavigation);
-        function revealLinkedSection(hash = window.location.hash) {
-            const section = document.getElementById(hash.slice(1));
-            if (section?.tagName === 'DETAILS') {
-                section.open = true;
-                section.scrollIntoView({ block: 'start' });
-            }
-        }
-        revealLinkedSection();
-        window.addEventListener('hashchange', () => revealLinkedSection());
-
-        menuToggle.addEventListener('click', function () {
-            const isOpen = navMenu.classList.toggle('open');
-            menuToggle.classList.toggle('open', isOpen);
-            menuToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        });
-
-        document.addEventListener('click', function (event) {
-            const link = event.target.closest?.('a');
-            if (link?.hash && link.pathname === window.location.pathname) {
-                revealLinkedSection(link.hash);
-            }
-            if (!navMenu.contains(event.target) && !menuToggle.contains(event.target)) {
-                navMenu.classList.remove('open');
-                menuToggle.classList.remove('open');
-                menuToggle.setAttribute('aria-expanded', 'false');
-            }
-        });
-        document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && navMenu.classList.contains('open')) {
-                navMenu.classList.remove('open');
-                menuToggle.classList.remove('open');
-                menuToggle.setAttribute('aria-expanded', 'false');
-                menuToggle.focus();
-            }
-        });
-    </script>
 </body>
 </html>

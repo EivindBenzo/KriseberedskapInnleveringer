@@ -396,10 +396,6 @@ body:has(.map-workspace) {
     margin-bottom: .75rem;
 }
 
-.map-workspace .workspace-mobile-switch {
-    display: none;
-}
-
 .map-workspace [hidden] {
     display: none !important;
 }
@@ -419,19 +415,6 @@ body:has(.map-workspace) {
         font-size: 1.3rem;
     }
 
-    .map-workspace .workspace-mobile-switch {
-        display: flex;
-        gap: .4rem;
-        margin-bottom: .65rem;
-    }
-
-    .map-workspace .workspace-mobile-switch button {
-        flex: 1;
-        color: var(--text);
-        background: var(--workspace-surface);
-        border: 1px solid var(--workspace-border);
-    }
-
     .map-workspace .workspace-grid {
         display: flex;
         flex-direction: column;
@@ -443,16 +426,17 @@ body:has(.map-workspace) {
         text-align: center;
     }
 
+    /* På mobil scroller hele siden: kartet øverst, så søk, skjema og ressursliste under. */
+    body:has(.map-workspace) { height: auto; }
+    .map-workspace, .map-workspace .workspace-grid { flex: none; }
+
     .map-workspace .workspace-sidebar {
         width: 100%;
         height: auto;
-        max-height: 45%;
+        max-height: none;
         min-height: 0;
-        overflow-y: auto;
+        overflow-y: visible;
     }
-
-    .map-workspace[data-registration-open="true"] .workspace-sidebar { flex: 1; max-height: 60%; }
-    .map-workspace[data-mobile-view="list"] .workspace-sidebar { flex: 1; max-height: 100%; }
 
     .map-workspace .workspace-search {
         padding: .65rem;
@@ -460,17 +444,38 @@ body:has(.map-workspace) {
     }
 
     .map-workspace .workspace-map-region {
-        flex: 1;
         width: 100%;
+        order: -1;
     }
 
     .map-workspace #map {
-        height: 100%;
-        min-height: 0;
-    }
-
-    .map-workspace[data-mobile-view="map"] .workspace-results,
-    .map-workspace[data-mobile-view="list"] .workspace-map-region {
-        display: none;
+        flex: none;
+        height: 60vh;
+        min-height: 300px;
     }
 }
+
+/* Forslag fra «Finn sted» og filteret over ressurslisten. */
+.place-suggestions { margin: .25rem 0 0; padding-left: 1.1rem; }
+.place-suggestions li { margin: .15rem 0; }
+.map-filter { margin-bottom: .6rem; }
+.map-filter label { display: block; margin-bottom: .25rem; }
+
+/* Tegnforklaring under kartet. */
+.map-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem .9rem;
+    margin: .5rem 0 0;
+    padding: .5rem .75rem;
+    list-style: none;
+    background: var(--workspace-surface);
+    border: 1px solid var(--workspace-border);
+    border-radius: 8px;
+    font-size: .9rem;
+}
+.map-key li { display: flex; align-items: center; gap: .35rem; }
+.map-key .dot { display: inline-block; width: .8rem; height: .8rem; border-radius: 50%; border: 1px solid #000; }
+.map-key .dot-green { background: #15803d; }
+.map-key .dot-red { background: #b91c1c; margin-left: .5rem; }
+.map-key-colors { flex-basis: 100%; }

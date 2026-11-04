@@ -6,12 +6,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Encodings.Web;
 
 namespace HeimevernetInnlevering1.Controllers;
 
 /// <summary>Forside, oversikt, ressurskart og ressurslisten.</summary>
 [Authorize(Roles = AppRoles.Any)]
-public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowService workflow) : Controller
+public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowService workflow, Stedssok stedssok) : Controller
 {
     private ResourceFilter? _mapFilter;
 
@@ -33,31 +34,38 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
 
     // ---------- Kart og registrering av ressurs ----------
 
+    /// <summary>
+    /// Kartsiden. Alt som vises lages her på serveren:
+    /// <list type="bullet">
+    /// <item><c>type</c> filtrerer på ressurstype («Annet» = typer brukerne har lagt til selv).</item>
+    /// <item><c>sted</c> er «Finn sted»: kartet flyttes til stedet.</item>
+    /// <item><c>focus</c> er en ressurs som skal vises: kartet zoomer inn og kortet i listen åpnes.</item>
+    /// </list>
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> Map(string? type = null, string? query = null, string? city = null, bool mine = false,
-        bool eligible = false)
+        bool eligible = false, string? sted = null, int? focus = null)
     {
         _mapFilter = ResourceFilter.For(User, type, query, city, mine, eligible);
         ViewBag.MapFilter = _mapFilter;
         await LoadResourcesAsync();
+
+        var senter = KartVisning.Standard;
+        if (!string.IsNullOrWhiteSpace(sted))
+        {
+            var treff = await stedssok.SøkAsync(sted, HttpContext?.RequestAborted ?? default);
+            senter = treff.Count == 0
+                ? senter with { Melding = $"Fant ikke «{sted.Trim()}». Prøv et annet stedsnavn." }
+                : new KartVisning(treff[0].Lat, treff[0].Lng, 12)
+                {
+                    Melding = $"Viser {treff[0].Label}.",
+                    Stedsforslag = treff.Skip(1).ToList()
+                };
+        }
         // Kontaktfeltene starter tomme: ressursen kan ha en annen kontaktperson enn den som registrerer.
-        return View(new RessursSkjemaViewModel());
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> Place(double? latitude, double? longitude)
-    {
-        if (!ModelState.IsValid || !PlaceGeocoder.ValidPoint(latitude, longitude))
-            return BadRequest();
-        return Json(new { label = await geocoder.ReverseAsync(latitude!.Value, longitude!.Value,
-            HttpContext?.RequestAborted ?? default) });
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> SearchPlaces(string? query)
-    {
-        if (!ModelState.IsValid || !PlaceGeocoder.ValidQuery(query)) return BadRequest();
-        return Json(await geocoder.SearchAsync(query!, HttpContext?.RequestAborted ?? default));
+        var model = new RessursSkjemaViewModel();
+        ByggKart(model, senter, focus);
+        return View(model);
     }
 
     [HttpPost]
@@ -72,8 +80,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
             {
                 var id = await workflow.RegisterResourceAsync(model, User);
                 TempData["MapSuccess"] = $"{model.Ressurstype} «{model.Navn}» ble registrert ved {model.Stedsnavn} og venter på verifisering.";
-                TempData["MapPlacedResourceId"] = id;
-                return RedirectToAction(nameof(Map));
+                return RedirectToAction(nameof(Map), null, new { focus = id }, "ressurs-" + id);
             }
             catch (WorkflowException exception)
             {
@@ -81,6 +88,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
             }
         }
         await LoadResourcesAsync();
+        ByggKart(model);
         return View(model);
     }
 
@@ -94,7 +102,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
         if (!ResourcePermissions.CanManage(User, resource.EierID)) return Forbid();
         ViewBag.EditId = id;
         await LoadResourcesAsync();
-        return View("Map", new RessursSkjemaViewModel
+        var model = new RessursSkjemaViewModel
         {
             Navn = resource.Navn,
             Ressurstype = resource.Ressurstype!.Navn,
@@ -106,7 +114,9 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
             Stedsnavn = resource.Stedsnavn,
             Breddegrad = (double)resource.Breddegrad,
             Lengdegrad = (double)resource.Lengdegrad
-        });
+        };
+        ByggKart(model);
+        return View("Map", model);
     }
 
     [HttpPost]
@@ -126,8 +136,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
                 TempData["MapSuccess"] = reverify
                     ? "Ressursen er oppdatert og venter på ny verifisering."
                     : "Ressursen er oppdatert.";
-                TempData["MapPlacedResourceId"] = id;
-                return RedirectToAction(nameof(Map));
+                return RedirectToAction(nameof(Map), null, new { focus = id }, "ressurs-" + id);
             }
             catch (WorkflowException exception)
             {
@@ -136,6 +145,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
         }
         ViewBag.EditId = id;
         await LoadResourcesAsync();
+        ByggKart(model);
         return View("Map", model);
     }
 
@@ -155,8 +165,6 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
-        var json = Request.GetTypedHeaders().Accept?.Any(a =>
-            string.Equals(a.MediaType.Value, "application/json", StringComparison.OrdinalIgnoreCase)) is true;
         var resource = await db.Ressurser.AsNoTracking().SingleOrDefaultAsync(r => r.RessursID == id);
         if (resource is null) return NotFound();
         if (!ResourcePermissions.CanManage(User, resource.EierID)) return Forbid();
@@ -166,13 +174,11 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
         }
         catch (WorkflowException exception)
         {
-            if (json) return Conflict(new { error = exception.Message });
             ModelState.AddModelError("", exception.Message);
             var current = await db.Ressurser.AsNoTracking().Include(r => r.Ressurstype)
                 .SingleOrDefaultAsync(r => r.RessursID == id);
             return current is null ? NotFound() : View("Delete", current);
         }
-        if (json) return Json(new { deletedId = id });
         TempData["MapSuccess"] = "Ressursen er slettet.";
         return RedirectToAction(nameof(Map));
     }
@@ -191,21 +197,19 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
 
     [HttpGet]
     public async Task<IActionResult> Resources(string? type, string? query, bool mine = false, bool eligible = false,
-        bool overlay = false, string? city = null, bool fragment = false, bool history = false)
+        string? city = null, bool history = false)
     {
         if (history && !User.IsInRole(AppRoles.Kriseledelse)) return Forbid();
         ViewBag.SelectedType = type;
         ViewBag.Query = query;
         ViewBag.Mine = mine;
         ViewBag.Eligible = eligible;
-        ViewBag.ResourcesOverlay = overlay;
-        ViewBag.ResourcesPartial = overlay || fragment;
         ViewBag.City = ResourceCity.Normalize(city);
         ViewBag.ResourceHistory = history;
         var model = history
             ? new DataPageViewModel { History = await LoadResourceHistoryAsync() }
             : await BuildDataModelAsync(type, query, mine, eligible, city);
-        return overlay || fragment ? PartialView("Verify", model) : View("Verify", model);
+        return View("Verify", model);
     }
 
     private async Task<IReadOnlyList<ResourceHistoryEntry>> LoadResourceHistoryAsync() =>
@@ -229,6 +233,53 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
             _mapFilter ?? ResourceFilter.For(User, null, null, null, false, false), DateTime.UtcNow);
         ViewBag.Ressurstyper = await RessurstypeNavnAsync();
     }
+
+    /// <summary>
+    /// Lager innholdet i kartet: hvor det starter, én markør per ressurs med riktig symbol og
+    /// popup-tekst, og hvilke skjemafelt et klikk i kartet skal fylle ut når skjemaet er åpent.
+    /// </summary>
+    private void ByggKart(RessursSkjemaViewModel model, KartVisning? senter = null, int? focus = null)
+    {
+        var ressurser = (ViewBag.Resources as List<Ressurs>) ?? [];
+        var redigerer = ViewBag.EditId as int?;
+        var harPunkt = PlaceGeocoder.ValidPoint(model.Breddegrad, model.Lengdegrad);
+        var nå = DateTime.UtcNow;
+        var html = HtmlEncoder.Default;
+        senter ??= KartVisning.Standard;
+
+        var fokusert = ressurser.FirstOrDefault(r => r.RessursID == focus);
+        if (fokusert is not null) senter = new KartVisning((double)fokusert.Breddegrad, (double)fokusert.Lengdegrad, 15);
+        else if (harPunkt) senter = new KartVisning(model.Breddegrad!.Value, model.Lengdegrad!.Value, 13);
+
+        var markører = ressurser
+            .Where(r => r.RessursID != redigerer) // ressursen som redigeres vises som den flyttbare markøren
+            .Select(r =>
+            {
+                var type = r.Ressurstype?.Navn ?? "Ukjent";
+                var status = ResourceOperationalStatus.From(r, nå);
+                var lenke = Url?.Action(nameof(Map), new { focus = r.RessursID }) + "#ressurs-" + r.RessursID;
+                var popup = $"<strong>{html.Encode(r.Navn)}</strong><br>Type: {html.Encode(type)}<br>" +
+                            $"Sted: {html.Encode(r.Stedsnavn)}<br>Status: {html.Encode(status.Availability)} · " +
+                            $"Godkjenning: {html.Encode(status.Verification)}<br><a href=\"{html.Encode(lenke)}\">Vis detaljer i listen</a>";
+                return new KartMarkor((double)r.Breddegrad, (double)r.Lengdegrad, BildeUrl(RessursIkon.Sti(type, status)),
+                    $"{r.Navn} ({type}) – {status.Availability}", popup, r.RessursID == focus);
+            })
+            .ToList();
+
+        var registrerer = User.IsInRole(AppRoles.Ressursleverandor) && (redigerer is not null || !ModelState.IsValid
+            || HttpContext?.Request.Query["register"].ToString() == "true");
+        ViewBag.Focus = focus;
+        ViewBag.Kart = senter with
+        {
+            Markorer = markører,
+            Plassering = registrerer
+                ? new KartPlassering("latitude", "longitude", "selectedPlace",
+                    harPunkt ? model.Breddegrad : null, harPunkt ? model.Lengdegrad : null)
+                : null
+        };
+    }
+
+    private string BildeUrl(string sti) => Url?.Content(sti) ?? sti.TrimStart('~');
 
     /// <summary>Alle ressurstyper fra tabellen Ressurstype, også de brukerne har lagt til selv.</summary>
     private async Task<List<string>> RessurstypeNavnAsync() =>

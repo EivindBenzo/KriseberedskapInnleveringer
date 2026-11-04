@@ -21,7 +21,13 @@ public static class ResourceQueries
     public static IQueryable<Ressurs> Scope(IQueryable<Ressurs> resources, ResourceFilter filter, DateTime nowUtc)
     {
         if (filter.Mine) resources = resources.Where(r => r.EierID == filter.OwnerId);
-        if (!string.IsNullOrWhiteSpace(filter.Type)) resources = resources.Where(r => r.Ressurstype!.Navn == filter.Type);
+        if (filter.Type == RessursIkon.Annet)
+        {
+            // «Annet» er alle typer brukerne har lagt til selv, altså alle utenom de seks faste.
+            var faste = RessursIkon.FasteTyper.ToList();
+            resources = resources.Where(r => !faste.Contains(r.Ressurstype!.Navn));
+        }
+        else if (!string.IsNullOrWhiteSpace(filter.Type)) resources = resources.Where(r => r.Ressurstype!.Navn == filter.Type);
         if (!string.IsNullOrWhiteSpace(filter.Query))
         {
             var query = filter.Query.Trim();

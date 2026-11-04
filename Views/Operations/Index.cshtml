@@ -18,6 +18,11 @@
     bool CanVerify(Ressurs resource) =>
         !Statuser.Ressurs.Opptatt.Contains(resource.Status) && !WorkflowEligibility.HasCurrentApproval(resource, now);
     string Stamp(DateTime value) => value.ToString("dd.MM.yyyy HH:mm") + " UTC";
+
+    // Hvilken seksjon som skal være åpen (?vis=resources eller ?vis=needs). Bestemmes på serveren.
+    var vis = ViewBag.Vis as string;
+    // Etter en handling sendes brukeren tilbake til samme element på siden (#anker), så siden ikke hopper til toppen.
+    string Tilbake(string? seksjon, string anker) => Url.Action("Index", new { vis = seksjon }) + "#" + anker;
 }
 <section class="operations-workspace" aria-labelledby="operations-heading">
 <div class="page-heading">
@@ -33,10 +38,10 @@
         <a href="#requests">Forespørsler <span class="count-badge">@active</span></a>
         <a href="#assignments">Tildelinger</a>
     }
-    <a href="#resources">@resourceHeading</a>
+    <a asp-action="Index" asp-route-vis="resources" asp-fragment="resources">@resourceHeading</a>
     @if (showNeeds)
     {
-        <a href="#needs">Behov</a>
+        <a asp-action="Index" asp-route-vis="needs" asp-fragment="needs">Behov</a>
     }
 </nav>
 @if (TempData["WorkflowError"] is string error)
@@ -54,7 +59,7 @@
 }
 @foreach (var request in Model.Requests.OrderBy(f => f.Svar is Statuser.Svar.Venter or Statuser.Svar.Godtatt ? 0 : 1))
 {
-    <div class="workflow-item">
+    <div class="workflow-item" id="foresporsel-@request.ForespørselID">
         <div class="results-heading">
             <h3>@request.Ressurs!.Navn <small class="resource-meta">Forespørsel #@request.ForespørselID</small></h3>
             <span class="status-badge @(request.Svar == Statuser.Svar.Venter ? "status-warning" : "")">@Statuser.Visning(request.Svar)@(request.Tildeling is not null ? " · tildelt" : "")</span>
@@ -68,6 +73,7 @@
         {
             <form asp-action="Respond" method="post">
                 <input type="hidden" name="id" value="@request.ForespørselID" />
+                <input type="hidden" name="returnUrl" value="@Tilbake(null, "foresporsel-" + request.ForespørselID)" />
                 <label>Kommentar (valgfritt) <input name="reason" maxlength="1000" /></label>
                 <button name="accept" value="true" type="submit" class="btn-submit">Godta</button>
                 <button name="accept" value="false" type="submit">Avslå</button>
@@ -77,6 +83,7 @@
         {
             <form asp-action="Allocate" method="post">
                 <input type="hidden" name="id" value="@request.ForespørselID" />
+                <input type="hidden" name="returnUrl" value="@Tilbake(null, "foresporsel-" + request.ForespørselID)" />
                 <button type="submit" class="btn-submit">Opprett tildeling</button>
             </form>
         }
@@ -86,6 +93,7 @@
                 <summary>Avbryt forespørsel</summary>
                 <form asp-action="Cancel" method="post">
                     <input type="hidden" name="id" value="@request.ForespørselID" />
+                <input type="hidden" name="returnUrl" value="@Tilbake(null, "foresporsel-" + request.ForespørselID)" />
                     <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
                     <button type="submit" class="btn-danger">Avbryt forespørsel</button>
                 </form>
@@ -101,7 +109,7 @@
 @foreach (var assignment in Model.Assignments.OrderBy(t => t.Fremdrift == Statuser.Fremdrift.Fullført ? 1 : 0))
 {
     var next = WorkflowTransitions.NextAssignmentStep(assignment.Fremdrift);
-    <div class="workflow-item">
+    <div class="workflow-item" id="tildeling-@assignment.TildelingID">
         <div class="results-heading">
             <h3>@assignment.Forespørsel!.Ressurs!.Navn <small class="resource-meta">Tildeling #@assignment.TildelingID</small></h3>
             <span class="status-badge">@Statuser.Visning(assignment.Fremdrift)</span>
@@ -111,6 +119,7 @@
         {
             <form asp-action="Assignment" method="post">
                 <input type="hidden" name="id" value="@assignment.TildelingID" />
+                <input type="hidden" name="returnUrl" value="@Tilbake(null, "tildeling-" + assignment.TildelingID)" />
                 <input type="hidden" name="status" value="@next" />
                 <label>Kommentar (valgfritt) <input name="reason" maxlength="1000" /></label>
                 <button type="submit" class="btn-submit">Sett til @next</button>
@@ -118,7 +127,7 @@
         }
     </div>
 }
-<details class="workflow-section" id="resources" open="@(verifier && !provider && !dispatch && !leader)">
+<details class="workflow-section" id="resources" open="@(vis == "resources" || (vis is null && verifier && !provider && !dispatch && !leader))">
 <summary>@resourceHeading <span class="count-badge">@Model.Resources.Count</span></summary>
 @if (Model.Resources.Count == 0)
 {
@@ -127,7 +136,7 @@
 @foreach (var resource in Model.Resources)
 {
     var godkjentTil = WorkflowEligibility.GodkjentTil(resource);
-    <div class="workflow-item">
+    <div class="workflow-item" id="ressurs-@resource.RessursID">
         <h3>@resource.Navn</h3>
         <p class="resource-meta">@resource.Ressurstype?.Navn · @resource.Stedsnavn</p>
         <span class="status-badge @(resource.Status == Statuser.Ressurs.Tilgjengelig ? "status-positive" : "status-warning")">@Statuser.Visning(resource.Status)</span>
@@ -142,6 +151,7 @@
             {
                 <form asp-action="Availability" method="post">
                     <input type="hidden" name="id" value="@resource.RessursID" />
+                    <input type="hidden" name="returnUrl" value="@Tilbake("resources", "ressurs-" + resource.RessursID)" />
                     <label>Tilgjengelighet
                         <select name="available">
                             <option value="true" selected="@(resource.Status == Statuser.Ressurs.Tilgjengelig)">Tilgjengelig</option>
@@ -157,6 +167,7 @@
         {
             <form asp-action="Verify" method="post">
                 <input type="hidden" name="id" value="@resource.RessursID" />
+                <input type="hidden" name="returnUrl" value="@Tilbake("resources", "resources")" />
                 <label>Begrunnelse (kreves ved avvisning) <input name="reason" maxlength="1000" /></label>
                 @if (resource.EierID != actorId)
                 {
@@ -172,7 +183,7 @@
     </div>
 }
 </details>
-<details class="workflow-section" id="needs" hidden="@(!showNeeds)">
+<details class="workflow-section" id="needs" hidden="@(!showNeeds)" open="@(vis == "needs")">
 <summary>Behov og fremdrift <span class="count-badge">@Model.Needs.Count</span></summary>
 @if (publicActor)
 {
@@ -184,7 +195,7 @@
 }
 @foreach (var need in Model.Needs)
 {
-    <div class="workflow-item">
+    <div class="workflow-item" id="behov-@need.BehovID">
         <h3>Behov #@need.BehovID – @need.Behovstype?.Navn · @need.Stedsnavn</h3>
         <p>@need.Beskrivelse</p>
         <p class="resource-meta">Antall: @need.Antall@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")@(need.Hendelse is Hendelse h ? " · " + h.Navn : "")</p>
@@ -194,6 +205,7 @@
         {
             <form asp-action="Prioritize" method="post">
                 <input type="hidden" name="id" value="@need.BehovID" />
+                <input type="hidden" name="returnUrl" value="@Tilbake("needs", "behov-" + need.BehovID)" />
                 <label>Prioritet <select name="priority">
                     @foreach (var priority in Statuser.Prioritet.Alle.Where(p => p != need.Prioritet))
                     {
@@ -208,6 +220,7 @@
             {
                 <form asp-action="NeedStatus" method="post">
                     <input type="hidden" name="id" value="@need.BehovID" />
+                <input type="hidden" name="returnUrl" value="@Tilbake("needs", "behov-" + need.BehovID)" />
                     <label>Ny status <select name="status">
                         @foreach (var status in muligeStatuser)
                         {
@@ -232,6 +245,7 @@
                     <form asp-action="CreateRequest" method="post">
                         <input type="hidden" name="needId" value="@need.BehovID" />
                         <input type="hidden" name="resourceId" value="@resource.RessursID" />
+                        <input type="hidden" name="returnUrl" value="@Tilbake("needs", "behov-" + need.BehovID)" />
                         <span>@resource.Navn – @resource.Ressurstype?.Navn – @resource.Stedsnavn</span>
                         <button type="submit">Send til ressurseier</button>
                     </form>

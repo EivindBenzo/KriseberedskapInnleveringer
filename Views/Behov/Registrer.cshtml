@@ -4,8 +4,9 @@
 @{
     ViewData["Title"] = "Meld behov";
     var harPunkt = Model.Breddegrad is double && Model.Lengdegrad is double;
-    var lat = (Model.Breddegrad ?? 60.7945).ToString(CultureInfo.InvariantCulture);
-    var lng = (Model.Lengdegrad ?? 11.0680).ToString(CultureInfo.InvariantCulture);
+    var lat = (Model.Breddegrad ?? 0).ToString(CultureInfo.InvariantCulture);
+    var lng = (Model.Lengdegrad ?? 0).ToString(CultureInfo.InvariantCulture);
+    var kart = (ViewBag.Kart as KartVisning) ?? KartVisning.Standard;
     var behovstyper = (ViewBag.Behovstyper as List<HeimevernetInnlevering1.Models.Behovstype>) ?? new();
     var annenType = Model.BehovstypeID == BehovSkjemaViewModel.AnnenType;
 }
@@ -35,7 +36,8 @@
                     </select>
                     <span asp-validation-for="BehovstypeID" class="text-danger"></span>
                 </div>
-                <div class="form-group" id="nyBehovstypeGroup" hidden="@(!annenType)">
+                @* Vises bare når «Annen type …» er valgt. Det styres av CSS (:has i workspace.css), ikke JavaScript. *@
+                <div class="form-group annen-type" id="nyBehovstypeGroup">
                     <label for="nyBehovstype">Skriv inn behovstype <span class="required">*</span></label>
                     <input type="text" id="nyBehovstype" name="NyBehovstype" class="form-control" maxlength="100"
                            value="@(annenType ? Model.NyBehovstype : "")" placeholder="f.eks. Vannforsyning" autocomplete="off" />
@@ -104,57 +106,12 @@
         </form>
 
         <div class="need-map-panel">
-            <div id="needMap" class="need-map" role="application" aria-label="Kart: klikk for å velge hvor behovet er"></div>
+            <div id="map" class="need-map" aria-label="Kart: klikk for å velge hvor behovet er"></div>
             <p class="workspace-muted">Klikk i kartet for å plassere behovet. Du kan klikke på nytt for å flytte punktet.</p>
         </div>
     </div>
 </section>
 
 <script src="~/lib/leaflet/leaflet.js"></script>
-<script>
-    (function () {
-        // Vis feltet for egen behovstype bare når «Annen type …» er valgt.
-        const typeSelect = document.getElementById('BehovstypeID');
-        const nyGroup = document.getElementById('nyBehovstypeGroup');
-        const nyInput = document.getElementById('nyBehovstype');
-        function toggleNyBehovstype() {
-            if (!typeSelect || !nyGroup || !nyInput) return;
-            const annen = typeSelect.value === '-1';
-            nyGroup.hidden = !annen;
-            nyInput.required = annen;
-            if (annen && document.activeElement === typeSelect) nyInput.focus();
-        }
-        if (typeSelect) typeSelect.addEventListener('change', toggleNyBehovstype);
-        toggleNyBehovstype();
-    })();
-    (function () {
-        const latInput = document.getElementById('needLat');
-        const lngInput = document.getElementById('needLng');
-        const placeText = document.getElementById('needPlace');
-        const placeUrl = @Json.Serialize(Url.Action("Place", "Home"));
-        const hasPoint = @Json.Serialize(harPunkt);
-        const map = L.map('needMap').setView([@lat, @lng], hasPoint ? 13 : 8);
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        }).addTo(map);
-
-        let marker = hasPoint ? L.marker([@lat, @lng]).addTo(map) : null;
-        let version = 0;
-
-        map.on('click', function (event) {
-            const lat = event.latlng.lat;
-            const lng = event.latlng.lng;
-            if (marker) marker.setLatLng(event.latlng); else marker = L.marker(event.latlng).addTo(map);
-            latInput.value = lat.toFixed(6);
-            lngInput.value = lng.toFixed(6);
-            placeText.textContent = lat.toFixed(5) + ', ' + lng.toFixed(5);
-            // Hent et lesbart stedsnavn fra serveren. Svar for et gammelt punkt ignoreres.
-            const current = ++version;
-            fetch(placeUrl + '?latitude=' + lat + '&longitude=' + lng, { headers: { Accept: 'application/json' } })
-                .then(response => response.ok ? response.json() : null)
-                .then(data => { if (data && data.label && current === version) placeText.textContent = data.label; })
-                .catch(() => { });
-        });
-    })();
-</script>
+<script type="application/json" id="kartdata">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(kart, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)))</script>
+<script src="~/js/kart.js" asp-append-version="true"></script>
