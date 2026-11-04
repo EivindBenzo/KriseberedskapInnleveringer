@@ -2,106 +2,12 @@
 
 ## Innhold
 
-1. [Drift](#drift)
-2. [Arkitektur](#arkitektur)
-3. [Databasen (ER-modellen)](#databasen-er-modellen)
-4. [Roller og arbeidsflyt](#roller-og-arbeidsflyt)
-5. [Sikkerhet](#sikkerhet)
-6. [Testing – scenarier og resultater](#testing--scenarier-og-resultater)
-7. [Dokumentasjon i koden](#dokumentasjon-i-koden)
-8. [Bruk av KI](#bruk-av-ki)
-
-## Drift
-
-### Det du trenger
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (må kjøre, krever virtualisering/WSL 2 på Windows)
-- [.NET SDK 10](https://dotnet.microsoft.com/download/dotnet/10.0) for å bygge, teste og lage migrasjoner lokalt
-
-### Start app og database i Docker
-
-```sh
-cp .env.example .env          # Windows PowerShell: Copy-Item .env.example .env
-# Bytt ut de to passordene i .env med lange, tilfeldige verdier
-docker compose up --build
-```
-
-Åpne <http://localhost:8080>. `docker-compose.yml` starter to containere:
-
-| Tjeneste | Innhold |
-| --- | --- |
-| `mariadb` | MariaDB 10.11.19. Databasen lagres i volumet `mariadb-data`. Porten er ikke åpen utenfor Docker. |
-| `heimevernet` | Nettsiden. Den venter til databasen er klar, kjører EF Core-migrasjonene (lager tabellene fra ER-modellen) og legger inn roller og demodata. |
-
-Nyttige kommandoer:
-
-```sh
-docker compose logs -f heimevernet      # se loggen til appen
-docker compose stop                     # stopp (data beholdes)
-docker compose down -v                  # stopp og SLETT databasen
-```
-
-> **Første gang etter ER-ombyggingen:** Databasen har fått nye tabeller (Bruker, Ressurs, Behov osv.) og kan ikke oppgraderes fra den gamle strukturen. Har du kjørt en eldre versjon før, må den gamle databasen slettes én gang med `docker compose down -v` før `docker compose up --build`. Det samme gjelder databasen på Render/Aiven.
-
-### Demokontoer
-
-`SEED_DEMO_ACCOUNTS=true` (standard i `docker-compose.yml`) lager én konto per rolle og litt demodata: en hendelse, tre behov, fire ressurser, to forespørsler og én aktiv tildeling. Passordet er `Dragoncool22!` med mindre `DEMO_ACCOUNT_PASSWORD` er satt.
-
-| E-post | Rolle |
-| --- | --- |
-| `offentlig@gmail.com` | Offentlig aktør |
-| `ressurs@gmail.com` | Ressursleverandør |
-| `verifisering@gmail.com` | Verifiseringsansvarlig |
-| `dispatch@gmail.com` | Dispatch-team |
-| `kriseledelse@gmail.com` | Kriseledelse |
-
-Kontoene har kjent passord og skal bare brukes til demo. Slå av `SEED_DEMO_ACCOUNTS` og slett kontoene etterpå.
-
-### Første kriseledelse-konto uten demodata
-
-Sett `ADMIN_EMAIL` og `ADMIN_PASSWORD` i `.env` før oppstart. Da lages en konto med rollen Kriseledelse, som kan gi andre brukere roller under «Brukere». Fjern verdiene fra `.env` etterpå. Har du ikke tilgang til en kriseledelse-konto, kan en eksisterende konto oppgraderes fra terminalen:
-
-```sh
-docker compose exec heimevernet dotnet HeimevernetInnlevering1.dll --promote-admin din@epost.no
-```
-
-### Kjøre appen uten Docker
-
-Appen trenger en MariaDB og leser tilkoblingen fra `ConnectionStrings__DefaultConnection` eller fra `MARIADB_HOST`, `MARIADB_PORT`, `MARIADB_DATABASE`, `MARIADB_USER` og `MARIADB_APP_PASSWORD`. Sett disse og kjør `dotnet run`.
-
-### Endre databasen (migrasjoner)
-
-Endrer dere en entitetsklasse i `Models/Entities` eller oppsettet i `Data/AppDbContext.cs`, lag en ny migrasjon og commit den:
-
-```sh
-dotnet tool install --global dotnet-ef --version 9.0.22
-dotnet ef migrations add BeskrivendeNavn
-```
-
-Migrasjonen kjøres automatisk når appen starter. EF Core 9.0.22 og Pomelo 9.0.0 brukes fordi Pomelo ikke støtter EF Core 10 ennå.
-
-## Arkitektur
-
-```text
-Nettleser ──► Controllers ──► WorkflowService / DashboardService ──► AppDbContext (EF Core) ──► MariaDB
-                 │                         (forretningsregler)            (ER-modellen)
-                 └──► Views (Razor) + wwwroot (CSS, JS, Leaflet-kart, ikoner)
-```
-
-| Mappe | Innhold |
-| --- | --- |
-| `Models/Entities` | De 12 tabellene fra ER-diagrammet som C#-klasser, og `Statuser.cs` med gyldige statusverdier |
-| `Data/AppDbContext.cs` | Oversetter klassene til tabeller: navn, kolonner, lengder, nøkler, fremmednøkler og kardinaliteter |
-| `Data/SeedData.cs` | Behovstyper, ressurstyper og koblingen mellom dem (legges inn av migrasjonen) |
-| `Migrations` | EF Core-migrasjonen `ErModell` som lager databasen |
-| `Services/WorkflowService.cs` | All forretningslogikk: registrering, verifisering, forespørsel, tildeling og fremdrift. Sjekker rolle og eierskap og logger hver handling. |
-| `Services/DashboardService.cs` | Henter det hver rolle skal se på «Oversikt» |
-| `Controllers` | `Home` (forside, kart, ressurser), `Behov` (meld behov), `Hendelse`, `Operations` (forespørsler/tildelinger), `Account`, `Admin` |
-| `Views` | Razor-sider. Kart med Leaflet ligger i `Views/Home/Map.cshtml` og `Views/Behov/Registrer.cshtml`. |
-| `wwwroot/lib/leaflet` | Kartbiblioteket Leaflet 1.9.4, lagret lokalt (ingen ekstern CDN) |
-| `tests` | Integrasjonstester mot MariaDB (`MariaDbIntegrationTests`) og frontend-tester (`Frontend`) |
-
-**Kart:** Kartflisene hentes fra OpenStreetMap. Stedsnavn for et punkt hentes av serveren fra OpenStreetMap Nominatim, med koordinater som reserve. Stedsforslag mens man skriver søkes lokalt i `wwwroot/data/norway-localities.json` (GeoNames, CC BY 4.0), så tastetrykk sendes ikke ut.
+1. [Databasen (ER-modellen)](#databasen-er-modellen)
+2. [Roller og arbeidsflyt](#roller-og-arbeidsflyt)
+3. [Sikkerhet](#sikkerhet)
+4. [Testing – scenarier og resultater](#testing--scenarier-og-resultater)
+5. [Dokumentasjon i koden](#dokumentasjon-i-koden)
+6. [Bruk av KI](#bruk-av-ki)
 
 ## Databasen (ER-modellen)
 
