@@ -18,35 +18,23 @@ test('shared header reserves scrollbar space and stable desktop slots independen
     assert.match(css, /\.nav-menu \.nav-link:focus-visible/);
     assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.nav-menu \{[^}]*position: absolute;[^}]*overflow-y: auto/);
     const layout = read('Views/Shared/_Layout.cshtml');
-    assert.match(layout, /setAttribute\('aria-current', 'page'\)/);
+    // Aktivt menypunkt bestemmes på serveren (Aktiv-funksjonen i layouten), ikke med JavaScript.
+    assert.match(layout, /string\? Aktiv\(string c, params string\[\] actions\)/);
+    assert.match(layout, /aria-current="@Aktiv\("Home", "Resources", "Mine", "Edit", "Delete"\)"/);
+    assert.doesNotMatch(layout, /<script/);
     assert.match(layout, /aria-controls="navMenu"/);
     assert.match(layout, /@if \(canUseOperations\)/);
     assert.match(read('wwwroot/css/site.css'), /grid-template-rows: max-content minmax\(min-content, 1fr\)/);
 });
 
-test('map-only upward pointer sits below restored art with a one CSS pixel outline', () => {
-    const css = read('wwwroot/css/map-controls.css');
-    const pointer = css.match(/\.resource-marker::before \{([^}]+)\}/)[1];
-    assert.match(pointer, /bottom: 0/);
-    assert.doesNotMatch(pointer, /top:/);
-    assert.match(pointer, /border-bottom: 8px solid #000/);
-    assert.match(css, /\.resource-marker > img \{[^}]*filter: url\(#resource-map-outline\)/);
-    const layout = read('Views/Shared/_Layout.cshtml');
-    assert.match(layout, /<feMorphology in="SourceAlpha" operator="dilate" radius="1"/);
-    assert.match(layout, /<feMergeNode in="SourceGraphic"/);
-    assert.doesNotMatch(read('wwwroot/js/resource-icons.js'), /border-bottom|resource-marker.*<span/);
-});
-
-test('sidebar and legend icons render without shadow halos while map outlines stay scoped', () => {
+test('resource icons are chosen on the server and the SVG files have a thin outline', () => {
     const css = read('wwwroot/css/site.css');
-    assert.match(css, /\.resource-marker,\s*\.map-legend img,\s*img\[data-resource-icon\]\s*\{\s*filter: none;/);
     assert.doesNotMatch(css, /drop-shadow\(0 0 0\.75px/);
-    assert.match(read('wwwroot/css/map-controls.css'), /\.resource-marker > img \{[^}]*filter: url\(#resource-map-outline\)/);
     const map = read('Views/Home/Map.cshtml');
-    const summary = map.match(/<summary><img data-resource-icon="@typeNavn"[\s\S]*?<\/summary>/)[0];
+    const summary = map.match(/<summary><img src="@Url\.Content\(RessursIkon\.Sti\(typeNavn, status\)\)"[\s\S]*?<\/summary>/)[0];
     assert.match(summary, /width="32" height="32"/);
     assert.doesNotMatch(summary, /<svg|style=/);
-    for (const file of ['car', 'excavator', 'drone', 'generator', 'personnel', 'toolbox', 'unknown']) {
+    for (const file of ['car', 'excavator', 'drone', 'generator', 'personnel', 'toolbox', 'other', 'unknown']) {
         for (const suffix of ['', '-available', '-unavailable']) {
             const svg = read(`wwwroot/images/resources/${file}${suffix}.svg`);
             assert.match(svg, /stroke="#000" stroke-width="1"/);

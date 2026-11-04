@@ -17,10 +17,11 @@ test('navigation exposes operational destinations, prototype identity and keyboa
         assert.match(view, /ClaimTypes.NameIdentifier/);
         assert.match(view, /@if \(canUseOperations\)/);
     }
-    assert.match(layout, /aria-current/);
-    assert.match(layout, /!link.hash \|\| link.hash === window.location.hash/);
-    assert.match(layout, /addEventListener\('hashchange', updateCurrentNavigation\)/);
-    assert.match(layout, /event.key === 'Escape'/);
+    assert.match(layout, /aria-current="@Aktiv\(/);
+    // Menyen åpnes med en avkrysningsboks og CSS. Knappen er en <label> for boksen.
+    assert.match(layout, /<input type="checkbox" id="menuToggle" class="menu-checkbox" aria-controls="navMenu" \/>/);
+    assert.match(layout, /<label for="menuToggle" class="menu-toggle"/);
+    assert.match(read('wwwroot/css/site.css'), /\.menu-checkbox:checked ~ \.nav-menu \{/);
     assert.match(layout, /Hopp til innhold/);
     assert.match(layout, /asp-controller="Account" asp-action="Logout" method="post"/);
 });
@@ -51,40 +52,14 @@ test('requests lead with actions and status while secondary work is expandable',
     assert.match(css, /summary:focus-visible/);
 });
 
-test('mine and edit routes keep resources active and section links reveal collapsed content', () => {
-    const vm = require('node:vm');
-    const script = read('Views/Shared/_Layout.cshtml').match(/<script>([\s\S]*?)<\/script>/)[1];
-    const listeners = {};
-    const links = ['/', '/Home/Resources', '/Operations'].map(pathname => ({
-        pathname, hash: '', attributes: {},
-        setAttribute(key, value) { this.attributes[key] = value; },
-        removeAttribute(key) { delete this.attributes[key]; }
-    }));
-    const section = { tagName: 'DETAILS', open: false, scrollIntoView() { this.scrolled = true; } };
-    const control = { addEventListener() {}, contains() {} };
-    const document = {
-        querySelectorAll: () => links,
-        getElementById: id => id === 'resources' ? section : control,
-        addEventListener() {}
-    };
-    const window = {
-        location: { pathname: '/Home/Mine', hash: '' },
-        addEventListener(event, handler) { (listeners[event] ||= []).push(handler); }
-    };
-    vm.runInNewContext(script, { document, window });
-    assert.equal(links[1].attributes['aria-current'], 'page');
-    for (const pathname of ['/Home/Resources', '/Home/Edit/42', '/Home/Delete/42', '/home/mine']) {
-        window.location = { pathname, hash: '' };
-        listeners.hashchange.forEach(handler => handler());
-        assert.equal(links[1].attributes['aria-current'], 'page', pathname);
-        assert.equal(links.filter(link => link.attributes['aria-current'] === 'page').length, 1);
-    }
-    window.location = { pathname: '/Operations', hash: '#resources' };
-    listeners.hashchange.forEach(handler => handler());
-    assert.equal(links[2].attributes['aria-current'], 'page');
-    assert.equal(links[1].attributes['aria-current'], undefined);
-    assert.equal(section.open, true);
-    assert.equal(section.scrolled, true);
+test('mine and edit routes keep resources active and section links open the right section on the server', () => {
+    const layout = read('Views/Shared/_Layout.cshtml');
+    assert.match(layout, /aria-current="@Aktiv\("Home", "Resources", "Mine", "Edit", "Delete"\)"/);
+    const operations = read('Views/Operations/Index.cshtml');
+    assert.match(operations, /asp-route-vis="resources" asp-fragment="resources"/);
+    assert.match(operations, /asp-route-vis="needs" asp-fragment="needs"/);
+    assert.match(operations, /id="needs" hidden="@\(!showNeeds\)" open="@\(vis == "needs"\)"/);
+    assert.match(read('Controllers/OperationsController.cs'), /ViewBag\.Vis = vis is "resources" or "needs" \? vis : null;/);
 });
 
 test('workspace styles keep desktop navigation visible and hamburger mobile-only', () => {
@@ -144,14 +119,4 @@ test('registration layout widens without sacrificing responsive map and form con
     assert.match(css, /#registrationToggle\[aria-expanded="true"\]/);
     assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.workspace-grid \{\s*display: flex;\s*flex-direction: column/);
     assert.match(css, /\.resource-card \{[^}]*border: 1px solid var\(--workspace-border\)/);
-});
-
-test('placement bounce has a smaller second lift and honors reduced motion without moving the geographic anchor', () => {
-    const css = read('wwwroot/css/map-controls.css');
-    assert.match(css, /\.resource-marker-placed > img \{ animation: resource-placement-bounce 650ms ease-out;/);
-    assert.match(css, /22% \{ transform: translateY\(-9px\); \}/);
-    assert.match(css, /60% \{ transform: translateY\(-3px\); \}/);
-    assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.resource-marker-placed > img \{ animation: none;/);
-    assert.match(css, /\.map-legend summary \{[^}]*touch-action: none;/);
-    assert.match(css, /\.map-legend ul \{[^}]*overflow-y: auto;[^}]*overscroll-behavior: contain;/);
 });

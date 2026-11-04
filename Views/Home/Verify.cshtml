@@ -1,23 +1,18 @@
 @model HeimevernetInnlevering1.ViewModels.DataPageViewModel
 @using HeimevernetInnlevering1.Models
-@inject Microsoft.AspNetCore.Mvc.ViewFeatures.IFileVersionProvider FileVersionProvider
 @{
     var mine = ViewBag.Mine is true;
-    var overlay = ViewBag.ResourcesOverlay is true;
     var history = ViewBag.ResourceHistory is true;
     ViewData["Title"] = "Ressurser";
     var now = DateTime.UtcNow;
-    var resourceIconUrls = new[] { "car", "excavator", "drone", "generator", "personnel", "toolbox", "other", "unknown" }
-        .SelectMany(file => new[] { file, file + "-available", file + "-unavailable" })
-        .ToDictionary(file => file, file => FileVersionProvider.AddFileVersionToPath(Context.Request.PathBase, Url.Content($"~/images/resources/{file}.svg")));
+    var valgtBy = (string?)ViewBag.City ?? "";
 }
 <section class="data-container resource-overview">
-    <link rel="stylesheet" href="~/css/resource-management.css" asp-append-version="true" />
     <div class="page-heading">
         <div><span class="eyebrow">Oversikt og administrasjon</span><h1>Ressurser</h1></div>
         @if (User.IsInRole(AppRoles.Ressursleverandor))
         {
-            <a asp-action="Map" asp-route-register="true" class="btn-submit" data-map-register>+ Registrer ressurs</a>
+            <a asp-action="Map" asp-route-register="true" class="btn-submit">+ Registrer ressurs</a>
         }
     </div>
     @if (TempData["MapSuccess"] is string success)
@@ -29,21 +24,17 @@
         <p class="workspace-alert" role="alert">@error</p>
     }
     <nav class="section-nav" aria-label="Ressursutvalg">
-        <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(!mine && !history ? "page" : null)">Alle ressurser</a>
+        <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" aria-current="@(!mine && !history ? "page" : null)">Alle ressurser</a>
         @if (User.IsInRole(AppRoles.Ressursleverandor))
         {
-            <a asp-action="Resources" asp-route-mine="true" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" data-resources-link aria-current="@(mine ? "page" : null)">Mine ressurser</a>
+            <a asp-action="Resources" asp-route-mine="true" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" aria-current="@(mine ? "page" : null)">Mine ressurser</a>
         }
         @if (User.IsInRole(AppRoles.Kriseledelse))
         {
-            <a asp-action="Resources" asp-route-history="true" data-resources-link aria-current="@(history ? "page" : null)">Ressurshistorikk</a>
+            <a asp-action="Resources" asp-route-history="true" aria-current="@(history ? "page" : null)">Ressurshistorikk</a>
         }
-        @if (!overlay)
-        {
-            <a asp-action="Map" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-mine="@(mine ? "true" : null)" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)" data-map-back>Åpne kart</a>
-        }
+        <a asp-action="Map" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-mine="@(mine ? "true" : null)" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)">Åpne kart</a>
     </nav>
-    <p class="resource-management-status" role="status" tabindex="-1"></p>
     @if (history)
     {
         <h2>Ressurshistorikk</h2>
@@ -76,21 +67,17 @@
     {
     <div>
     <form asp-action="Resources" method="get" class="filter-bar">
-        @if (overlay)
-        {
-            <input type="hidden" name="overlay" value="true" />
-        }
         <input type="hidden" name="mine" value="@mine.ToString().ToLowerInvariant()" />
-        <div class="form-group resource-city">
+        @* Byene og antallet ressurser i hver by regnes ut på serveren (ResourceCity.Aggregate). *@
+        <div class="form-group">
             <label for="resourceCity">By</label>
-            <input id="resourceCity" name="city" value="@ViewBag.City" class="form-control" maxlength="120" autocomplete="off"
-                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="resourceCityOptions" />
-            <ul id="resourceCityOptions" class="resource-city-options" role="listbox" aria-label="Byer med ressurser" hidden>
+            <select id="resourceCity" name="city" class="form-control">
+                <option value="">Alle byer</option>
                 @foreach (var city in Model.Cities)
                 {
-                    <li role="option" id="resource-city-@Model.Cities.ToList().IndexOf(city)" data-city="@city.Name" data-count="@city.Count" aria-selected="false">@city.Name (@city.Count)</li>
+                    <option value="@city.Name" selected="@(string.Equals(city.Name, valgtBy, StringComparison.OrdinalIgnoreCase))">@city.Name (@city.Count)</option>
                 }
-            </ul>
+            </select>
         </div>
         <div class="form-group">
             <label for="type">Ressurstype</label>
@@ -111,16 +98,6 @@
         </div>
         <button type="submit" class="btn-secondary">Vis resultater</button>
     </form>
-    <dialog class="resource-delete-dialog" aria-labelledby="resourceDeleteTitle" aria-describedby="resourceDeleteName">
-        <h2 id="resourceDeleteTitle">Slett ressurs?</h2>
-        <p id="resourceDeleteName"></p>
-        <p class="resource-delete-error" role="alert" tabindex="-1"></p>
-        <form method="post" data-resource-delete-form>
-            @Html.AntiForgeryToken()
-            <button type="button" class="btn-secondary" data-delete-cancel autofocus>Avbryt</button>
-            <button type="submit" class="btn-danger">Slett</button>
-        </form>
-    </dialog>
     <div class="results-heading">
         <h2>@(mine ? "Mine ressurser" : "Alle ressurser") <span class="count-badge">@Model.Ressurser.Count</span></h2>
         <small class="resource-meta">Status ved lasting · @now.ToString("dd.MM.yyyy HH:mm") UTC</small>
@@ -139,9 +116,9 @@
             var status = ResourceOperationalStatus.From(r, now);
             var typeNavn = r.Ressurstype?.Navn ?? "Ukjent";
             var godkjentTil = WorkflowEligibility.GodkjentTil(r);
-            <div class="resource-row" data-resource-row="@r.RessursID" data-city="@ResourceCity.FromLocation(r.Stedsnavn)">
+            <div class="resource-row" id="ressurs-@r.RessursID">
                 <div>
-                    <h2><img data-resource-icon="@typeNavn" alt="" width="32" height="32" data-resource-status="@System.Text.Json.JsonSerializer.Serialize(status)" /> @r.Navn</h2>
+                    <h2><img src="@Url.Content(RessursIkon.Sti(typeNavn, status))" alt="" width="32" height="32" /> @r.Navn</h2>
                     <p class="resource-meta">@typeNavn · @r.Stedsnavn</p>
                     <details class="resource-facts">
                         <summary>Detaljer om ressursen</summary>
@@ -167,20 +144,19 @@
                     <p class="resource-meta">Godkjenning: @status.Verification</p>
                 </div>
                 <div class="resource-actions">
-                    <a asp-action="Map" asp-route-focus="@r.RessursID" class="btn-secondary" data-map-focus="@r.RessursID"
-                       data-lat="@(((double)r.Breddegrad).ToString(System.Globalization.CultureInfo.InvariantCulture))" data-lng="@(((double)r.Lengdegrad).ToString(System.Globalization.CultureInfo.InvariantCulture))">Vis på kart</a>
+                    <a asp-action="Map" asp-route-focus="@r.RessursID" asp-fragment="ressurs-@r.RessursID" class="btn-secondary">Vis på kart</a>
                     @if (ResourcePermissions.CanManage(User, r.EierID))
                     {
                         <a asp-action="Edit" asp-route-id="@r.RessursID" class="btn-secondary">Rediger</a>
                     }
                     @if (User.IsInRole(AppRoles.DispatchTeam))
                     {
-                        <a asp-controller="Operations" asp-action="Index" asp-fragment="needs" class="btn-secondary">Koordiner</a>
+                        <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs" class="btn-secondary">Koordiner</a>
                     }
                     @if (ResourcePermissions.CanManage(User, r.EierID))
                     {
                         <div class="resource-destructive-actions">
-                            <a asp-action="Delete" asp-route-id="@r.RessursID" class="btn-danger" data-resource-delete="@r.RessursID" data-resource-name="@r.Navn">Slett</a>
+                            <a asp-action="Delete" asp-route-id="@r.RessursID" class="btn-danger">Slett</a>
                         </div>
                     }
                 </div>
@@ -190,10 +166,3 @@
     </div>
     }
 </section>
-@if (ViewBag.ResourcesPartial is not true)
-{
-    <div>
-    <script src="~/js/resource-icons.js" asp-append-version="true" data-icon-base="@Url.Content("~/images/resources/")" data-icon-urls="@System.Text.Json.JsonSerializer.Serialize(resourceIconUrls)"></script>
-    <script src="~/js/resource-management.js" asp-append-version="true"></script>
-    </div>
-}

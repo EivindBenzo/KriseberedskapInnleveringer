@@ -4,7 +4,7 @@ namespace HeimevernetInnlevering1.Models;
 
 /// <summary>
 /// Statusen til en ressurs slik kartet og listene viser den. JSON-navnene brukes av
-/// wwwroot/js/resource-icons.js (grønt ikon når availability er «Tilgjengelig»).
+/// RessursIkon.Sti (grønt symbol når availability er «Tilgjengelig»).
 /// Krever at Ressurstype og Verifiseringer er lastet.
 /// </summary>
 public sealed record ResourceOperationalStatus(
