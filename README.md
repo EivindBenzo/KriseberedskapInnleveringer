@@ -212,6 +212,23 @@ Resultat 4. november 2026: **68 av 68** integrasjonstester og **38 av 38** front
 | `KartOgTemaTests` | Riktig symbol per ressurstype, «Annet»-filteret, «Finn sted» (lokalt søk uten aksenter) og at temaknappen lagrer valget og bare sender til lokale adresser |
 | `tests/Frontend` | At `kart.js` bare tegner det serveren har bestemt, at sidene ikke har annen JavaScript, CSS for meny og «Annen type …», og at sidene har riktige skjemaer og rollestyring |
 
+### Enhetstesting (Unit Testing)
+
+Vi har gjennomført automatiserte enhetstester med xUnit for å kontrollere at enkeltfunksjoner i applikasjonen fungerer som forventet. Formålet er å oppdage feil tidlig og kontrollere funksjonalitet uten å måtte teste hele systemet.
+
+Eksempler på tester:
+
+- **ResourceAuthorizationTests:** Tester tilgangsregler for ressurser, blant annet at bare eieren med riktig rolle kan endre en ressurs.
+- **PlaceGeocoderTests:** Tester stedsoppslag, koordinater og feilhåndtering ved hjelp av simulerte HTTP-svar.
+- **KartOgTemaTests:** Inneholder tester av kartikoner og temafunksjonalitet.
+- **DatabaseProviderConfigurationTests:** Kontrollerer databasekonfigurasjon og håndtering av ulike oppsett.
+
+Enhetstestene ligger i samme testprosjekt som integrasjonstestene (`MariaDbIntegrationTests`). Noen tester kontrollerer enkeltfunksjoner isolert, mens andre tester samspillet mellom flere komponenter.
+
+Ved siste dokumenterte testkjøring 4. november 2026 bestod alle 68 testene i testprosjektet. Dette inkluderer både enhetstester og integrasjonstester.
+
+Enhetstestingen bidrar til å sikre at sentrale funksjoner fungerer som forventet, og gjør det enklere å oppdage feil ved videreutvikling.
+
 ### Systemtest (gjennomført i nettleser, Playwright mot MariaDB)
 
 | # | Scenario | Forventet | Resultat |
