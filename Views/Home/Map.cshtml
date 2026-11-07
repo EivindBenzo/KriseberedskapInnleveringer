@@ -28,7 +28,7 @@
     <div class="workspace-toolbar">
         @if (canRegister && !registrationOpen)
         {
-            <a asp-action="Map" asp-route-register="true" class="btn-submit">Registrer ressurs</a>
+            <a asp-action="Map" asp-route-register="true" class="btn-submit">+ Registrer ressurs</a>
         }
         <a asp-action="Resources" class="btn-secondary">Ressurser og mine ressurser</a>
     </div>
@@ -75,15 +75,88 @@
                 }
             </form>
 
-            @if (registrationOpen)
+            <section id="resourceResults" class="workspace-results" aria-labelledby="resultsTitle">
+                <h2 id="resultsTitle">Ressurser <span class="count-badge">@resources.Count</span></h2>
+                <p class="workspace-muted">Velg en type eller åpne et kort for detaljer.</p>
+                @* Filteret sendes til serveren, som bare henter ressursene av valgt type (ResourceQueries). *@
+                <form asp-action="Map" method="get" class="map-filter">
+                    <label for="resourceFilter">Filtrer ressurstype</label>
+                    <div class="workspace-search-row">
+                        <select id="resourceFilter" name="type" class="form-control">
+                            <option value="">Alle typer</option>
+                            @foreach (var gruppe in RessursIkon.Grupper)
+                            {
+                                <option value="@gruppe" selected="@(valgtType == gruppe)">@gruppe</option>
+                            }
+                        </select>
+                        <button type="submit" class="btn-secondary">Vis</button>
+                    </div>
+                </form>
+                <div class="workspace-resource-list">
+                @foreach (var r in resources)
+                {
+                    var status = ResourceOperationalStatus.From(r, nå);
+                    var typeNavn = r.Ressurstype?.Navn ?? "Ukjent";
+                    <details class="resource-card" id="ressurs-@r.RessursID" open="@(r.RessursID == focus)">
+                        <summary><img src="@Url.Content(RessursIkon.Sti(typeNavn, status))" alt="" width="32" height="32" /><span><strong>@r.Navn</strong><small>@typeNavn · @r.Stedsnavn</small><small>@status.Availability · Godkjenning: @status.Verification</small></span></summary>
+                        <div class="resource-detail">
+                            <dl>
+                                <div><dt>Beholdning</dt><dd>@r.TilgjengeligAntall.ToString("0.##", CultureInfo.InvariantCulture) av @r.Antall.ToString("0.##", CultureInfo.InvariantCulture) @r.Enhet tilgjengelig</dd></div>
+                                <div><dt>Kontakt</dt><dd>@r.Kontaktperson, @r.Kontakttelefon</dd></div>
+                            </dl>
+                            <div class="resource-actions">
+                                <a asp-action="Map" asp-route-focus="@r.RessursID" asp-route-type="@(valgtType.Length > 0 ? valgtType : null)" asp-fragment="ressurs-@r.RessursID" class="btn-secondary">Vis på kart</a>
+                                @if (ResourcePermissions.CanManage(User, r.EierID))
+                                {
+                                    <a asp-action="Edit" asp-route-id="@r.RessursID" class="btn-secondary">Rediger</a>
+                                }
+                            </div>
+                        </div>
+                    </details>
+                }
+                </div>
+            </section>
+        </aside>
+        <div class="workspace-map-region" id="mapRegion">
+            @if (kart.Plassering is not null)
             {
-            <section id="registrationPanel" class="registration-panel" aria-labelledby="registrationTitle">
-                <h2 id="registrationTitle">@(isEditing ? "Rediger ressurs" : "Registrer ressurs")</h2>
-                <p class="registration-intro">Beskriv ressursen og marker hvor den finnes. Felt merket * er påkrevd.</p>
-                <form method="post" asp-controller="Home" asp-action="@(isEditing ? "Edit" : "Map")" asp-route-id="@ViewBag.EditId" class="workspace-form">
+                <p class="workspace-map-status" role="status">Velg et punkt i kartet og bekreft plasseringen.</p>
+            }
+            <div id="map" aria-label="Kart over ressurser"></div>
+            <div id="placementConfirmation" class="placement-confirmation" hidden>
+                <span id="placementLabel">Kontroller plasseringen før du fortsetter.</span>
+                <button type="button" id="confirmPlacement" class="btn-submit">✓ Bekreft plassering</button>
+                <button type="button" id="cancelPlacement" class="btn-danger">× Velg på nytt</button>
+            </div>
+            <ul class="map-key" aria-label="Tegnforklaring">
+                @foreach (var gruppe in RessursIkon.Grupper)
+                {
+                    <li><a asp-action="Map" asp-route-type="@gruppe" asp-route-sted="@(sted.Length > 0 ? sted : null)" aria-current="@(valgtType == gruppe ? "true" : null)"><img src="@Url.Content(RessursIkon.Sti(gruppe))" alt="" width="24" height="24" />@gruppe</a></li>
+                }
+                @if (valgtType.Length > 0)
+                {
+                    <li><a asp-action="Map" asp-route-sted="@(sted.Length > 0 ? sted : null)">Vis alle</a></li>
+                }
+                <li class="map-key-colors"><span class="dot dot-green"></span>Grønn = tilgjengelig <span class="dot dot-red"></span>Rød = ikke tilgjengelig</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+@if (registrationOpen)
+{
+    <dialog id="resourceRegistration" class="resource-registration-dialog" open aria-labelledby="registrationTitle">
+        <form method="dialog" class="dialog-close-bar">
+            <button type="submit" class="dialog-close" aria-label="Lukk registrering">×</button>
+        </form>
+        <section class="registration-panel" aria-labelledby="registrationTitle">
+            <span class="eyebrow">TRINN 1 AV 2</span>
+            <h2 id="registrationTitle">@(isEditing ? "Rediger ressurs" : "Registrer en ressurs")</h2>
+            <p class="registration-intro">Start med ressursen. Deretter velger og bekrefter du plasseringen direkte i kartet.</p>
+            <form id="resourceRegistrationForm" method="post" asp-controller="Home" asp-action="@(isEditing ? "Edit" : "Map")" asp-route-id="@ViewBag.EditId" class="workspace-form">
                     <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
                     <fieldset class="registration-section">
-                        <legend>Ressursdetaljer</legend>
+                        <legend>Hva kan dere tilby?</legend>
                         <div class="form-group">
                             <label for="resourceName">Ressursnavn <span class="required">*</span></label>
                             <input type="text" id="resourceName" name="Navn" value="@Model?.Navn" class="form-control" placeholder="f.eks. Lastebil 1" minlength="2" maxlength="150" required />
@@ -100,6 +173,9 @@
                                 <option value="@RessursSkjemaViewModel.AnnenType" selected="@annenType">Annen type …</option>
                             </select>
                             <span asp-validation-for="Ressurstype" class="text-danger"></span>
+                        </div>
+                        <div class="resource-type-hint" aria-hidden="true">
+                            <span>🚙 Kjøretøy</span><span>🚧 Maskin</span><span>💧 Forsyning</span><span>🧰 Utstyr</span>
                         </div>
                         @* Vises bare når «Annen type …» er valgt. Det styres av CSS (:has i workspace-map.css), ikke JavaScript. *@
                         <div class="form-group annen-type" id="nyRessurstypeGroup">
@@ -155,102 +231,17 @@
                             <span asp-validation-for="Kontakttelefon" class="text-danger"></span>
                         </div>
                     </fieldset>
-                    <fieldset class="registration-section" aria-describedby="placementHelp">
-                        <legend>Plassering <span class="required">*</span></legend>
-                        <p id="placementHelp">Klikk i kartet der ressursen er. Bruk «Finn sted» over for å flytte kartet til riktig by først.</p>
-                        <div class="workspace-location"><strong>Valgt plassering</strong><p id="selectedPlace" role="status">@(harPunkt ? Model?.Stedsnavn : "Ingen plassering valgt ennå.")</p></div>
-                        <input type="hidden" id="latitude" name="Breddegrad" value="@(harPunkt ? Model!.Breddegrad!.Value.ToString(CultureInfo.InvariantCulture) : "")" />
-                        <input type="hidden" id="longitude" name="Lengdegrad" value="@(harPunkt ? Model!.Lengdegrad!.Value.ToString(CultureInfo.InvariantCulture) : "")" />
-                        <span asp-validation-for="Breddegrad" class="text-danger"></span>
-                    </fieldset>
-                    <button type="submit" class="btn-submit">@(isEditing ? "Lagre endringer" : "Registrer ressurs")</button>
-                    <a asp-action="Map" class="btn-secondary">Avbryt</a>
-                </form>
-            </section>
-            }
-
-            <section id="resourceResults" class="workspace-results" aria-labelledby="resultsTitle">
-                <h2 id="resultsTitle">Ressurser <span class="count-badge">@resources.Count</span></h2>
-                @* Filteret sendes til serveren, som bare henter ressursene av valgt type (ResourceQueries). *@
-                <form asp-action="Map" method="get" class="map-filter">
-                    <label for="resourceFilter">Filtrer ressurstype</label>
-                    <div class="workspace-search-row">
-                        <select id="resourceFilter" name="type" class="form-control">
-                            <option value="">Alle typer</option>
-                            @foreach (var gruppe in RessursIkon.Grupper)
-                            {
-                                <option value="@gruppe" selected="@(valgtType == gruppe)">@gruppe</option>
-                            }
-                        </select>
-                        @if (registrationOpen && !isEditing)
-                        {
-                            <input type="hidden" name="register" value="true" />
-                        }
-                        <button type="submit" class="btn-secondary">Vis</button>
+                    <input type="hidden" id="latitude" name="Breddegrad" value="@(harPunkt ? Model!.Breddegrad!.Value.ToString(CultureInfo.InvariantCulture) : "")" />
+                    <input type="hidden" id="longitude" name="Lengdegrad" value="@(harPunkt ? Model!.Lengdegrad!.Value.ToString(CultureInfo.InvariantCulture) : "")" />
+                    <span asp-validation-for="Breddegrad" class="text-danger"></span>
+                    <div class="registration-actions">
+                        <button type="button" id="choosePlacement" class="btn-submit">Velg plassering på kartet →</button>
+                        <a asp-action="Map" class="btn-secondary">Avbryt</a>
                     </div>
                 </form>
-                @if (resources.Count == 0)
-                {
-                    <p class="workspace-muted">@(valgtType.Length > 0 ? "Ingen ressurser passer filteret." : "Ingen ressurser er plassert på kartet.")</p>
-                }
-                <div class="workspace-resource-list">
-                @foreach (var r in resources)
-                {
-                    var status = ResourceOperationalStatus.From(r, nå);
-                    var typeNavn = r.Ressurstype?.Navn ?? "Ukjent";
-                    <details class="resource-card" id="ressurs-@r.RessursID" open="@(r.RessursID == focus)">
-                        <summary><img src="@Url.Content(RessursIkon.Sti(typeNavn, status))" alt="" width="32" height="32" /><span><strong>@r.Navn</strong><small>@typeNavn · @r.Stedsnavn</small><small>@status.Availability · Godkjenning: @status.Verification</small></span></summary>
-                        <div class="resource-detail">
-                            <dl>
-                                <div><dt>Registrert</dt><dd>@r.Registrert.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) UTC</dd></div>
-                                <div><dt>Tilgjengelig</dt><dd>fra @r.TilgjengeligFra.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)@(r.TilgjengeligTil is DateOnly til ? " til " + til.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : "")</dd></div>
-                                <div><dt>Beholdning</dt><dd>@r.TilgjengeligAntall.ToString("0.##", CultureInfo.InvariantCulture) av @r.Antall.ToString("0.##", CultureInfo.InvariantCulture) @r.Enhet tilgjengelig@(r.ReservertAntall > 0 ? $" · {r.ReservertAntall.ToString("0.##", CultureInfo.InvariantCulture)} reservert" : "")</dd></div>
-                                <div><dt>Type beholdning</dt><dd>@(r.ErForbruksvare ? "Forbruksvare" : "Returneres etter bruk")</dd></div>
-                                <div><dt>Kontakt</dt><dd>@r.Kontaktperson, @r.Kontakttelefon</dd></div>
-                                <div><dt>Koordinater</dt><dd>@r.Breddegrad.ToString("F5", CultureInfo.InvariantCulture), @r.Lengdegrad.ToString("F5", CultureInfo.InvariantCulture)</dd></div>
-                                @if (!string.IsNullOrEmpty(r.Beskrivelse))
-                                {
-                                    <div><dt>Beskrivelse</dt><dd>@r.Beskrivelse</dd></div>
-                                }
-                            </dl>
-                            <div class="resource-actions">
-                                <a asp-action="Map" asp-route-focus="@r.RessursID" asp-route-type="@(valgtType.Length > 0 ? valgtType : null)" asp-fragment="ressurs-@r.RessursID" class="btn-secondary">Vis på kart</a>
-                                @if (ResourcePermissions.CanManage(User, r.EierID))
-                                {
-                                    <a asp-action="Edit" asp-route-id="@r.RessursID" class="btn-secondary">Rediger</a>
-                                    <div class="resource-destructive-actions">
-                                        <a asp-action="Delete" asp-route-id="@r.RessursID" class="btn-danger">Slett</a>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </details>
-                }
-                </div>
             </section>
-        </aside>
-        <div class="workspace-map-region" id="mapRegion">
-            <input id="mapFullscreen" class="map-fullscreen-toggle" type="checkbox" />
-            <label for="mapFullscreen" class="map-fullscreen-button">Utvid kart</label>
-            @if (kart.Plassering is not null)
-            {
-                <p class="workspace-map-status" role="status">Registrering · klikk i kartet for å plassere ressursen</p>
-            }
-            <div id="map" aria-label="Kart over ressurser"></div>
-            <ul class="map-key" aria-label="Tegnforklaring">
-                @foreach (var gruppe in RessursIkon.Grupper)
-                {
-                    <li><a asp-action="Map" asp-route-type="@gruppe" asp-route-sted="@(sted.Length > 0 ? sted : null)" aria-current="@(valgtType == gruppe ? "true" : null)"><img src="@Url.Content(RessursIkon.Sti(gruppe))" alt="" width="24" height="24" />@gruppe</a></li>
-                }
-                @if (valgtType.Length > 0)
-                {
-                    <li><a asp-action="Map" asp-route-sted="@(sted.Length > 0 ? sted : null)">Vis alle</a></li>
-                }
-                <li class="map-key-colors"><span class="dot dot-green"></span>Grønn = tilgjengelig <span class="dot dot-red"></span>Rød = ikke tilgjengelig</li>
-            </ul>
-        </div>
-    </div>
-</section>
+        </dialog>
+}
 
 <link rel="stylesheet" href="~/lib/leaflet/leaflet.css" />
 <script src="~/lib/leaflet/leaflet.js"></script>

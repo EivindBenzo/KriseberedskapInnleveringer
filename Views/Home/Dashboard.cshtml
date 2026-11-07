@@ -34,26 +34,21 @@
     <p class="notice" role="status">@success</p>
 }
 <section class="dashboard-action-grid" aria-label="Arbeidsoversikt">
-    <details class="dashboard-action dashboard-action-confirmed" open>
-        <summary><span class="dashboard-action-icon" aria-hidden="true">✓</span><span>Bekreftet <strong>@Model.Assignments.Count</strong></span></summary>
-        <p>Aktive tildelinger og oppdrag som er godtatt.</p>
-        <a href="#tildelinger">Se bekreftede oppdrag</a>
-    </details>
-    <details class="dashboard-action dashboard-action-requests" open>
-        <summary><span class="dashboard-action-icon" aria-hidden="true">!</span><span>Forespørsler <strong>@(Model.IncomingRequests.Count(f => f.Svar == Statuser.Svar.Venter) + Model.Requests.Count(f => f.Svar == Statuser.Svar.Venter))</strong></span></summary>
-        <p>Venter på svar, verifisering eller koordinering.</p>
-        <a href="#foresporsler">Behandle forespørsler</a>
-    </details>
-    <details class="dashboard-action dashboard-action-urgent" open>
-        <summary><span class="dashboard-action-icon" aria-hidden="true">!</span><span>Akutte behov <strong>@Model.Needs.Count(n => n.Prioritet == Statuser.Prioritet.Akutt)</strong></span></summary>
-        <p>Prioriterte behov som trenger rask oppfølging.</p>
-        <a href="#apne-behov">Se akutte behov</a>
-    </details>
+    <button type="button" class="dashboard-action dashboard-action-confirmed" data-dashboard-target="confirmed" aria-expanded="false">
+        <span class="dashboard-action-icon" aria-hidden="true">✓</span><span><strong>Bekreftet</strong><small>@Model.Assignments.Count aktive oppdrag</small></span><span class="dashboard-action-count">@Model.Assignments.Count</span>
+    </button>
+    <button type="button" class="dashboard-action dashboard-action-requests" data-dashboard-target="requests" aria-expanded="false">
+        <span class="dashboard-action-icon" aria-hidden="true">!</span><span><strong>Forespørsler</strong><small>Venter på svar eller koordinering</small></span><span class="dashboard-action-count">@(Model.IncomingRequests.Count(f => f.Svar == Statuser.Svar.Venter) + Model.Requests.Count(f => f.Svar == Statuser.Svar.Venter) + Model.VerificationQueue.Count)</span>
+    </button>
+    <button type="button" class="dashboard-action dashboard-action-urgent" data-dashboard-target="urgent" aria-expanded="false">
+        <span class="dashboard-action-icon" aria-hidden="true">!</span><span><strong>Akutte behov</strong><small>Krever rask oppfølging</small></span><span class="dashboard-action-count">@Model.Needs.Count(n => n.Prioritet == Statuser.Prioritet.Akutt)</span>
+    </button>
 </section>
 
 @if (provider)
 {
-    var pendingIncoming = Model.IncomingRequests.Count(f => f.Svar == Statuser.Svar.Venter);
+    <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
+    @{ var pendingIncoming = Model.IncomingRequests.Count(f => f.Svar == Statuser.Svar.Venter); }
     <h2 id="mine-foresporsler">Forespørsler til meg <span class="count-badge">@pendingIncoming</span></h2>
     @if (Model.IncomingRequests.Count == 0)
     {
@@ -133,10 +128,12 @@
             @await Html.PartialAsync("_Timeline", Model.ResourceTimeline.GetValueOrDefault(resource.RessursID))
         </article>
     }
+    </section>
 }
 
 @if (verifier)
 {
+    <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
     <h2 id="verifiseringskoe">Venter på verifisering <span class="count-badge">@Model.VerificationQueue.Count</span></h2>
     @if (Model.VerificationQueue.Count == 0)
     {
@@ -165,10 +162,12 @@
             @await Html.PartialAsync("_Timeline", Model.ResourceTimeline.GetValueOrDefault(resource.RessursID))
         </article>
     }
+    </section>
 }
 
 @if (dispatch)
 {
+    <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
     <h2 id="apne-behov">Åpne behov <span class="count-badge">@Model.Needs.Count</span></h2>
     @if (Model.Needs.Count == 0)
     {
@@ -269,10 +268,12 @@
             @await Html.PartialAsync("_Timeline", Model.RequestTimeline.GetValueOrDefault(request.ForespørselID))
         </article>
     }
+    </section>
 }
 
 @if (dispatch || leader)
 {
+    <section class="dashboard-panel" data-dashboard-panel="confirmed" hidden>
     <h2 id="tildelinger">Aktive tildelinger <span class="count-badge">@Model.Assignments.Count</span></h2>
     @if (Model.Assignments.Count == 0)
     {
@@ -306,10 +307,12 @@
             @await Html.PartialAsync("_Timeline", Model.AssignmentTimeline.GetValueOrDefault(assignment.TildelingID))
         </article>
     }
+    </section>
 }
 
 @if (leader)
 {
+    <section class="dashboard-panel" data-dashboard-panel="urgent" hidden>
     <div class="dashboard-stats">
         <div><strong>@Model.Needs.Count</strong><span>Åpne behov</span></div>
         <div><strong>@Model.Needs.Count(n => n.Prioritet == Statuser.Prioritet.Akutt)</strong><span>Akutte</span></div>
@@ -360,10 +363,12 @@
             <span class="status-badge">@AppRoles.Label(role): @count</span>
         }
     </p>
+    </section>
 }
 
 @if (publicActor)
 {
+    <section class="dashboard-panel" data-dashboard-panel="urgent" hidden>
     <div class="results-heading section-head">
         <h2 id="mine-behov">Mine behov <span class="count-badge">@Model.Needs.Count</span></h2>
         <a asp-controller="Behov" asp-action="Registrer" class="btn-submit">Meld nytt behov</a>
@@ -386,5 +391,7 @@
             <p class="resource-meta">Antall: @need.Antall · registrert @Stamp(need.Registrert)@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")</p>
         </article>
     }
+    </section>
 }
 </section>
+<script src="~/js/dashboard-workspace.js" asp-append-version="true"></script>

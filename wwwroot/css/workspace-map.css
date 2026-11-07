@@ -3,6 +3,72 @@ body:has(.map-workspace) {
     min-height: 0;
 }
 
+.map-workspace #map.map-expanded {
+    position: fixed;
+    inset: 1rem;
+    z-index: 2500;
+    height: auto;
+    border: 3px solid var(--workspace-surface);
+    border-radius: 12px;
+}
+
+.map-expand-control {
+    width: 36px;
+    height: 36px;
+    border: 0;
+    background: var(--workspace-surface);
+    color: var(--heading);
+    font-size: 1.3rem;
+    cursor: pointer;
+}
+
+.map-expand-control:hover,
+.map-expand-control.is-expanded { background: var(--workspace-hover); }
+
+.placement-confirmation {
+    position: absolute;
+    z-index: 700;
+    bottom: 1.25rem;
+    left: 50%;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    max-width: calc(100% - 2rem);
+    padding: .65rem;
+    transform: translateX(-50%);
+    background: var(--workspace-surface);
+    border: 1px solid var(--workspace-border);
+    border-radius: 9px;
+    box-shadow: 0 8px 20px var(--shadow);
+}
+
+.placement-confirmation .btn-submit,
+.placement-confirmation .btn-danger { margin: 0; min-height: 38px; }
+
+.resource-registration-dialog {
+    width: min(1120px, 80vw);
+    max-width: 80vw;
+    max-height: 84vh;
+    padding: 0;
+    color: var(--text);
+    background: var(--workspace-surface);
+    border: 1px solid var(--workspace-border);
+    border-radius: 16px;
+    box-shadow: 0 24px 80px rgba(2, 12, 27, .5);
+}
+
+.resource-registration-dialog::backdrop { background: rgba(3, 18, 35, .68); backdrop-filter: blur(3px); }
+.resource-registration-dialog .registration-panel { padding: clamp(1.25rem, 3vw, 2.5rem); overflow: auto; }
+.resource-registration-dialog .workspace-form { max-width: 800px; margin: 1.25rem auto 0; }
+.resource-registration-dialog .registration-section { background: var(--workspace-section-surface); }
+.dialog-close-bar { position: absolute; top: .75rem; right: .75rem; }
+.dialog-close { width: 2.5rem; height: 2.5rem; color: var(--heading); background: transparent; border: 1px solid var(--workspace-border); border-radius: 50%; font-size: 1.6rem; cursor: pointer; }
+.resource-type-hint { display: flex; flex-wrap: wrap; gap: .5rem; margin: -.1rem 0 1rem; color: var(--muted); font-size: .85rem; }
+.resource-type-hint span { padding: .3rem .5rem; background: var(--workspace-input-surface); border: 1px solid var(--workspace-border); border-radius: 99px; }
+.registration-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; }
+.registration-actions .btn-submit { width: auto; margin: 0; }
+
 .main-content:has(.map-workspace) {
     display: flex;
     flex-direction: column;
@@ -42,15 +108,11 @@ body:has(.map-workspace) {
 
 .map-workspace .workspace-grid {
     display: grid;
-    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
     gap: .75rem;
     align-items: stretch;
     flex: 1;
     min-height: 0;
-}
-
-.map-workspace[data-registration-open="true"] .workspace-grid {
-    grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
 }
 
 .map-workspace .workspace-toolbar {
@@ -66,12 +128,6 @@ body:has(.map-workspace) {
     margin: 0;
 }
 
-.map-workspace #registrationToggle[aria-expanded="true"] {
-    background: #102c50;
-    border-color: var(--accent);
-    box-shadow: inset 0 -3px #a9d2ff;
-}
-
 .map-workspace .workspace-sidebar {
     min-width: 0;
     height: 100%;
@@ -84,13 +140,11 @@ body:has(.map-workspace) {
 }
 
 .map-workspace .workspace-search,
-.map-workspace .workspace-results,
-.map-workspace .registration-panel {
+.map-workspace .workspace-results {
     padding: 1rem;
 }
 
-.map-workspace .workspace-search,
-.map-workspace .registration-panel {
+.map-workspace .workspace-search {
     border-bottom: 1px solid var(--workspace-border);
 }
 
@@ -357,30 +411,6 @@ body:has(.map-workspace) {
     position: relative;
 }
 
-.map-fullscreen-toggle { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; }
-.map-fullscreen-button {
-    align-self: end;
-    order: -1;
-    margin-bottom: .5rem;
-    padding: .5rem .75rem;
-    color: var(--accent);
-    border: 1px solid var(--workspace-border);
-    border-radius: 6px;
-    background: var(--workspace-surface);
-    cursor: pointer;
-}
-.map-workspace .workspace-map-region:has(.map-fullscreen-toggle:checked) {
-    position: fixed;
-    inset: 1rem;
-    z-index: 1000;
-    padding: 1rem;
-    background: var(--workspace-surface);
-    border: 1px solid var(--workspace-border);
-    border-radius: 10px;
-}
-.map-workspace .workspace-map-region:has(.map-fullscreen-toggle:checked) #map { min-height: 0; }
-.map-workspace .workspace-map-region:has(.map-fullscreen-toggle:checked) .map-fullscreen-button::after { content: " (lukk)"; }
-
 .map-workspace .workspace-map-status {
     font-size: .8rem;
     margin: 0 0 .5rem;
@@ -478,6 +508,9 @@ body:has(.map-workspace) {
         height: 60vh;
         min-height: 300px;
     }
+
+    .resource-registration-dialog { width: calc(100vw - 1.5rem); max-width: calc(100vw - 1.5rem); max-height: calc(100dvh - 1.5rem); }
+    .placement-confirmation { bottom: .75rem; width: calc(100% - 1.5rem); justify-content: center; }
 }
 
 /* Forslag fra «Finn sted» og filteret over ressurslisten. */

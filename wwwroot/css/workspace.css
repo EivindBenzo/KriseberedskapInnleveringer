@@ -52,8 +52,8 @@ p { font-size: 1rem; }
 label { font-size: 1rem; margin-bottom: .35rem; }
 .form-control { padding: .6rem .7rem; min-height: 44px; border-width: 1px; border-radius: .3rem; font: inherit; }
 .btn-submit, .btn-secondary, .btn-danger { display: inline-flex; align-items: center; justify-content: center; width: auto; min-height: 44px; margin: .25rem .25rem .25rem 0; padding: .6rem 1rem; border-radius: .3rem; font: inherit; font-weight: 600; text-transform: none; letter-spacing: normal; box-shadow: none; text-decoration: none; cursor: pointer; line-height: 1.4; }
-.btn-submit { background: #1d4ed8; color: white; border: 1px solid #1d4ed8; }
-.btn-submit:hover { background: #1e40af; transform: none; box-shadow: none; }
+.btn-submit { background: #006a7a; color: white; border: 1px solid #006a7a; }
+.btn-submit:hover { background: #005563; transform: none; box-shadow: none; }
 .btn-secondary { color: var(--accent); background: var(--surface); border: 1px solid var(--border); }
 .btn-secondary:hover { color: var(--heading); background: var(--hover); border-color: var(--accent); }
 .btn-danger { color: var(--error); background: var(--surface); border: 1px solid var(--error); }
@@ -126,7 +126,7 @@ summary { color: var(--accent); cursor: pointer; padding: .35rem 0; }
 .operations-workspace .workflow-item p { margin: .4rem 0; }
 .operations-workspace form label { flex: 1 1 12rem; min-width: 0; }
 .operations-workspace input, .operations-workspace textarea, .operations-workspace select { width: 100%; min-width: 0; }
-.operations-workspace .btn-submit { background: #1d4ed8; color: white; border-color: #1d4ed8; }
+.operations-workspace .btn-submit { background: #006a7a; color: white; border-color: #006a7a; }
 .operations-workspace .btn-danger { color: var(--error); border-color: var(--error); }
 .empty-state { padding: 1.5rem; border: 1px dashed var(--border); border-radius: .6rem; color: var(--muted); }
 .danger-zone { border-color: var(--error); }
@@ -183,18 +183,20 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .progress-steps li.done { color: var(--heading); border-color: var(--accent); background: var(--hover); }
 .progress-steps li[aria-current="step"] { font-weight: 700; }
 .dashboard-action-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.25rem 0 2rem; }
-.dashboard-action { margin: 0; padding: 1rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--surface); }
-.dashboard-action summary { display: flex; align-items: center; gap: .75rem; color: var(--heading); font-size: 1.05rem; font-weight: 700; }
-.dashboard-action summary::marker { content: ""; }
+.dashboard-action { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; width: 100%; margin: 0; padding: 1.1rem; color: var(--heading); text-align: left; border: 1px solid var(--border); border-radius: .85rem; background: var(--surface); cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
+.dashboard-action:hover, .dashboard-action[aria-expanded="true"] { background: var(--surface-end); box-shadow: 0 8px 20px var(--shadow); transform: translateY(-2px); }
+.dashboard-action strong, .dashboard-action small { display: block; }
+.dashboard-action small { margin-top: .2rem; color: var(--muted); font-size: .85rem; font-weight: 400; }
 .dashboard-action-icon { display: inline-flex; align-items: center; justify-content: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; color: white; font-weight: 800; }
+.dashboard-action-count { min-width: 2rem; padding: .3rem .55rem; color: var(--heading); text-align: center; background: var(--surface); border: 1px solid currentColor; border-radius: 99px; font-size: 1.1rem; font-weight: 800; }
 .dashboard-action-confirmed { border-top: 4px solid #16a34a; }
 .dashboard-action-confirmed .dashboard-action-icon { background: #16a34a; }
 .dashboard-action-requests { border-top: 4px solid #d97706; }
 .dashboard-action-requests .dashboard-action-icon { background: #d97706; }
 .dashboard-action-urgent { border-top: 4px solid #dc2626; }
 .dashboard-action-urgent .dashboard-action-icon { background: #dc2626; }
-.dashboard-action p { color: var(--muted); margin: .75rem 0; }
-.dashboard-action a { font-weight: 600; }
+.dashboard-panel { scroll-margin-top: 1rem; animation: dashboard-panel-enter .2s ease-out; }
+@keyframes dashboard-panel-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .inventory-summary { padding: .6rem .75rem; margin: .6rem 0; border-left: 3px solid var(--accent); background: var(--surface-end); }
 
 /* Skjemaet «Meld behov»: skjema til venstre, kart til høyre (under hverandre på mobil). */
