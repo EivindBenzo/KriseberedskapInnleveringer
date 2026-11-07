@@ -115,6 +115,20 @@
                             <textarea id="beskrivelse" name="Beskrivelse" class="form-control" maxlength="1000" rows="2" placeholder="f.eks. 5 kW, 8 seter, krever tilhenger">@Model?.Beskrivelse</textarea>
                             <span asp-validation-for="Beskrivelse" class="text-danger"></span>
                         </div>
+                        <div class="form-row-compact">
+                            <div class="form-group">
+                                <label for="quantity">Antall <span class="required">*</span></label>
+                                <input type="number" id="quantity" name="Antall" value="@Model?.Antall.ToString(CultureInfo.InvariantCulture)" class="form-control" min="0.01" max="1000000" step="0.01" required />
+                                <span asp-validation-for="Antall" class="text-danger"></span>
+                            </div>
+                            <div class="form-group">
+                                <label for="unit">Enhet <span class="required">*</span></label>
+                                <input type="text" id="unit" name="Enhet" value="@Model?.Enhet" class="form-control" maxlength="20" required placeholder="stk, L eller kg" />
+                                <span asp-validation-for="Enhet" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <label class="stock-option"><input type="checkbox" name="ErForbruksvare" value="true" checked="@Model?.ErForbruksvare" /> Forbruksvare</label>
+                        <p class="workspace-muted">Forbruksvarer, som vann og sand, trekkes fra beholdningen når oppdraget er fullført. Utstyr og kjøretøy blir tilgjengelige igjen etter ny verifisering.</p>
                     </fieldset>
                     <fieldset class="registration-section">
                         <legend>Tilgjengelighet og kontakt</legend>
@@ -190,6 +204,8 @@
                             <dl>
                                 <div><dt>Registrert</dt><dd>@r.Registrert.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) UTC</dd></div>
                                 <div><dt>Tilgjengelig</dt><dd>fra @r.TilgjengeligFra.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)@(r.TilgjengeligTil is DateOnly til ? " til " + til.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : "")</dd></div>
+                                <div><dt>Beholdning</dt><dd>@r.TilgjengeligAntall.ToString("0.##", CultureInfo.InvariantCulture) av @r.Antall.ToString("0.##", CultureInfo.InvariantCulture) @r.Enhet tilgjengelig@(r.ReservertAntall > 0 ? $" · {r.ReservertAntall.ToString("0.##", CultureInfo.InvariantCulture)} reservert" : "")</dd></div>
+                                <div><dt>Type beholdning</dt><dd>@(r.ErForbruksvare ? "Forbruksvare" : "Returneres etter bruk")</dd></div>
                                 <div><dt>Kontakt</dt><dd>@r.Kontaktperson, @r.Kontakttelefon</dd></div>
                                 <div><dt>Koordinater</dt><dd>@r.Breddegrad.ToString("F5", CultureInfo.InvariantCulture), @r.Lengdegrad.ToString("F5", CultureInfo.InvariantCulture)</dd></div>
                                 @if (!string.IsNullOrEmpty(r.Beskrivelse))
@@ -214,6 +230,8 @@
             </section>
         </aside>
         <div class="workspace-map-region" id="mapRegion">
+            <input id="mapFullscreen" class="map-fullscreen-toggle" type="checkbox" />
+            <label for="mapFullscreen" class="map-fullscreen-button">Utvid kart</label>
             @if (kart.Plassering is not null)
             {
                 <p class="workspace-map-status" role="status">Registrering · klikk i kartet for å plassere ressursen</p>
@@ -222,7 +240,11 @@
             <ul class="map-key" aria-label="Tegnforklaring">
                 @foreach (var gruppe in RessursIkon.Grupper)
                 {
-                    <li><img src="@Url.Content(RessursIkon.Sti(gruppe))" alt="" width="24" height="24" />@gruppe</li>
+                    <li><a asp-action="Map" asp-route-type="@gruppe" asp-route-sted="@(sted.Length > 0 ? sted : null)" aria-current="@(valgtType == gruppe ? "true" : null)"><img src="@Url.Content(RessursIkon.Sti(gruppe))" alt="" width="24" height="24" />@gruppe</a></li>
+                }
+                @if (valgtType.Length > 0)
+                {
+                    <li><a asp-action="Map" asp-route-sted="@(sted.Length > 0 ? sted : null)">Vis alle</a></li>
                 }
                 <li class="map-key-colors"><span class="dot dot-green"></span>Grønn = tilgjengelig <span class="dot dot-red"></span>Rød = ikke tilgjengelig</li>
             </ul>

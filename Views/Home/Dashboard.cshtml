@@ -33,6 +33,23 @@
 {
     <p class="notice" role="status">@success</p>
 }
+<section class="dashboard-action-grid" aria-label="Arbeidsoversikt">
+    <details class="dashboard-action dashboard-action-confirmed" open>
+        <summary><span class="dashboard-action-icon" aria-hidden="true">✓</span><span>Bekreftet <strong>@Model.Assignments.Count</strong></span></summary>
+        <p>Aktive tildelinger og oppdrag som er godtatt.</p>
+        <a href="#tildelinger">Se bekreftede oppdrag</a>
+    </details>
+    <details class="dashboard-action dashboard-action-requests" open>
+        <summary><span class="dashboard-action-icon" aria-hidden="true">!</span><span>Forespørsler <strong>@(Model.IncomingRequests.Count(f => f.Svar == Statuser.Svar.Venter) + Model.Requests.Count(f => f.Svar == Statuser.Svar.Venter))</strong></span></summary>
+        <p>Venter på svar, verifisering eller koordinering.</p>
+        <a href="#foresporsler">Behandle forespørsler</a>
+    </details>
+    <details class="dashboard-action dashboard-action-urgent" open>
+        <summary><span class="dashboard-action-icon" aria-hidden="true">!</span><span>Akutte behov <strong>@Model.Needs.Count(n => n.Prioritet == Statuser.Prioritet.Akutt)</strong></span></summary>
+        <p>Prioriterte behov som trenger rask oppfølging.</p>
+        <a href="#apne-behov">Se akutte behov</a>
+    </details>
+</section>
 
 @if (provider)
 {
@@ -88,6 +105,7 @@
                 </div>
             </div>
             <p class="resource-meta">@resource.Ressurstype?.Navn · @resource.Stedsnavn</p>
+            <p class="inventory-summary"><strong>@resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet</strong> tilgjengelig av @resource.Antall.ToString("0.##") @resource.Enhet@(resource.ReservertAntall > 0 ? $" · {resource.ReservertAntall:0.##} reservert" : "") · @(resource.ErForbruksvare ? "forbruksvare" : "returneres etter bruk")</p>
             @if (resource.Status == Statuser.Ressurs.VenterPåVerifisering)
             {
                 <p>Ressursen er ikke synlig for dispatch før den er verifisert.</p>
@@ -190,7 +208,8 @@
                             <input type="hidden" name="needId" value="@need.BehovID" />
                             <input type="hidden" name="resourceId" value="@resource.RessursID" />
                             <input type="hidden" name="returnUrl" value="@Tilbake("behov-" + need.BehovID)" />
-                            <span><strong>@resource.Navn</strong> · @resource.Ressurstype?.Navn · @resource.Stedsnavn</span>
+                            <span><strong>@resource.Navn</strong> · @resource.Ressurstype?.Navn · @resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet tilgjengelig</span>
+                            <label>Antall <input type="number" name="quantity" min="0.01" max="@resource.TilgjengeligAntall.ToString(System.Globalization.CultureInfo.InvariantCulture)" step="0.01" value="1" required /></label>
                             <button type="submit">Send forespørsel</button>
                         </form>
                     }
@@ -206,7 +225,8 @@
                                 <input type="hidden" name="needId" value="@need.BehovID" />
                                 <input type="hidden" name="resourceId" value="@resource.RessursID" />
                                 <input type="hidden" name="returnUrl" value="@Tilbake("behov-" + need.BehovID)" />
-                                <span><strong>@resource.Navn</strong> · @resource.Ressurstype?.Navn · @resource.Stedsnavn</span>
+                                <span><strong>@resource.Navn</strong> · @resource.Ressurstype?.Navn · @resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet tilgjengelig</span>
+                                <label>Antall <input type="number" name="quantity" min="0.01" max="@resource.TilgjengeligAntall.ToString(System.Globalization.CultureInfo.InvariantCulture)" step="0.01" value="1" required /></label>
                                 <button type="submit">Send forespørsel</button>
                             </form>
                         }
@@ -228,7 +248,7 @@
                 <h3>@request.Ressurs!.Navn → @request.Behov!.Stedsnavn</h3>
                 <span class="status-badge @(request.Svar == Statuser.Svar.Venter ? "status-warning" : "status-positive")">@Statuser.Visning(request.Svar)</span>
             </div>
-            <p class="resource-meta">Sendt @Stamp(request.Sendt)</p>
+            <p class="resource-meta">@request.Antall.ToString("0.##") @request.Ressurs!.Enhet · sendt @Stamp(request.Sendt)</p>
             @if (request.Svar == Statuser.Svar.Godtatt)
             {
                 <form asp-controller="Operations" asp-action="Allocate" method="post" class="inline-form">

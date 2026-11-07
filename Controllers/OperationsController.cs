@@ -94,8 +94,8 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
         Run(() => workflow.ChangeNeedPriorityAsync(id, priority, User, reason));
 
     [HttpPost, Authorize(Roles = AppRoles.DispatchTeam)]
-    public Task<IActionResult> CreateRequest(int needId, int resourceId, string? reason) =>
-        Run(async () => { await workflow.CreateRequestAsync(needId, resourceId, User, reason); });
+    public Task<IActionResult> CreateRequest(int needId, int resourceId, decimal quantity, string? reason) =>
+        Run(async () => { await workflow.CreateRequestAsync(needId, resourceId, quantity, User, reason); });
 
     [HttpPost, Authorize(Roles = AppRoles.Ressursleverandor)]
     public Task<IActionResult> Respond(int id, bool accept, string? reason) =>

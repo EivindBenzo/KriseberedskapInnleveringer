@@ -23,6 +23,15 @@ public class RessursSkjemaViewModel
     [StringLength(1000, ErrorMessage = "Beskrivelsen kan ha høyst 1000 tegn.")]
     public string? Beskrivelse { get; set; }
 
+    [Range(typeof(decimal), "0.01", "1000000", ErrorMessage = "Antall må være større enn 0.")]
+    public decimal Antall { get; set; } = 1;
+
+    [Required(ErrorMessage = "Oppgi enhet, for eksempel stk, L eller kg")]
+    [StringLength(20, ErrorMessage = "Enheten kan ha høyst 20 tegn")]
+    public string Enhet { get; set; } = "stk";
+
+    public bool ErForbruksvare { get; set; }
+
     [Required(ErrorMessage = "Oppgi når ressursen er tilgjengelig fra")]
     [DataType(DataType.Date)]
     public DateOnly? TilgjengeligFra { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);

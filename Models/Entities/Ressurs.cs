@@ -11,6 +11,13 @@ public class Ressurs
     public int EierID { get; set; }
     public string Navn { get; set; } = string.Empty;
     public string? Beskrivelse { get; set; }
+    /// <summary>Total beholdning som eieren stiller til rådighet, for eksempel 3 biler eller 2 liter vann.</summary>
+    public decimal Antall { get; set; } = 1;
+    /// <summary>Beholdning som er holdt av i aktive forespørsler eller tildelinger.</summary>
+    public decimal ReservertAntall { get; set; }
+    public string Enhet { get; set; } = "stk";
+    /// <summary>Forbruksvarer trekkes fra beholdningen når oppdraget er fullført.</summary>
+    public bool ErForbruksvare { get; set; }
     public DateOnly TilgjengeligFra { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
     public DateOnly? TilgjengeligTil { get; set; }
     public string Kontaktperson { get; set; } = string.Empty;
@@ -26,6 +33,8 @@ public class Ressurs
     public Bruker? Eier { get; set; }
     public ICollection<Verifisering> Verifiseringer { get; set; } = new List<Verifisering>();
     public ICollection<Forespørsel> Forespørsler { get; set; } = new List<Forespørsel>();
+
+    public decimal TilgjengeligAntall => Antall - ReservertAntall;
 }
 
 /// <summary>En kontroll av en ressurs. Siste godkjenning avgjør om ressursen kan forespørres.</summary>

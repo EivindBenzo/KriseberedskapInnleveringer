@@ -25,13 +25,14 @@ public static class WorkflowEligibility
         SisteGodkjenning(ressurs) is DateTime godkjent && godkjent <= nowUtc && godkjent.AddDays(dager) > nowUtc;
 
     public static bool IsEligible(Ressurs ressurs, DateTime nowUtc, int dager = StandardGyldighetDager) =>
-        ressurs.Status == Statuser.Ressurs.Tilgjengelig && HasCurrentApproval(ressurs, nowUtc, dager);
+        ressurs.Status == Statuser.Ressurs.Tilgjengelig && ressurs.TilgjengeligAntall > 0 &&
+        HasCurrentApproval(ressurs, nowUtc, dager);
 
     /// <summary>Samme regel som <see cref="IsEligible"/>, skrevet slik at EF Core kan oversette den til SQL.</summary>
     public static Expression<Func<Ressurs, bool>> EligibleExpression(DateTime nowUtc, int dager = StandardGyldighetDager)
     {
         var grense = nowUtc.AddDays(-dager);
-        return r => r.Status == Statuser.Ressurs.Tilgjengelig &&
+        return r => r.Status == Statuser.Ressurs.Tilgjengelig && r.Antall > r.ReservertAntall &&
                     r.Verifiseringer.Any(v => v.Resultat == Statuser.Resultat.Godkjent &&
                                               v.Tidspunkt > grense && v.Tidspunkt <= nowUtc);
     }

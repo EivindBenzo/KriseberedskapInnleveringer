@@ -303,4 +303,37 @@ public class WorkflowTests
         await Assert.ThrowsAsync<WorkflowException>(() =>
             test.Workflow.ChangeNeedStatusAsync(behov, Statuser.Behov.Løst, a.Leder, "Ferdig"));
     }
+
+    [Fact]
+    public async Task BeholdningReserveresFrigisOgForbruksvarerTrekkesVedFullføring()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var a = await AktørerAsync(test);
+        var vann = Ressurs("Drikkevann");
+        vann.Antall = 2;
+        vann.Enhet = "L";
+        vann.ErForbruksvare = true;
+        var ressursId = await test.Workflow.RegisterResourceAsync(vann, a.Eier);
+        await test.Workflow.VerifyAsync(ressursId, true, a.Verifiserer, null);
+
+        var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
+        var forespørselId = await test.Workflow.CreateRequestAsync(behov, ressursId, 1, a.Dispatch);
+        var ressurs = await test.Db.Ressurser.SingleAsync(r => r.RessursID == ressursId);
+        Assert.Equal(1, ressurs.TilgjengeligAntall);
+        Assert.Equal(1, ressurs.ReservertAntall);
+        Assert.Equal(Statuser.Ressurs.Tilgjengelig, ressurs.Status);
+
+        await test.Workflow.RespondAsync(forespørselId, true, a.Eier, null);
+        await test.Workflow.AllocateAsync(forespørselId, a.Dispatch);
+        var tildeling = await test.Db.Tildelinger.SingleAsync(t => t.ForespørselID == forespørselId);
+        foreach (var steg in new[] { Statuser.Fremdrift.PåVei, Statuser.Fremdrift.Fremme, Statuser.Fremdrift.Fullført })
+            await test.Workflow.UpdateAssignmentAsync(tildeling.TildelingID, steg, a.Dispatch, null);
+
+        test.Db.ChangeTracker.Clear();
+        ressurs = await test.Db.Ressurser.SingleAsync(r => r.RessursID == ressursId);
+        Assert.Equal(1, ressurs.Antall);
+        Assert.Equal(0, ressurs.ReservertAntall);
+        Assert.Equal(1, ressurs.TilgjengeligAntall);
+        Assert.Equal(Statuser.Ressurs.Tilgjengelig, ressurs.Status);
+    }
 }

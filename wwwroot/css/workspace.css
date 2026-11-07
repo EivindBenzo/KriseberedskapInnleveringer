@@ -182,6 +182,20 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .progress-steps li { padding: .2rem .65rem; border: 1px solid var(--border); border-radius: 1rem; color: var(--muted); font-size: .85rem; }
 .progress-steps li.done { color: var(--heading); border-color: var(--accent); background: var(--hover); }
 .progress-steps li[aria-current="step"] { font-weight: 700; }
+.dashboard-action-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.25rem 0 2rem; }
+.dashboard-action { margin: 0; padding: 1rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--surface); }
+.dashboard-action summary { display: flex; align-items: center; gap: .75rem; color: var(--heading); font-size: 1.05rem; font-weight: 700; }
+.dashboard-action summary::marker { content: ""; }
+.dashboard-action-icon { display: inline-flex; align-items: center; justify-content: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; color: white; font-weight: 800; }
+.dashboard-action-confirmed { border-top: 4px solid #16a34a; }
+.dashboard-action-confirmed .dashboard-action-icon { background: #16a34a; }
+.dashboard-action-requests { border-top: 4px solid #d97706; }
+.dashboard-action-requests .dashboard-action-icon { background: #d97706; }
+.dashboard-action-urgent { border-top: 4px solid #dc2626; }
+.dashboard-action-urgent .dashboard-action-icon { background: #dc2626; }
+.dashboard-action p { color: var(--muted); margin: .75rem 0; }
+.dashboard-action a { font-weight: 600; }
+.inventory-summary { padding: .6rem .75rem; margin: .6rem 0; border-left: 3px solid var(--accent); background: var(--surface-end); }
 
 /* Skjemaet «Meld behov»: skjema til venstre, kart til høyre (under hverandre på mobil). */
 .need-form-grid {
@@ -216,6 +230,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 }
 
 @media (max-width: 900px) {
+    .dashboard-action-grid { grid-template-columns: 1fr; }
     .need-form-grid {
         grid-template-columns: 1fr;
     }

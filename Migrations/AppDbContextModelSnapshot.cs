@@ -316,6 +316,10 @@ namespace HeimevernetInnlevering1.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("ForespørselID"));
 
+                    b.Property<decimal>("Antall")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
                     b.Property<int>("BehovID")
                         .HasColumnType("int");
 
@@ -440,6 +444,10 @@ namespace HeimevernetInnlevering1.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("RessursID"));
 
+                    b.Property<decimal>("Antall")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
                     b.Property<string>("Beskrivelse")
                         .HasColumnType("text");
 
@@ -449,6 +457,14 @@ namespace HeimevernetInnlevering1.Migrations
 
                     b.Property<int>("EierID")
                         .HasColumnType("int");
+
+                    b.Property<string>("Enhet")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<bool>("ErForbruksvare")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Kontaktperson")
                         .IsRequired()
@@ -471,6 +487,11 @@ namespace HeimevernetInnlevering1.Migrations
 
                     b.Property<DateTime>("Registrert")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("ReservertAntall")
+                        .IsConcurrencyToken()
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<int>("RessurstypeID")
                         .HasColumnType("int");

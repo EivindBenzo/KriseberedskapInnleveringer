@@ -162,6 +162,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasKey(r => r.RessursID);
             e.Property(r => r.Navn).HasMaxLength(150).IsRequired();
             e.Property(r => r.Beskrivelse).HasColumnType("text");
+            e.Property(r => r.Antall).HasPrecision(12, 2).IsRequired();
+            e.Property(r => r.ReservertAntall).HasPrecision(12, 2).IsRequired().IsConcurrencyToken();
+            e.Property(r => r.Enhet).HasMaxLength(20).IsRequired();
             e.Property(r => r.Kontaktperson).HasMaxLength(150).IsRequired();
             e.Property(r => r.Kontakttelefon).HasMaxLength(20).IsRequired();
             e.Property(r => r.Breddegrad).HasPrecision(9, 6);
@@ -203,6 +206,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             e.ToTable("Forespørsel");
             e.HasKey(f => f.ForespørselID);
             e.Property(f => f.SendtAvID).HasColumnName("SendtAv");
+            e.Property(f => f.Antall).HasPrecision(12, 2).IsRequired();
             e.Property(f => f.Svar).HasMaxLength(10).IsRequired().IsConcurrencyToken();
             // Behov 1 – 0..* Forespørsel og Ressurs 1 – 0..* Forespørsel.
             // Restrict: historikken skal ikke forsvinne når noen sletter et behov eller en ressurs.

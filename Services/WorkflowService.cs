@@ -95,7 +95,18 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             throw new WorkflowException("Behovet er avsluttet.");
     }
 
-    private static bool Opptatt(Ressurs ressurs) => Statuser.Ressurs.Opptatt.Contains(ressurs.Status);
+    private static bool Opptatt(Ressurs ressurs) =>
+        Statuser.Ressurs.Opptatt.Contains(ressurs.Status) || ressurs.ReservertAntall > 0;
+
+    private static void OppdaterLagerstatus(Ressurs ressurs)
+    {
+        if (ressurs.TilgjengeligAntall > 0)
+            ressurs.Status = Statuser.Ressurs.Tilgjengelig;
+        else if (ressurs.ReservertAntall > 0)
+            ressurs.Status = Statuser.Ressurs.Forespurt;
+        else
+            ressurs.Status = Statuser.Ressurs.Utilgjengelig;
+    }
 
     /// <summary>
     /// Finner ressurstypen. Finnes den ikke, opprettes den som en ny rad i tabellen Ressurstype,
@@ -141,7 +152,8 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         if (string.IsNullOrWhiteSpace(v.Navn) || v.Navn.Trim().Length is < 2 or > 150 ||
             string.IsNullOrWhiteSpace(v.Kontaktperson) || v.Kontaktperson.Length > 150 ||
             string.IsNullOrWhiteSpace(v.Kontakttelefon) || v.Kontakttelefon.Length > 20 ||
-            v.Beskrivelse?.Length > 1000 || v.Stedsnavn.Length is 0 or > 200 ||
+            v.Beskrivelse?.Length > 1000 || v.Antall is <= 0 or > 1000000 ||
+            string.IsNullOrWhiteSpace(v.Enhet) || v.Enhet.Trim().Length > 20 || v.Stedsnavn.Length is 0 or > 200 ||
             v.TilgjengeligFra is null || (v.TilgjengeligTil is not null && v.TilgjengeligTil < v.TilgjengeligFra) ||
             !PlaceGeocoder.ValidPoint(v.Breddegrad, v.Lengdegrad))
             throw new WorkflowException("Ugyldige ressursopplysninger.");
@@ -163,6 +175,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             {
                 RessurstypeID = type.RessurstypeID, EierID = eier, Navn = values.Navn.Trim(),
                 Beskrivelse = string.IsNullOrWhiteSpace(values.Beskrivelse) ? null : values.Beskrivelse.Trim(),
+                Antall = values.Antall, Enhet = values.Enhet.Trim(), ErForbruksvare = values.ErForbruksvare,
                 TilgjengeligFra = values.TilgjengeligFra!.Value, TilgjengeligTil = values.TilgjengeligTil,
                 Kontaktperson = values.Kontaktperson.Trim(), Kontakttelefon = values.Kontakttelefon.Trim(),
                 Breddegrad = Koordinat(values.Breddegrad!.Value), Lengdegrad = Koordinat(values.Lengdegrad!.Value),
@@ -197,10 +210,15 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             var lat = Koordinat(values.Breddegrad!.Value);
             var lng = Koordinat(values.Lengdegrad!.Value);
             materiell = ressurs.Navn != values.Navn.Trim() || ressurs.RessurstypeID != type.RessurstypeID ||
-                        ressurs.Beskrivelse != beskrivelse || ressurs.Breddegrad != lat || ressurs.Lengdegrad != lng;
+                        ressurs.Beskrivelse != beskrivelse || ressurs.Antall != values.Antall ||
+                        ressurs.Enhet != values.Enhet.Trim() || ressurs.ErForbruksvare != values.ErForbruksvare ||
+                        ressurs.Breddegrad != lat || ressurs.Lengdegrad != lng;
             ressurs.Navn = values.Navn.Trim();
             ressurs.RessurstypeID = type.RessurstypeID;
             ressurs.Beskrivelse = beskrivelse;
+            ressurs.Antall = values.Antall;
+            ressurs.Enhet = values.Enhet.Trim();
+            ressurs.ErForbruksvare = values.ErForbruksvare;
             ressurs.TilgjengeligFra = values.TilgjengeligFra!.Value;
             ressurs.TilgjengeligTil = values.TilgjengeligTil;
             ressurs.Kontaktperson = values.Kontaktperson.Trim();
@@ -223,6 +241,8 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
                 throw new WorkflowException("Du kan bare endre egne ressurser.");
             if (ressurs.Status is not (Statuser.Ressurs.Tilgjengelig or Statuser.Ressurs.Utilgjengelig))
                 throw new WorkflowException("Tilgjengelighet kan bare endres for verifiserte ressurser som ikke er i et oppdrag.");
+            if (ressurs.ReservertAntall > 0)
+                throw new WorkflowException("Tilgjengeligheten kan ikke endres mens deler av beholdningen er reservert.");
             ressurs.Status = tilgjengelig ? Statuser.Ressurs.Tilgjengelig : Statuser.Ressurs.Utilgjengelig;
             Logg(aktør, "TilgjengelighetEndret", Begrunnelse(reason, $"Satt til {ressurs.Status}."), ressursId);
         });
@@ -375,8 +395,11 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
 
     // ---------- Forespørsel og tildeling ----------
 
-    /// <summary>Dispatch sender en forespørsel. Ressursen blir «forespurt» og kan ikke forespørres av andre.</summary>
-    public async Task<int> CreateRequestAsync(int behovId, int ressursId, ClaimsPrincipal actor, string? reason = null)
+    /// <summary>Dispatch reserverer en mengde av en ressurs for et behov.</summary>
+    public Task<int> CreateRequestAsync(int behovId, int ressursId, ClaimsPrincipal actor, string? reason = null) =>
+        CreateRequestAsync(behovId, ressursId, 1, actor, reason);
+
+    public async Task<int> CreateRequestAsync(int behovId, int ressursId, decimal antall, ClaimsPrincipal actor, string? reason = null)
     {
         var id = 0;
         await Mutate(async () =>
@@ -385,14 +408,19 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             var ressurs = await HentRessurs(ressursId);
             var behov = await HentBehov(behovId);
             Aktivt(behov);
+            if (antall is <= 0 or > 1000000)
+                throw new WorkflowException("Antallet må være større enn 0.");
             if (!WorkflowEligibility.IsEligible(ressurs, DateTime.UtcNow, GyldighetDager))
                 throw new WorkflowException("Ressursen må være tilgjengelig og ha gyldig godkjenning.");
+            if (antall > ressurs.TilgjengeligAntall)
+                throw new WorkflowException($"Bare {ressurs.TilgjengeligAntall:0.##} {ressurs.Enhet} er tilgjengelig.");
             var forespørsel = new Forespørsel
             {
                 BehovID = behovId, RessursID = ressursId, SendtAvID = aktør, Sendt = DateTime.UtcNow,
-                Svar = Statuser.Svar.Venter
+                Svar = Statuser.Svar.Venter, Antall = antall
             };
-            ressurs.Status = Statuser.Ressurs.Forespurt;
+            ressurs.ReservertAntall += antall;
+            OppdaterLagerstatus(ressurs);
             if (behov.Status == Statuser.Behov.Ny) behov.Status = Statuser.Behov.Vurderes;
             db.Forespørsler.Add(forespørsel);
             await db.SaveChangesAsync();
@@ -420,13 +448,14 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         if (accept)
         {
             Aktivt(f.Behov!);
-            if (ressurs.Status != Statuser.Ressurs.Forespurt ||
+            if (ressurs.ReservertAntall < f.Antall ||
                 !WorkflowEligibility.HasCurrentApproval(ressurs, DateTime.UtcNow, GyldighetDager))
                 throw new WorkflowException("Ressursen har ikke lenger gyldig godkjenning.");
         }
-        else if (ressurs.Status == Statuser.Ressurs.Forespurt)
+        else
         {
-            ressurs.Status = Statuser.Ressurs.Tilgjengelig;
+            ressurs.ReservertAntall -= f.Antall;
+            OppdaterLagerstatus(ressurs);
         }
         f.Svar = accept ? Statuser.Svar.Godtatt : Statuser.Svar.Avslått;
         f.Svart = DateTime.UtcNow;
@@ -443,10 +472,10 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         var behov = f.Behov!;
         Aktivt(behov);
         if (f.Tildeling is not null) throw new WorkflowException("Forespørselen er allerede tildelt.");
-        if (f.Svar != Statuser.Svar.Godtatt || ressurs.Status != Statuser.Ressurs.Forespurt ||
+        if (f.Svar != Statuser.Svar.Godtatt || ressurs.ReservertAntall < f.Antall ||
             !WorkflowEligibility.HasCurrentApproval(ressurs, DateTime.UtcNow, GyldighetDager))
             throw new WorkflowException("Tildeling krever at eieren har godtatt og at ressursen har gyldig godkjenning.");
-        ressurs.Status = Statuser.Ressurs.Tildelt;
+        if (ressurs.TilgjengeligAntall <= 0) ressurs.Status = Statuser.Ressurs.Tildelt;
         behov.Status = Statuser.Behov.Tildelt;
         db.Tildelinger.Add(new Tildeling
         {
@@ -463,7 +492,8 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         var f = await HentForespørsel(forespørselId);
         if (f.Tildeling is not null || f.Svar is not (Statuser.Svar.Venter or Statuser.Svar.Godtatt))
             throw new WorkflowException("Kun ventende eller godtatte forespørsler uten tildeling kan avbrytes.");
-        if (f.Ressurs!.Status == Statuser.Ressurs.Forespurt) f.Ressurs.Status = Statuser.Ressurs.Tilgjengelig;
+        f.Ressurs!.ReservertAntall -= f.Antall;
+        OppdaterLagerstatus(f.Ressurs);
         f.Svar = Statuser.Svar.Avbrutt;
         f.Svart ??= DateTime.UtcNow;
         Logg(aktør, "ForespørselAvbrutt", Begrunnelse(reason, "Avbrutt av dispatch."), f.RessursID, f.BehovID, f.ForespørselID);
@@ -478,16 +508,25 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         if (!WorkflowTransitions.CanMoveAssignment(t.Fremdrift, neste))
             throw new WorkflowException("Ugyldig statusovergang.");
         var ressurs = t.Forespørsel!.Ressurs!;
-        if (ressurs.Status is not (Statuser.Ressurs.Tildelt or Statuser.Ressurs.IBruk))
+        if (ressurs.ReservertAntall < t.Forespørsel.Antall)
             throw new WorkflowException("Tildelingen er ikke lenger aktiv.");
         t.Fremdrift = neste;
         t.SistOppdatert = DateTime.UtcNow;
-        if (neste == Statuser.Fremdrift.Fremme) ressurs.Status = Statuser.Ressurs.IBruk;
+        if (neste == Statuser.Fremdrift.Fremme && ressurs.TilgjengeligAntall <= 0) ressurs.Status = Statuser.Ressurs.IBruk;
         if (neste == Statuser.Fremdrift.Fullført)
         {
             t.Fullført = DateTime.UtcNow;
-            // Etter bruk må ressursen kontrolleres på nytt før den kan brukes igjen.
-            ressurs.Status = Statuser.Ressurs.Returnert;
+            ressurs.ReservertAntall -= t.Forespørsel.Antall;
+            if (ressurs.ErForbruksvare)
+            {
+                ressurs.Antall -= t.Forespørsel.Antall;
+                OppdaterLagerstatus(ressurs);
+            }
+            else
+            {
+                // Etter bruk må utstyr kontrolleres på nytt før det kan brukes igjen.
+                ressurs.Status = Statuser.Ressurs.Returnert;
+            }
         }
         var handling = "Fremdrift" + string.Concat(neste.Split(' ').Select(Statuser.Visning));
         Logg(aktør, handling, Begrunnelse(reason, $"Fremdrift: {neste}."), ressurs.RessursID, t.Forespørsel.BehovID, t.ForespørselID);

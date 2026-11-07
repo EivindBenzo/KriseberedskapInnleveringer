@@ -64,7 +64,7 @@
             <h3>@request.Ressurs!.Navn <small class="resource-meta">Forespørsel #@request.ForespørselID</small></h3>
             <span class="status-badge @(request.Svar == Statuser.Svar.Venter ? "status-warning" : "")">@Statuser.Visning(request.Svar)@(request.Tildeling is not null ? " · tildelt" : "")</span>
         </div>
-        <p>@request.Behov!.Stedsnavn · Behov #@request.BehovID · sendt @Stamp(request.Sendt)</p>
+        <p>@request.Behov!.Stedsnavn · @request.Antall.ToString("0.##") @request.Ressurs!.Enhet · Behov #@request.BehovID · sendt @Stamp(request.Sendt)</p>
         <details>
             <summary>Om behovet</summary>
             <p>@request.Behov.Beskrivelse</p>
@@ -138,7 +138,7 @@
     var godkjentTil = WorkflowEligibility.GodkjentTil(resource);
     <div class="workflow-item" id="ressurs-@resource.RessursID">
         <h3>@resource.Navn</h3>
-        <p class="resource-meta">@resource.Ressurstype?.Navn · @resource.Stedsnavn</p>
+        <p class="resource-meta">@resource.Ressurstype?.Navn · @resource.Stedsnavn · @resource.TilgjengeligAntall.ToString("0.##") av @resource.Antall.ToString("0.##") @resource.Enhet tilgjengelig</p>
         <span class="status-badge @(resource.Status == Statuser.Ressurs.Tilgjengelig ? "status-positive" : "status-warning")">@Statuser.Visning(resource.Status)</span>
         <details>
             <summary>@(provider && resource.EierID == actorId ? "Detaljer og tilgjengelighet" : "Detaljer")</summary>
@@ -246,7 +246,8 @@
                         <input type="hidden" name="needId" value="@need.BehovID" />
                         <input type="hidden" name="resourceId" value="@resource.RessursID" />
                         <input type="hidden" name="returnUrl" value="@Tilbake("needs", "behov-" + need.BehovID)" />
-                        <span>@resource.Navn – @resource.Ressurstype?.Navn – @resource.Stedsnavn</span>
+                        <span>@resource.Navn – @resource.Ressurstype?.Navn – @resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet tilgjengelig</span>
+                        <label>Antall <input type="number" name="quantity" min="0.01" max="@resource.TilgjengeligAntall.ToString(System.Globalization.CultureInfo.InvariantCulture)" step="0.01" value="1" required /></label>
                         <button type="submit">Send til ressurseier</button>
                     </form>
                 }

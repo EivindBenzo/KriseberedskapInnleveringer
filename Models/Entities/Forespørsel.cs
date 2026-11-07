@@ -10,6 +10,7 @@ public class Forespørsel
     public int BehovID { get; set; }
     public int RessursID { get; set; }
     public int SendtAvID { get; set; }
+    public decimal Antall { get; set; } = 1;
     public DateTime Sendt { get; set; } = DateTime.UtcNow;
     public string Svar { get; set; } = Statuser.Svar.Venter;
     public DateTime? Svart { get; set; }
