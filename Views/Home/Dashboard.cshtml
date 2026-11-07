@@ -442,6 +442,28 @@ else
 {
     <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
     <div class="results-heading section-head">
+        <h2 id="dispatch-koe">Dispatch-kø <span class="count-badge">@Model.DispatchQueue.Count</span></h2>
+        <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" class="btn-secondary">Åpne operasjoner</a>
+    </div>
+    @if (Model.DispatchQueue.Count == 0)
+    {
+        <p class="empty-state">Ingen oppgaver krever handling akkurat nå.</p>
+    }
+    else
+    {
+        <div class="dispatch-queue">
+        @foreach (var item in Model.DispatchQueue)
+        {
+            <a href="@item.Target" class="workflow-item dispatch-queue-item @(item.Priority == 1 ? "workflow-item-critical" : "")">
+                <span class="eyebrow">@item.Category</span>
+                <strong>@item.Title</strong>
+                <span>@item.Details</span>
+            </a>
+        }
+        </div>
+    }
+
+    <div class="results-heading section-head">
         <h2 id="situasjonsbilde">Situasjonsbilde</h2>
         <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs" class="btn-secondary">Åpne styring</a>
     </div>

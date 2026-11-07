@@ -24,4 +24,12 @@ public class DashboardViewModel
         new Dictionary<int, IReadOnlyList<TimelineEntry>>();
     public IReadOnlyList<TimelineEntry> RecentActivity { get; init; } = [];
     public IReadOnlyList<InboxMessageEntry> UnreadMessages { get; init; } = [];
+    public IReadOnlyList<DispatchQueueItem> DispatchQueue { get; init; } = [];
 }
+
+public sealed record DispatchQueueItem(
+    int Priority,
+    string Category,
+    string Title,
+    string Details,
+    string Target);

@@ -104,6 +104,32 @@ public class DashboardService(AppDbContext db)
             .ToListAsync();
         var unreadMessages = unreadMessageEntities.Select(m => new InboxMessageEntry(
             m.MeldingID, m.SendtAvID, m.SendtAv?.FulltNavn ?? "Ukjent bruker", "", m.Emne, m.Innhold, m.Sendt, true)).ToList();
+        var dispatchQueue = new List<DispatchQueueItem>();
+        if (dispatch)
+        {
+            foreach (var need in orderedNeeds.Where(n => n.Prioritet == Statuser.Prioritet.Akutt))
+            {
+                var compatibleResources = matching.Count(resource =>
+                    need.Behovstype!.PassendeRessurstyper.Any(link => link.RessurstypeID == resource.RessurstypeID));
+                if (compatibleResources == 0)
+                    dispatchQueue.Add(new(1, "Akutt behov uten ressurs", $"{need.Behovstype!.Navn} · {need.Stedsnavn}",
+                        "Ingen verifisert, tilgjengelig ressurs av riktig type.", "/Operations?vis=needs#needs"));
+            }
+            dispatchQueue.AddRange(queue.Select(resource => new DispatchQueueItem(
+                2, "Venter på verifisering", resource.Navn,
+                $"{resource.Ressurstype!.Navn} · {resource.Stedsnavn}", "/Operations?vis=verification#resources")));
+            dispatchQueue.AddRange(requests.Where(request => request.Svar == Statuser.Svar.Godtatt && request.Tildeling is null)
+                .Select(request => new DispatchQueueItem(3, "Klar for tildeling",
+                    $"{request.Ressurs!.Navn} → {request.Behov!.Stedsnavn}",
+                    "Ressursleverandøren har godtatt. Dispatch må opprette tildeling.", "/Operations?vis=requests#requests")));
+            dispatchQueue.AddRange(assignments.Where(assignment => assignment.Fremdrift is Statuser.Fremdrift.Bekreftet or Statuser.Fremdrift.PåVei)
+                .Select(assignment => new DispatchQueueItem(4, "Følg opp levering",
+                    $"{assignment.Forespørsel!.Ressurs!.Navn} → {assignment.Forespørsel.Behov!.Stedsnavn}",
+                    $"Fremdrift: {Statuser.Visning(assignment.Fremdrift)}.", "/Operations?vis=assignments#assignments")));
+            dispatchQueue.AddRange(unreadMessages.Select(message => new DispatchQueueItem(
+                5, "Ulest melding", $"{message.SenderName}: {message.Subject}",
+                "Åpne innboksen for å lese og svare.", "/Messages/Inbox")));
+        }
 
         return new DashboardViewModel
         {
@@ -128,7 +154,8 @@ public class DashboardService(AppDbContext db)
                 .Where(x => x.ForespørselID == t.ForespørselID).Select(x => Entry(x.Handling, x.Actor, x.Tidspunkt)).ToList()),
             RecentActivity = audits.OrderByDescending(a => a.Tidspunkt).ThenByDescending(a => a.Handling)
                 .Take(4).Select(a => Entry(a.Handling, a.Actor, a.Tidspunkt)).ToList(),
-            UnreadMessages = unreadMessages
+            UnreadMessages = unreadMessages,
+            DispatchQueue = dispatchQueue.OrderBy(item => item.Priority).ThenBy(item => item.Title).Take(12).ToList()
         };
     }
 }

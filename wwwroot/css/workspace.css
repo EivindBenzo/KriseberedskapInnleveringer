@@ -287,6 +287,25 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
     gap: .2rem;
 }
 
+.dispatch-queue {
+    display: grid;
+    gap: .75rem;
+    margin-bottom: 1.5rem;
+}
+
+.dispatch-queue-item {
+    color: inherit;
+    text-decoration: none;
+    display: grid;
+    gap: .25rem;
+}
+
+.dispatch-queue-item:hover,
+.dispatch-queue-item:focus-visible {
+    border-color: var(--color-teal, #087181);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-teal, #087181) 22%, transparent);
+}
+
 @media (max-width: 720px) {
     .incident-grid { grid-template-columns: 1fr; }
 }
