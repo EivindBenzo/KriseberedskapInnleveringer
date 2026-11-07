@@ -6,6 +6,12 @@ namespace HeimevernetInnlevering1.Models;
 
 public sealed record ResourceCity(string Name, int Count)
 {
+    private static readonly HashSet<string> AdministrativeSuffixes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Agder", "Innlandet", "Akershus", "Buskerud", "Finnmark", "Møre og Romsdal", "Nordland",
+        "Østfold", "Rogaland", "Telemark", "Troms", "Trøndelag", "Vestfold", "Vestland", "Oslo", "Norge"
+    };
+
     public static string Normalize(string? value) =>
         Regex.Replace((value ?? "").Normalize(NormalizationForm.FormC).Trim(), @"\s+", " ");
 
@@ -16,7 +22,11 @@ public sealed record ResourceCity(string Name, int Count)
         // Its coordinate-only fallback is not a city.
         if (label.Length == 0 || label.Any(char.IsControl) || label.Contains('<') || label.Contains('>') ||
             Regex.IsMatch(label, @"^[+-]?\d+(?:\.\d+)?,\s*[+-]?\d+(?:\.\d+)?$")) return null;
-        var city = Normalize(label.Split(',').Last());
+        var parts = label.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(Normalize).Where(part => part.Length > 0).ToArray();
+        var city = parts.LastOrDefault() ?? string.Empty;
+        if (parts.Length > 1 && AdministrativeSuffixes.Contains(city))
+            city = parts[^2];
         city = Regex.Replace(city, @"^\d{4}\s+", "");
         return city.Length is > 0 and <= 120 && city.Any(char.IsLetter) ? city : null;
     }

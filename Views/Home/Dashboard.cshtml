@@ -171,7 +171,10 @@ else
                 <h3>@resource.Navn</h3>
                 <div>
                     <span class="status-badge @ResourceChip(resource)">@Statuser.Visning(resource.Status)</span>
-                    <span class="status-badge @(status.Verification == "Godkjent" ? "status-positive" : "status-warning")">@status.Verification</span>
+                    @if (status.Verification != status.Lifecycle)
+                    {
+                        <span class="status-badge @(status.Verification == "Godkjent" ? "status-positive" : "status-warning")">@status.Verification</span>
+                    }
                 </div>
             </div>
             <p class="resource-meta">@resource.Ressurstype?.Navn · @resource.Stedsnavn</p>

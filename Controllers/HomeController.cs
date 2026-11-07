@@ -271,16 +271,19 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
 
         if (User.Identity?.IsAuthenticated == true)
         {
-            var akutteBehov = await db.Behov.AsNoTracking().Include(b => b.Behovstype)
+            var akutteBehov = await db.Behov.AsNoTracking().Include(b => b.Behovstype!)
+                .ThenInclude(t => t.PassendeRessurstyper).ThenInclude(k => k.Ressurstype)
                 .Where(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Status != Statuser.Behov.Løst)
                 .OrderBy(b => b.Frist ?? DateTime.MaxValue).ToListAsync();
             foreach (var behov in akutteBehov)
             {
+                var ressurstype = behov.Behovstype?.PassendeRessurstyper.FirstOrDefault()?.Ressurstype?.Navn;
                 var lenke = Url?.Action(nameof(Dashboard)) + "#behov-" + behov.BehovID;
                 var popup = $"<strong>AKUTT: {html.Encode(behov.Behovstype?.Navn ?? "Behov")}</strong><br>" +
                             $"Sted: {html.Encode(behov.Stedsnavn)}<br>{html.Encode(behov.Beskrivelse)}<br>" +
                             $"<a href=\"{html.Encode(lenke)}\">Åpne behovet</a>";
-                markører.Add(new KartMarkor((double)behov.Breddegrad, (double)behov.Lengdegrad, string.Empty,
+                markører.Add(new KartMarkor((double)behov.Breddegrad, (double)behov.Lengdegrad,
+                    BildeUrl(RessursIkon.Sti(ressurstype)),
                     $"Akutt behov: {behov.Stedsnavn}", popup, false, true));
             }
         }

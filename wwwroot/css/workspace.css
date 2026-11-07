@@ -127,6 +127,10 @@ summary { color: var(--accent); cursor: pointer; padding: .35rem 0; }
 .operations-workspace .workflow-item:has(.status-warning)::before { background: #d97706; }
 .operations-workspace .workflow-item:has(.status-critical)::before { background: #dc2626; }
 .operations-workspace .workflow-item:has(.status-positive)::before { background: #16a34a; }
+.dashboard-panel[data-dashboard-panel="confirmed"] .workflow-item::before { background: #16a34a; }
+.dashboard-panel[data-dashboard-panel="requests"] .workflow-item::before { background: #d97706; }
+.dashboard-panel[data-dashboard-panel="urgent"] .workflow-item::before { background: #d97706; }
+.dashboard-panel[data-dashboard-panel="urgent"] .workflow-item.workflow-item-critical::before { background: #dc2626; }
 .operations-workspace .workflow-item .results-heading { padding-left: .35rem; }
 .operations-workspace .workflow-item p { margin: .4rem 0; }
 .operations-workspace form label { flex: 1 1 12rem; min-width: 0; }

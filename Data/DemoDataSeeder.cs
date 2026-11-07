@@ -12,8 +12,6 @@ public static class DemoDataSeeder
     public static async Task SeedAsync(IServiceProvider services)
     {
         var db = services.GetRequiredService<AppDbContext>();
-        if (await db.Hendelseslogg.AnyAsync(a => a.Handling == Marker)) return;
-
         var users = services.GetRequiredService<UserManager<Bruker>>();
         async Task<int> Id(string role) =>
             (await users.FindByEmailAsync(IdentitySeeder.DemoAccounts.First(a => a.Role == role).Email))?.Id
@@ -22,6 +20,11 @@ public static class DemoDataSeeder
         var provider = await Id(AppRoles.Ressursleverandor);
         var dispatch = await Id(AppRoles.DispatchTeam);
         var leader = await Id(AppRoles.Kriseledelse);
+        if (await db.Hendelseslogg.AnyAsync(a => a.Handling == Marker))
+        {
+            await RefreshInventoryExamplesAsync(db, provider);
+            return;
+        }
 
         var now = DateTime.UtcNow;
         var today = DateOnly.FromDateTime(now);
@@ -29,22 +32,26 @@ public static class DemoDataSeeder
         int Behovstype(string navn) => SeedData.Behovstyper.Single(t => t.Navn == navn).Id;
 
         Ressurs Resource(string name, string type, string place, decimal lat, decimal lng, string description,
-            string status, int createdHoursAgo) => new()
+            string status, int createdHoursAgo, decimal antall = 1, string enhet = "stk", bool forbruksvare = false) => new()
         {
             Navn = name, RessurstypeID = Type(type), Stedsnavn = place, Breddegrad = lat, Lengdegrad = lng,
             Beskrivelse = description, EierID = provider, Status = status, TilgjengeligFra = today.AddDays(-2),
-            Kontaktperson = "Rita Ressurs", Kontakttelefon = "40000000", Registrert = now.AddHours(-createdHoursAgo)
+            Kontaktperson = "Rita Ressurs", Kontakttelefon = "40000000", Registrert = now.AddHours(-createdHoursAgo),
+            Antall = antall, Enhet = enhet, ErForbruksvare = forbruksvare
         };
 
         var truck = Resource("Terrengbil 4x4", "Kjøretøy", "Hamar", 60.7945m, 11.0680m,
-            "Plass til 8 personer, vinterutstyr", Statuser.Ressurs.Tilgjengelig, 30);
+            "To biler. Én kan sendes ut uten at beredskapen tømmes.", Statuser.Ressurs.Tilgjengelig, 30, 2);
         var drone = Resource("Drone med varmekamera", "Drone", "Lillehammer", 61.1153m, 10.4662m,
             "Rekkevidde 6 km, 40 min flytid", Statuser.Ressurs.Forespurt, 28);
         var generator = Resource("Aggregat 20 kVA", "Generator", "Elverum", 60.8819m, 11.5623m,
-            "230/400 V, på tilhenger", Statuser.Ressurs.Tildelt, 26);
+            "To aggregater på tilhenger. Ett er i aktivt oppdrag.", Statuser.Ressurs.Tilgjengelig, 26, 2);
         var excavator = Resource("Beltegraver 14 tonn", "Maskin", "Kongsvinger", 60.1904m, 12.0014m,
             "Transport med trailer", Statuser.Ressurs.VenterPåVerifisering, 2);
-        db.Ressurser.AddRange(truck, drone, generator, excavator);
+        var water = Resource("Drikkevann", "Utstyr", "Kristiansand", 58.1599m, 8.0182m,
+            "Vann i beredskapstanker.", Statuser.Ressurs.Tilgjengelig, 12, 2, "L", true);
+        generator.ReservertAntall = 1;
+        db.Ressurser.AddRange(truck, drone, generator, excavator, water);
 
         var flom = new Hendelse
         {
@@ -55,7 +62,7 @@ public static class DemoDataSeeder
         db.Hendelser.Add(flom);
         await db.SaveChangesAsync();
 
-        foreach (var (ressurs, hoursAgo) in new[] { (truck, 29), (drone, 27), (generator, 25) })
+        foreach (var (ressurs, hoursAgo) in new[] { (truck, 29), (drone, 27), (generator, 25), (water, 11) })
             db.Verifiseringer.Add(new Verifisering
             {
                 RessursID = ressurs.RessursID, VerifisertAvID = dispatch, Tidspunkt = now.AddHours(-hoursAgo),
@@ -83,7 +90,7 @@ public static class DemoDataSeeder
         var tildelt = new Forespørsel
         {
             BehovID = strøm.BehovID, RessursID = generator.RessursID, SendtAvID = dispatch,
-            Sendt = now.AddHours(-22), Svar = Statuser.Svar.Godtatt, Svart = now.AddHours(-21)
+            Sendt = now.AddHours(-22), Svar = Statuser.Svar.Godtatt, Svart = now.AddHours(-21), Antall = 1
         };
         var venter = new Forespørsel
         {
@@ -124,5 +131,26 @@ public static class DemoDataSeeder
         Logg(dispatch, "ForespørselSendt", "Varmekamera trengs til søk i skogen.", 1, drone.RessursID, søk.BehovID, venter.ForespørselID);
         Logg(leader, Marker, "Demodata opprettet.", 0);
         await db.SaveChangesAsync();
+    }
+
+    private static async Task RefreshInventoryExamplesAsync(AppDbContext db, int providerId)
+    {
+        var resources = await db.Ressurser.Where(r => r.EierID == providerId &&
+            (r.Navn == "Terrengbil 4x4" || r.Navn == "Aggregat 20 kVA")).ToListAsync();
+        foreach (var resource in resources)
+        {
+            resource.Antall = Math.Max(resource.Antall, 2);
+            resource.Enhet = "stk";
+        }
+
+        var generator = resources.SingleOrDefault(r => r.Navn == "Aggregat 20 kVA");
+        if (generator is not null && generator.ReservertAntall == 0 &&
+            await db.Tildelinger.AnyAsync(t => t.Forespørsel!.RessursID == generator.RessursID && t.Fullført == null))
+        {
+            generator.ReservertAntall = 1;
+            generator.Status = Statuser.Ressurs.Tilgjengelig;
+        }
+
+        if (resources.Count > 0) await db.SaveChangesAsync();
     }
 }
