@@ -8,6 +8,8 @@ public class DashboardViewModel
     public IReadOnlyList<Forespørsel> IncomingRequests { get; init; } = [];
     public IReadOnlyList<Ressurs> VerificationQueue { get; init; } = [];
     public IReadOnlyList<Behov> Needs { get; init; } = [];
+    public IReadOnlyList<Behov> OpenNeeds { get; init; } = [];
+    public IReadOnlyList<Behov> UrgentNeeds { get; init; } = [];
     public IReadOnlyList<Ressurs> MatchingResources { get; init; } = [];
     public IReadOnlyList<Forespørsel> Requests { get; init; } = [];
     public IReadOnlyList<Tildeling> Assignments { get; init; } = [];

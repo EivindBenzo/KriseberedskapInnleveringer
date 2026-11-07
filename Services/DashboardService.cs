@@ -92,14 +92,17 @@ public class DashboardService(AppDbContext db)
                                 Actor = actor == null ? "Ukjent bruker" : (actor.Email ?? actor.UserName ?? "Ukjent bruker")
                             }).ToListAsync();
         TimelineEntry Entry(string action, string actor, DateTime at) => new(WorkflowLabels.Action(action), actor, at);
+        var orderedNeeds = needs.Values.OrderBy(b => WorkflowTransitions.PriorityRank(b.Prioritet))
+            .ThenBy(b => b.Frist ?? DateTime.MaxValue).ThenBy(b => b.Registrert).ToList();
 
         return new DashboardViewModel
         {
             OwnResources = own,
             IncomingRequests = incoming,
             VerificationQueue = queue,
-            Needs = needs.Values.OrderBy(b => WorkflowTransitions.PriorityRank(b.Prioritet))
-                .ThenBy(b => b.Frist ?? DateTime.MaxValue).ThenBy(b => b.Registrert).ToList(),
+            Needs = orderedNeeds,
+            OpenNeeds = orderedNeeds.Where(b => b.Prioritet != Statuser.Prioritet.Akutt).ToList(),
+            UrgentNeeds = orderedNeeds.Where(b => b.Prioritet == Statuser.Prioritet.Akutt).ToList(),
             MatchingResources = matching,
             Requests = requests,
             Assignments = assignments,

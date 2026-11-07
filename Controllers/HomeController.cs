@@ -64,7 +64,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
         }
         // Kontaktfeltene starter tomme: ressursen kan ha en annen kontaktperson enn den som registrerer.
         var model = new RessursSkjemaViewModel();
-        ByggKart(model, senter, focus);
+        await ByggKart(model, senter, focus);
         return View(model);
     }
 
@@ -88,7 +88,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
             }
         }
         await LoadResourcesAsync();
-        ByggKart(model);
+        await ByggKart(model);
         return View(model);
     }
 
@@ -118,7 +118,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
             Breddegrad = (double)resource.Breddegrad,
             Lengdegrad = (double)resource.Lengdegrad
         };
-        ByggKart(model);
+        await ByggKart(model);
         return View("Map", model);
     }
 
@@ -148,7 +148,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
         }
         ViewBag.EditId = id;
         await LoadResourcesAsync();
-        ByggKart(model);
+        await ByggKart(model);
         return View("Map", model);
     }
 
@@ -241,7 +241,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
     /// Lager innholdet i kartet: hvor det starter, én markør per ressurs med riktig symbol og
     /// popup-tekst, og hvilke skjemafelt et klikk i kartet skal fylle ut når skjemaet er åpent.
     /// </summary>
-    private void ByggKart(RessursSkjemaViewModel model, KartVisning? senter = null, int? focus = null)
+    private async Task ByggKart(RessursSkjemaViewModel model, KartVisning? senter = null, int? focus = null)
     {
         var ressurser = (ViewBag.Resources as List<Ressurs>) ?? [];
         var redigerer = ViewBag.EditId as int?;
@@ -268,6 +268,22 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
                     $"{r.Navn} ({type}) – {status.Availability}", popup, r.RessursID == focus);
             })
             .ToList();
+
+        if (User.IsInRole(AppRoles.DispatchTeam) || User.IsInRole(AppRoles.Kriseledelse))
+        {
+            var akutteBehov = await db.Behov.AsNoTracking().Include(b => b.Behovstype)
+                .Where(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Status != Statuser.Behov.Løst)
+                .OrderBy(b => b.Frist ?? DateTime.MaxValue).ToListAsync();
+            foreach (var behov in akutteBehov)
+            {
+                var lenke = Url?.Action(nameof(Dashboard)) + "#behov-" + behov.BehovID;
+                var popup = $"<strong>AKUTT: {html.Encode(behov.Behovstype?.Navn ?? "Behov")}</strong><br>" +
+                            $"Sted: {html.Encode(behov.Stedsnavn)}<br>{html.Encode(behov.Beskrivelse)}<br>" +
+                            $"<a href=\"{html.Encode(lenke)}\">Åpne behovet</a>";
+                markører.Add(new KartMarkor((double)behov.Breddegrad, (double)behov.Lengdegrad, string.Empty,
+                    $"Akutt behov: {behov.Stedsnavn}", popup, false, true));
+            }
+        }
 
         var registrerer = User.IsInRole(AppRoles.Ressursleverandor) && (redigerer is not null || !ModelState.IsValid
             || HttpContext?.Request.Query["register"].ToString() == "true");

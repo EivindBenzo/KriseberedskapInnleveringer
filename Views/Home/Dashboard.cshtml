@@ -41,7 +41,7 @@
         <span class="dashboard-action-icon" aria-hidden="true">!</span><span><strong>Forespørsler</strong><small>Venter på svar eller koordinering</small></span><span class="dashboard-action-count">@(Model.IncomingRequests.Count(f => f.Svar == Statuser.Svar.Venter) + Model.Requests.Count(f => f.Svar == Statuser.Svar.Venter) + Model.VerificationQueue.Count)</span>
     </button>
     <button type="button" class="dashboard-action dashboard-action-urgent" data-dashboard-target="urgent" aria-expanded="false">
-        <span class="dashboard-action-icon" aria-hidden="true">!</span><span><strong>Akutte behov</strong><small>Krever rask oppfølging</small></span><span class="dashboard-action-count">@Model.Needs.Count(n => n.Prioritet == Statuser.Prioritet.Akutt)</span>
+        <span class="dashboard-action-icon" aria-hidden="true">!</span><span><strong>Akutte behov</strong><small>Krever rask oppfølging</small></span><span class="dashboard-action-count">@Model.UrgentNeeds.Count</span>
     </button>
 </section>
 <section id="dashboardIntro" class="dashboard-intro" aria-live="polite">
@@ -172,12 +172,12 @@
 @if (dispatch)
 {
     <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
-    <h2 id="apne-behov">Åpne behov <span class="count-badge">@Model.Needs.Count</span></h2>
-    @if (Model.Needs.Count == 0)
+    <h2 id="apne-behov">Åpne behov <span class="count-badge">@Model.OpenNeeds.Count</span></h2>
+    @if (Model.OpenNeeds.Count == 0)
     {
         <p class="empty-state">Ingen åpne behov.</p>
     }
-    @foreach (var need in Model.Needs)
+    @foreach (var need in Model.OpenNeeds)
     {
         // Ressurstypene som passer behovstypen, fra koblingstabellen BehovstypeRessurstype.
         var passendeTyper = need.Behovstype?.PassendeRessurstyper.Select(k => k.RessurstypeID).ToHashSet() ?? [];
@@ -270,6 +270,34 @@
                 </form>
             </details>
             @await Html.PartialAsync("_Timeline", Model.RequestTimeline.GetValueOrDefault(request.ForespørselID))
+        </article>
+    }
+    </section>
+}
+
+@if (dispatch)
+{
+    <section class="dashboard-panel dashboard-urgent-panel" data-dashboard-panel="urgent" hidden>
+    <div class="results-heading section-head">
+        <h2 id="akutte-behov">Akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2>
+        <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs" class="btn-danger">Finn ressurs</a>
+    </div>
+    @if (Model.UrgentNeeds.Count == 0)
+    {
+        <p class="empty-state">Ingen akutte behov akkurat nå.</p>
+    }
+    @foreach (var need in Model.UrgentNeeds)
+    {
+        var passendeTyper = need.Behovstype?.PassendeRessurstyper.Select(k => k.RessurstypeID).ToHashSet() ?? [];
+        var matches = Model.MatchingResources.Count(r => passendeTyper.Contains(r.RessurstypeID));
+        <article id="behov-@need.BehovID" class="workflow-item workflow-item-critical">
+            <div class="results-heading">
+                <h3>@Tittel(need)</h3>
+                <span class="status-badge status-critical">Akutt</span>
+            </div>
+            <p>@need.Beskrivelse</p>
+            <p class="resource-meta">Antall: @need.Antall@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")@(need.Hendelse is Hendelse h ? " · " + h.Navn : "") · Kontakt: @need.Kontaktperson, @need.Kontakttelefon</p>
+            <p><a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs" class="btn-submit">Velg blant @matches passende ressurser</a></p>
         </article>
     }
     </section>

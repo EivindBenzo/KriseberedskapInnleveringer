@@ -20,10 +20,14 @@
             button.innerHTML = '&#x26F6;';
             L.DomEvent.disableClickPropagation(button);
             L.DomEvent.on(button, 'click', function () {
-                const container = kart.getContainer();
-                container.classList.toggle('map-expanded');
-                button.classList.toggle('is-expanded', container.classList.contains('map-expanded'));
-                button.title = container.classList.contains('map-expanded') ? 'Lukk utvidet kart' : 'Utvid kart';
+                const region = document.getElementById('mapRegion');
+                if (document.fullscreenElement) document.exitFullscreen();
+                else if (region.requestFullscreen) region.requestFullscreen();
+            });
+            document.addEventListener('fullscreenchange', function () {
+                const expanded = document.fullscreenElement === document.getElementById('mapRegion');
+                button.classList.toggle('is-expanded', expanded);
+                button.title = expanded ? 'Lukk fullskjermkart' : 'Utvid kart';
                 button.setAttribute('aria-label', button.title);
                 window.setTimeout(function () { kart.invalidateSize(); }, 150);
             });
@@ -34,7 +38,9 @@
 
     // Én markør per ressurs. Popup-teksten er ferdig HTML fra serveren, der teksten allerede er kodet.
     data.markorer.forEach(function (m) {
-        const symbol = L.icon({ iconUrl: m.ikon, iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -14] });
+        const symbol = m.akutt
+            ? L.divIcon({ className: 'urgent-map-marker', html: '<span>!</span>', iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -18] })
+            : L.icon({ iconUrl: m.ikon, iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -14] });
         const markor = L.marker([m.lat, m.lng], { icon: symbol, title: m.tittel, alt: m.tittel })
             .addTo(kart)
             .bindPopup(m.popup);

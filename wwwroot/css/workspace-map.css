@@ -3,14 +3,12 @@ body:has(.map-workspace) {
     min-height: 0;
 }
 
-.map-workspace #map.map-expanded {
-    position: fixed;
-    inset: 1rem;
-    z-index: 2500;
-    height: auto;
-    border: 3px solid var(--workspace-surface);
-    border-radius: 12px;
+.map-workspace .workspace-map-region:fullscreen {
+    display: flex;
+    padding: 1rem;
+    background: var(--workspace-surface);
 }
+.map-workspace .workspace-map-region:fullscreen #map { height: 100%; }
 
 .map-expand-control {
     width: 36px;
@@ -24,6 +22,25 @@ body:has(.map-workspace) {
 
 .map-expand-control:hover,
 .map-expand-control.is-expanded { background: var(--workspace-hover); }
+
+.urgent-map-marker {
+    display: grid;
+    place-items: center;
+    width: 38px !important;
+    height: 38px !important;
+    color: #fff;
+    background: #d92d20;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(217, 45, 32, .75);
+    font-weight: 900;
+    animation: urgent-marker-pulse 1.2s ease-out infinite;
+}
+
+@keyframes urgent-marker-pulse {
+    70% { box-shadow: 0 0 0 16px rgba(217, 45, 32, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(217, 45, 32, 0); }
+}
 
 .placement-confirmation {
     display: flex;
@@ -53,21 +70,35 @@ body:has(.map-workspace) {
 .placement-confirmation .btn-danger { width: auto; margin: 0; min-height: 44px; padding: .65rem 1rem; }
 
 .resource-registration-dialog {
+    --workspace-surface: var(--surface);
+    --workspace-section-surface: var(--surface-end);
+    --workspace-input-surface: var(--surface);
+    --workspace-section-border: var(--border);
+    --workspace-surface-border: var(--border-strong);
+    --workspace-hover: var(--hover);
+    inset: 0;
     width: min(1120px, 80vw);
     max-width: 80vw;
-    max-height: 84vh;
+    max-height: min(840px, 84dvh);
+    margin: auto;
     padding: 0;
     color: var(--text);
     background: var(--workspace-surface);
     border: 1px solid var(--workspace-border);
     border-radius: 16px;
     box-shadow: 0 24px 80px rgba(2, 12, 27, .5);
+    overflow: auto;
 }
 
 .resource-registration-dialog::backdrop { background: rgba(3, 18, 35, .68); backdrop-filter: blur(3px); }
 .resource-registration-dialog .registration-panel { padding: clamp(1.25rem, 3vw, 2.5rem); overflow: auto; }
 .resource-registration-dialog .workspace-form { max-width: 800px; margin: 1.25rem auto 0; }
-.resource-registration-dialog .registration-section { background: var(--workspace-section-surface); }
+.resource-registration-dialog .registration-section { display: flow-root; min-inline-size: 0; width: 100%; margin: 0 0 1rem; padding: 1rem; background: var(--workspace-section-surface); border: 1px solid var(--workspace-section-border); border-radius: 10px; }
+.resource-registration-dialog .registration-section legend { float: inline-start; width: 100%; margin: 0 0 1rem; padding: 0 0 .7rem; color: var(--heading); border-bottom: 1px solid var(--workspace-section-border); font-size: 1rem; font-weight: 700; }
+.resource-registration-dialog .registration-section legend + * { clear: both; }
+.resource-registration-dialog .form-group { margin-bottom: 1rem; }
+.resource-registration-dialog .form-control { width: 100%; min-height: 48px; color: var(--text); background: var(--workspace-input-surface); border: 1px solid var(--workspace-section-border); border-radius: 8px; }
+.resource-registration-dialog textarea.form-control { min-height: 110px; }
 .dialog-close-bar { position: absolute; top: .75rem; right: .75rem; }
 .dialog-close { width: 2.5rem; height: 2.5rem; color: var(--heading); background: transparent; border: 1px solid var(--workspace-border); border-radius: 50%; font-size: 1.6rem; cursor: pointer; }
 .resource-type-hint { display: flex; flex-wrap: wrap; gap: .5rem; margin: -.1rem 0 1rem; color: var(--muted); font-size: .85rem; }
@@ -543,5 +574,6 @@ body:has(.map-workspace) {
 .map-key a:hover, .map-key a[aria-current="true"] { background: var(--workspace-hover); outline: 1px solid var(--accent); }
 .map-key .dot { display: inline-block; width: .8rem; height: .8rem; border-radius: 50%; border: 1px solid #000; }
 .map-key .dot-green { background: #15803d; }
+.map-key .dot-blue { background: #0f4c81; margin-left: .5rem; }
 .map-key .dot-red { background: #b91c1c; margin-left: .5rem; }
 .map-key-colors { flex-basis: 100%; }
