@@ -279,7 +279,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
                             $"Sted: {html.Encode(r.Stedsnavn)}<br>Status: {html.Encode(status.Availability)} · " +
                             $"Godkjenning: {html.Encode(status.Verification)}<br><a href=\"{html.Encode(lenke)}\">Vis detaljer i listen</a>";
                 return new KartMarkor((double)r.Breddegrad, (double)r.Lengdegrad, BildeUrl(RessursIkon.Sti(type, status)),
-                    $"{r.Navn} ({type}) – {status.Availability}", popup, r.RessursID == focus, false, null, r.RessursID);
+                    $"{r.Navn} ({type}) – {status.Availability}", popup, r.RessursID == focus, false, null, r.RessursID, status.IsEligible);
             })
             .ToList();
         var resourceIds = ressurser.Select(resource => resource.RessursID).ToList();

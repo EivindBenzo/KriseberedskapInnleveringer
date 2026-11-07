@@ -32,6 +32,7 @@
             <a asp-action="Map" asp-route-register="true" class="btn-submit">+ Registrer ressurs</a>
         }
         <button type="button" id="openResourceBrowser" class="btn-secondary">@(canRegister ? "Ressurser og mine ressurser" : "Ressurser")</button>
+        <button type="button" id="colorblindToggle" class="btn-secondary map-colorblind-toggle" aria-pressed="false">◉ Fargeblindmodus</button>
     </div>
     @if (isEditing)
     {
@@ -138,7 +139,7 @@
                 {
                     <li><a asp-action="Map" asp-route-sted="@(sted.Length > 0 ? sted : null)">Vis alle</a></li>
                 }
-                <li class="map-key-colors"><span class="dot dot-green"></span>Grønn = kan forespørres <span class="dot dot-blue"></span>Blå = ikke tilgjengelig nå <span class="dot dot-red"></span>Rød ! = akutt behov <span class="map-delivery-key">→</span> = tildeling pågår</li>
+                <li class="map-key-colors"><span class="dot dot-green"></span>Grønn ✓ = kan forespørres <span class="dot dot-orange"></span>Oransje − = ikke tilgjengelig nå <span class="dot dot-red"></span>Rød ! = akutt behov <span class="map-delivery-key">→</span> = tildeling pågår</li>
             </ul>
         </div>
     </div>

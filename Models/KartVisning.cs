@@ -25,7 +25,7 @@ public sealed record KartVisning(double Lat, double Lng, int Zoom)
 
 /// <summary>En markør på kartet. <c>Popup</c> er ferdig HTML der all tekst allerede er kodet (encoded) på serveren.</summary>
 public sealed record KartMarkor(double Lat, double Lng, string Ikon, string Tittel, string Popup, bool Apen = false,
-    bool Akutt = false, string? LeveranseStatus = null, int? RessursId = null);
+    bool Akutt = false, string? LeveranseStatus = null, int? RessursId = null, bool KanForespørres = false);
 
 /// <summary>Hvilke skjemafelt et klikk i kartet skal fylle ut, og eventuelt punktet som allerede er valgt.</summary>
 public sealed record KartPlassering(string LatFelt, string LngFelt, string TekstFelt, double? Lat = null, double? Lng = null);

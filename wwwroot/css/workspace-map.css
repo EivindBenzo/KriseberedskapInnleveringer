@@ -66,11 +66,11 @@ body:has(.map-workspace) {
 .resource-map-marker img { width: 32px; height: 32px; }
 .resource-map-marker span {
     position: absolute;
-    right: -9px;
-    bottom: -3px;
+    right: -3px;
+    bottom: 1px;
     padding: .12rem .32rem;
     color: #fff;
-    background: #1d4ed8;
+    background: #c76b14;
     border: 1px solid #fff;
     border-radius: .4rem;
     font-size: .64rem;
@@ -78,7 +78,14 @@ body:has(.map-workspace) {
     line-height: 1.15;
     white-space: nowrap;
 }
+.resource-map-marker.is-available img { filter: sepia(.35) saturate(1.7) hue-rotate(95deg) brightness(.78); }
+.resource-map-marker.is-unavailable img { filter: sepia(.9) saturate(1.7) hue-rotate(340deg) brightness(1.08); }
+.resource-map-marker.is-available span { background: #087181; }
+.resource-map-marker.delivery-bekreftet span, .resource-map-marker.delivery-på-vei span { background: #1d4ed8; }
 .resource-map-marker.delivery-fremme span, .resource-map-marker.delivery-fullført span { background: #15803d; }
+.map-colorblind .resource-map-marker.is-available img { filter: sepia(.2) saturate(2.6) hue-rotate(160deg) brightness(.9); }
+.map-colorblind .resource-map-marker.is-unavailable img { filter: sepia(.9) saturate(1.8) hue-rotate(345deg) brightness(1.05); }
+.map-colorblind .resource-map-marker span { border-width: 2px; box-shadow: 0 0 0 1px #111; }
 .map-delivery-key { display: inline-grid; place-items: center; width: 1rem; height: 1rem; margin-left: .5rem; color: #fff; background: #1d4ed8; border-radius: .25rem; font-size: .75rem; font-weight: 800; }
 
 @keyframes urgent-marker-pulse {
@@ -660,6 +667,6 @@ body:has(.map-workspace) {
 .map-key a:hover, .map-key a[aria-current="true"] { background: var(--workspace-hover); outline: 1px solid var(--accent); }
 .map-key .dot { display: inline-block; width: .8rem; height: .8rem; border-radius: 50%; border: 1px solid #000; }
 .map-key .dot-green { background: #087181; }
-.map-key .dot-blue { background: #0f4c81; margin-left: .5rem; }
+.map-key .dot-orange { background: #c76b14; margin-left: .5rem; }
 .map-key .dot-red { background: #b91c1c; margin-left: .5rem; }
 .map-key-colors { flex-basis: 100%; }

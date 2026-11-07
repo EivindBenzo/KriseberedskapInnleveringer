@@ -281,6 +281,13 @@ else
 @if (dispatch)
 {
     <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
+    <nav class="section-nav dispatch-shortcuts" aria-label="Dispatch-arbeidsflyt">
+        <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs">Behov</a>
+        <a asp-controller="Operations" asp-action="Index" asp-route-vis="verification">Verifisering</a>
+        <a asp-controller="Operations" asp-action="Index" asp-route-vis="requests">Forespørsler</a>
+        <a asp-controller="Operations" asp-action="Index" asp-route-vis="assignments">Tildelinger</a>
+        <a asp-controller="Operations" asp-action="Index" asp-route-vis="resources">Ressurser</a>
+    </nav>
     <h2 id="apne-behov">Åpne behov <span class="count-badge">@Model.OpenNeeds.Count</span></h2>
     @if (Model.OpenNeeds.Count == 0)
     {
