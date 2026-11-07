@@ -5,10 +5,11 @@
         const heading = document.getElementById('messageComposerHeading');
         const subject = composer.querySelector('[name="subject"]');
 
-        document.querySelectorAll('.contact-message-button').forEach(function (button) {
+        document.querySelectorAll('.contact-message-button, .message-reply-button').forEach(function (button) {
             button.addEventListener('click', function () {
                 recipientId.value = button.dataset.recipientId;
                 heading.textContent = 'Til ' + button.dataset.contactName;
+                if (button.dataset.subject) subject.value = 'SV: ' + button.dataset.subject;
                 composer.showModal();
                 subject.focus();
             });

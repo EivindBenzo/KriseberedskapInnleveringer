@@ -101,7 +101,7 @@ public class DashboardService(AppDbContext db)
             .OrderByDescending(m => m.Sendt).Take(5)
             .ToListAsync();
         var unreadMessages = unreadMessageEntities.Select(m => new InboxMessageEntry(
-            m.MeldingID, m.SendtAv?.FulltNavn ?? "Ukjent bruker", "", m.Emne, m.Innhold, m.Sendt, true)).ToList();
+            m.MeldingID, m.SendtAvID, m.SendtAv?.FulltNavn ?? "Ukjent bruker", "", m.Emne, m.Innhold, m.Sendt, true)).ToList();
 
         return new DashboardViewModel
         {

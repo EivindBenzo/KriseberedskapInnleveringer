@@ -28,7 +28,7 @@ public class MessagesController(AppDbContext db) : Controller
             .Include(m => m.SendtAv).OrderByDescending(m => m.Sendt).Take(100)
             .ToListAsync();
         var messages = messageEntities.Select(m => new InboxMessageEntry(
-            m.MeldingID, m.SendtAv?.FulltNavn ?? "Ukjent bruker", "", m.Emne, m.Innhold, m.Sendt, m.Lest == null)).ToList();
+            m.MeldingID, m.SendtAvID, m.SendtAv?.FulltNavn ?? "Ukjent bruker", "", m.Emne, m.Innhold, m.Sendt, m.Lest == null)).ToList();
         return View(new InboxViewModel { Messages = messages });
     }
 

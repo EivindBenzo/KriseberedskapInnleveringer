@@ -30,7 +30,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
         var contacts = await (from user in db.Users.AsNoTracking()
                               join userRole in db.UserRoles on user.Id equals userRole.UserId
                               join role in db.Roles on userRole.RoleId equals role.Id
-                              where role.Name != null && AppRoles.All.Contains(role.Name)
+                              where role.Name != null && role.Name != AppRoles.OffentligAktor && AppRoles.All.Contains(role.Name)
                               orderby role.Name, user.Fornavn, user.Etternavn
                               select new ContactDirectoryEntry(
                                   user.Id, user.FulltNavn, role.Name!, user.Organisasjon, user.Email ?? user.UserName ?? "Ikke oppgitt",

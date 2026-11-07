@@ -103,8 +103,8 @@ else
             <span><strong>110</strong> Brann</span><span><strong>112</strong> Politi</span><span><strong>113</strong> Ambulanse</span>
         </div>
         <a asp-action="Map" class="btn-secondary">Se situasjonen på kartet</a>
-        <a asp-controller="Messages" asp-action="Inbox" class="dashboard-message-link">
-            Meldinger
+        <a asp-controller="Messages" asp-action="Inbox" class="btn-secondary dashboard-message-link">
+            <span>Meldinger</span>
             @if (Model.UnreadMessages.Count > 0)
             {
                 <span class="unread-message-marker" aria-label="@Model.UnreadMessages.Count uleste meldinger">!</span>

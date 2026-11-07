@@ -19,8 +19,24 @@
             <article class="message-item @(message.IsUnread ? "message-unread" : "")">
                 <div><h2>@message.Subject</h2><p class="resource-meta">Fra @message.SenderName · @message.SentAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p></div>
                 <p>@message.Body</p>
+                <button type="button" class="btn-secondary message-reply-button" data-contact-name="@message.SenderName" data-recipient-id="@message.SenderId" data-subject="@message.Subject">Svar</button>
             </article>
         }
         </div>
     }
 </section>
+<dialog id="messageComposer" class="message-composer" aria-labelledby="messageComposerHeading">
+    <form asp-controller="Messages" asp-action="Send" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="recipientId" id="messageRecipientId" />
+        <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
+        <div class="message-composer-heading">
+            <div><span class="eyebrow">SVAR PÅ MELDING</span><h2 id="messageComposerHeading">Til kontakt</h2></div>
+            <button type="button" class="message-close" data-close-message aria-label="Lukk">×</button>
+        </div>
+        <label>Emne <input name="subject" required maxlength="150" autocomplete="off" /></label>
+        <label>Melding <textarea name="body" required maxlength="2000"></textarea></label>
+        <button type="submit" class="btn-submit">Send svar</button>
+    </form>
+</dialog>
+<script src="~/js/messages.js" asp-append-version="true"></script>
