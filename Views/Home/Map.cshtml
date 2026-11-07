@@ -18,7 +18,7 @@
     var sted = Context.Request.Query["sted"].ToString();
     var nå = DateTime.UtcNow;
     var harPunkt = kart.Plassering?.Lat is not null;
-    var resourceOwner = User.Identity?.Name ?? "din innloggede konto";
+    var resourceOwner = Model?.Kontaktperson ?? User.Identity?.Name ?? "din innloggede konto";
 }
 
 <link rel="stylesheet" href="~/css/workspace-map.css" asp-append-version="true" />
@@ -200,7 +200,7 @@
                     <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
                     <fieldset class="registration-section">
                         <legend>Ressurs og beholdning</legend>
-                        <p class="registration-owner"><strong>Eier:</strong> @resourceOwner <span>Ressursen knyttes til denne kontoen og vises under «Mine ressurser».</span></p>
+                        <p class="registration-owner"><strong>Eier:</strong> @resourceOwner <span>@User.Identity?.Name · Ressursen knyttes til denne kontoen og vises under «Mine ressurser».</span></p>
                         <div class="form-group">
                             <label for="resourceName">Navn på ressursen <span class="required">*</span></label>
                             <input type="text" id="resourceName" name="Navn" value="@Model?.Navn" class="form-control" placeholder="f.eks. Drikkevann" minlength="2" maxlength="150" required />

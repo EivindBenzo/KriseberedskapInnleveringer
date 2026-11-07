@@ -16,9 +16,8 @@ public class BehovController(AppDbContext db, WorkflowService workflow, IPlaceGe
     [HttpGet]
     public async Task<IActionResult> Registrer()
     {
-        // Kontaktfeltene starter tomme og viser bare eksempeltekst.
         await FyllValgAsync();
-        var model = new BehovSkjemaViewModel();
+        var model = await NewNeedFormAsync();
         ByggKart(model);
         return View(model);
     }
@@ -26,6 +25,7 @@ public class BehovController(AppDbContext db, WorkflowService workflow, IPlaceGe
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Registrer(BehovSkjemaViewModel model)
     {
+        await BindAccountContactAsync(model);
         ModelState.Remove(nameof(model.Stedsnavn));
         if (model.BehovstypeID == 0)
             ModelState.AddModelError(nameof(model.BehovstypeID), "Velg en behovstype");
@@ -85,5 +85,22 @@ public class BehovController(AppDbContext db, WorkflowService workflow, IPlaceGe
         ViewBag.Hendelser = new SelectList(await db.Hendelser.AsNoTracking()
                 .Where(h => h.Status == Statuser.Hendelse.Aktiv).OrderByDescending(h => h.Starttidspunkt).ToListAsync(),
             nameof(Hendelse.HendelseID), nameof(Hendelse.Navn));
+    }
+
+    private async Task<BehovSkjemaViewModel> NewNeedFormAsync()
+    {
+        var model = new BehovSkjemaViewModel();
+        await BindAccountContactAsync(model);
+        return model;
+    }
+
+    private async Task BindAccountContactAsync(BehovSkjemaViewModel model)
+    {
+        var actorId = ResourcePermissions.BrukerId(User);
+        if (actorId is null) return;
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(current => current.Id == actorId);
+        if (user is null) return;
+        model.Kontaktperson = user.FulltNavn;
+        model.Kontakttelefon = user.PhoneNumber ?? string.Empty;
     }
 }

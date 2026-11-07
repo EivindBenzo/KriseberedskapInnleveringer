@@ -76,6 +76,23 @@
     const confirmationLabel = document.getElementById('placementLabel');
     const confirmPlacement = document.getElementById('confirmPlacement');
     const cancelPlacement = document.getElementById('cancelPlacement');
+    const needPlace = document.getElementById('needPlace');
+
+    // «Meld behov» bruker det samme kartdatasettet som ressursregistrering, men har ingen dialog eller
+    // bekreftelseslinje. Her skal hvert klikk velge punktet direkte.
+    if (!form) {
+        let needMarker = p.lat != null ? L.marker([p.lat, p.lng]).addTo(kart) : null;
+        kart.getContainer().classList.add('placement-active');
+        kart.on('click', function (e) {
+            if (needMarker) needMarker.setLatLng(e.latlng);
+            else needMarker = L.marker(e.latlng).addTo(kart);
+            latFelt.value = e.latlng.lat.toFixed(6);
+            lngFelt.value = e.latlng.lng.toFixed(6);
+            if (needPlace) needPlace.textContent = 'Valgt punkt: ' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5);
+        });
+        return;
+    }
+
     let valgt = p.lat != null ? L.marker([p.lat, p.lng]).addTo(kart) : null;
     let placementConfirmed = p.lat != null;
     let placementEnabled = p.lat != null;

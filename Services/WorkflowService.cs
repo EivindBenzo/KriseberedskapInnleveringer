@@ -161,6 +161,22 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
 
     private static decimal Koordinat(double verdi) => Math.Round((decimal)verdi, 6);
 
+    private async Task BindAccountContactAsync(RessursSkjemaViewModel values, int actorId)
+    {
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(current => current.Id == actorId)
+            ?? throw new WorkflowException("Kontoen finnes ikke.");
+        values.Kontaktperson = user.FulltNavn;
+        values.Kontakttelefon = user.PhoneNumber ?? string.Empty;
+    }
+
+    private async Task BindAccountContactAsync(BehovSkjemaViewModel values, int actorId)
+    {
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(current => current.Id == actorId)
+            ?? throw new WorkflowException("Kontoen finnes ikke.");
+        values.Kontaktperson = user.FulltNavn;
+        values.Kontakttelefon = user.PhoneNumber ?? string.Empty;
+    }
+
     // ---------- Ressurs ----------
 
     public async Task<int> RegisterResourceAsync(RessursSkjemaViewModel values, ClaimsPrincipal actor)
@@ -169,6 +185,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         await Mutate(async () =>
         {
             var eier = Require(actor, AppRoles.Ressursleverandor);
+            await BindAccountContactAsync(values, eier);
             Valider(values);
             var type = await HentEllerOpprettRessurstype(values.Ressurstype, eier);
             var ressurs = new Ressurs
@@ -204,6 +221,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
                 throw new WorkflowException("Du kan bare endre egne ressurser.");
             if (Opptatt(ressurs))
                 throw new WorkflowException("Ressursen er forespurt, tildelt eller i bruk. Avslutt forespørselen før du redigerer.");
+            await BindAccountContactAsync(values, aktør);
             Valider(values);
             var type = await HentEllerOpprettRessurstype(values.Ressurstype, aktør);
             var beskrivelse = string.IsNullOrWhiteSpace(values.Beskrivelse) ? null : values.Beskrivelse.Trim();
@@ -335,6 +353,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         await Mutate(async () =>
         {
             var aktør = Require(actor, AppRoles.OffentligAktor);
+            await BindAccountContactAsync(values, aktør);
             if (string.IsNullOrWhiteSpace(values.Beskrivelse) || values.Beskrivelse.Trim().Length is < 10 or > 2000 ||
                 !Statuser.Prioritet.Alle.Contains(values.Prioritet) || values.Antall is < 1 or > 10000 ||
                 string.IsNullOrWhiteSpace(values.Kontaktperson) || values.Kontaktperson.Length > 150 ||
