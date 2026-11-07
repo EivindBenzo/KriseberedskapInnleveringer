@@ -1,6 +1,7 @@
 (function () {
     const buttons = Array.from(document.querySelectorAll('[data-dashboard-target]'));
     const panels = Array.from(document.querySelectorAll('[data-dashboard-panel]'));
+    const intro = document.getElementById('dashboardIntro');
 
     buttons.forEach(function (button) {
         button.addEventListener('click', function () {
@@ -13,6 +14,7 @@
             panels.forEach(function (panel) {
                 panel.hidden = isOpen || panel.dataset.dashboardPanel !== target;
             });
+            intro.hidden = !isOpen;
 
             if (!isOpen) {
                 const firstPanel = panels.find(function (panel) { return panel.dataset.dashboardPanel === target; });

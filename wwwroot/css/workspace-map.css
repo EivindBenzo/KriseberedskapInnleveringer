@@ -26,25 +26,31 @@ body:has(.map-workspace) {
 .map-expand-control.is-expanded { background: var(--workspace-hover); }
 
 .placement-confirmation {
-    position: absolute;
-    z-index: 700;
-    bottom: 1.25rem;
-    left: 50%;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: .5rem;
-    max-width: calc(100% - 2rem);
-    padding: .65rem;
-    transform: translateX(-50%);
+    gap: .75rem;
+    margin-top: .75rem;
+    padding: .85rem 1rem;
+    color: var(--heading);
     background: var(--workspace-surface);
     border: 1px solid var(--workspace-border);
     border-radius: 9px;
     box-shadow: 0 8px 20px var(--shadow);
 }
 
+.placement-confirmation[hidden] { display: none; }
+.placement-confirmation #placementLabel {
+    flex: 1 1 16rem;
+    font-weight: 600;
+}
+
+.placement-confirmation {
+    max-width: 100%;
+}
+
 .placement-confirmation .btn-submit,
-.placement-confirmation .btn-danger { margin: 0; min-height: 38px; }
+.placement-confirmation .btn-danger { width: auto; margin: 0; min-height: 44px; padding: .65rem 1rem; }
 
 .resource-registration-dialog {
     width: min(1120px, 80vw);
@@ -510,7 +516,7 @@ body:has(.map-workspace) {
     }
 
     .resource-registration-dialog { width: calc(100vw - 1.5rem); max-width: calc(100vw - 1.5rem); max-height: calc(100dvh - 1.5rem); }
-    .placement-confirmation { bottom: .75rem; width: calc(100% - 1.5rem); justify-content: center; }
+    .placement-confirmation { justify-content: center; }
 }
 
 /* Forslag fra «Finn sted» og filteret over ressurslisten. */

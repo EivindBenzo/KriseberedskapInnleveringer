@@ -44,6 +44,10 @@
         <span class="dashboard-action-icon" aria-hidden="true">!</span><span><strong>Akutte behov</strong><small>Krever rask oppfølging</small></span><span class="dashboard-action-count">@Model.Needs.Count(n => n.Prioritet == Statuser.Prioritet.Akutt)</span>
     </button>
 </section>
+<section id="dashboardIntro" class="dashboard-intro" aria-live="polite">
+    <span aria-hidden="true">⌁</span>
+    <div><strong>Arbeidsoversikt</strong><p>Velg en kategori for å se det som trenger oppfølging.</p></div>
+</section>
 
 @if (provider)
 {

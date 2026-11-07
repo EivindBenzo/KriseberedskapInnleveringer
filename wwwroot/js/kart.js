@@ -56,8 +56,10 @@
     const cancelPlacement = document.getElementById('cancelPlacement');
     let valgt = p.lat != null ? L.marker([p.lat, p.lng]).addTo(kart) : null;
     let placementConfirmed = p.lat != null;
+    let placementEnabled = p.lat != null;
 
     kart.getContainer().classList.add('placement-active');
+    if (dialog) dialog.showModal();
     function showConfirmation(latlng) {
         confirmation.hidden = false;
         confirmationLabel.textContent = 'Valgt punkt: ' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5);
@@ -69,12 +71,14 @@
         choosePlacement.addEventListener('click', function () {
             if (!form.reportValidity()) return;
             dialog.close();
+            placementEnabled = true;
             kart.invalidateSize();
             kart.getContainer().focus();
         });
     }
 
     kart.on('click', function (e) {
+        if (!placementEnabled) return;
         if (valgt) valgt.setLatLng(e.latlng);
         else valgt = L.marker(e.latlng).addTo(kart);
         latFelt.value = e.latlng.lat.toFixed(6);
@@ -91,6 +95,7 @@
 
     cancelPlacement.addEventListener('click', function () {
         placementConfirmed = false;
+        placementEnabled = false;
         confirmation.hidden = true;
         if (valgt) {
             kart.removeLayer(valgt);
@@ -104,7 +109,7 @@
     form.addEventListener('submit', function (event) {
         if (!placementConfirmed) {
             event.preventDefault();
-            confirmation.hidden = false;
+            if (placementEnabled) confirmation.hidden = false;
         }
     });
 })();
