@@ -294,8 +294,6 @@ else
             .Where(r => passendeTyper.Contains(r.RessurstypeID))
             .OrderByDescending(r => string.Equals(ResourceCity.FromLocation(r.Stedsnavn), ResourceCity.FromLocation(need.Stedsnavn), StringComparison.OrdinalIgnoreCase))
             .ToList();
-        // Andre typer, for eksempel typer ressursleverandører har lagt til selv og som ikke er koblet til en behovstype.
-        var andre = Model.MatchingResources.Where(r => !passendeTyper.Contains(r.RessurstypeID)).OrderBy(r => r.Navn).ToList();
         <article id="behov-@need.BehovID" class="workflow-item">
             <div class="results-heading">
                 <h3>@Tittel(need)</h3>
@@ -326,24 +324,6 @@ else
                         </form>
                     }
                 </details>
-                @if (andre.Count > 0)
-                {
-                    <details>
-                        <summary>Andre tilgjengelige ressurser <span class="count-badge">@andre.Count</span></summary>
-                        <p class="resource-meta">Ressurser av typer som ikke er koblet til «@need.Behovstype?.Navn», men som kan passe.</p>
-                        @foreach (var resource in andre)
-                        {
-                            <form asp-controller="Operations" asp-action="CreateRequest" method="post" class="inline-form">
-                                <input type="hidden" name="needId" value="@need.BehovID" />
-                                <input type="hidden" name="resourceId" value="@resource.RessursID" />
-                                <input type="hidden" name="returnUrl" value="@Tilbake("behov-" + need.BehovID)" />
-                                <span><strong>@resource.Navn</strong> · @resource.Ressurstype?.Navn · @resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet tilgjengelig</span>
-                                <label>Antall <input type="number" name="quantity" min="0.01" max="@resource.TilgjengeligAntall.ToString(System.Globalization.CultureInfo.InvariantCulture)" step="0.01" value="1" required /></label>
-                                <button type="submit">Send forespørsel</button>
-                            </form>
-                        }
-                    </details>
-                }
             }
         </article>
     }

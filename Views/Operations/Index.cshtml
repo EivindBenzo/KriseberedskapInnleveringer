@@ -232,13 +232,15 @@
         }
         @if (dispatch && need.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes)
         {
+            var matchingTypes = need.Behovstype?.PassendeRessurstyper.Select(link => link.RessurstypeID).ToHashSet() ?? [];
+            var matchingResources = eligibleResources.Where(resource => matchingTypes.Contains(resource.RessurstypeID)).ToList();
             <details>
                 <summary>Send ressursforespørsel</summary>
-                @if (eligibleResources.Count == 0)
+                @if (matchingResources.Count == 0)
                 {
-                    <p>Ingen tilgjengelige ressurser med gyldig godkjenning.</p>
+                    <p>Ingen tilgjengelige, verifiserte ressurser av riktig type.</p>
                 }
-                @foreach (var resource in eligibleResources)
+                @foreach (var resource in matchingResources)
                 {
                     <form asp-action="CreateRequest" method="post">
                         <input type="hidden" name="needId" value="@need.BehovID" />

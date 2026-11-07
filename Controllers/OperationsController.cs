@@ -54,7 +54,8 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
         List<Tildeling> assignments = await assignmentQuery.OrderByDescending(t => t.Tildelt).ToListAsync();
 
         var needs = new Dictionary<int, Behov>();
-        var needQuery = db.Behov.AsNoTracking().Include(b => b.Behovstype).Include(b => b.Hendelse);
+        var needQuery = db.Behov.AsNoTracking().Include(b => b.Behovstype!)
+            .ThenInclude(type => type.PassendeRessurstyper).Include(b => b.Hendelse);
         if (seesAll) foreach (var b in await needQuery.ToListAsync()) needs[b.BehovID] = b;
         else
         {
@@ -84,7 +85,7 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
 
     [HttpPost, Authorize(Roles = AppRoles.DispatchTeam)]
     public Task<IActionResult> Verify(int id, bool approve, string? reason) =>
-        Run(() => workflow.VerifyAsync(id, approve, User, reason));
+        Run(() => workflow.VerifyAsync(id, approve, User, reason), approve ? "Ressursen er godkjent og kan nå forespørres." : "Ressursen er avvist.");
 
     [HttpPost, Authorize(Roles = AppRoles.Kriseledelse)]
     public Task<IActionResult> NeedStatus(int id, string status, string? reason) =>
@@ -96,15 +97,19 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
 
     [HttpPost, Authorize(Roles = AppRoles.DispatchTeam)]
     public Task<IActionResult> CreateRequest(int needId, int resourceId, decimal quantity, string? reason) =>
-        Run(async () => { await workflow.CreateRequestAsync(needId, resourceId, quantity, User, reason); });
+        Run(async () => { await workflow.CreateRequestAsync(needId, resourceId, quantity, User, reason); },
+            "Forespørselen er sendt til ressurseieren. Behovet venter på svar.");
 
     [HttpPost, Authorize(Roles = AppRoles.Ressursleverandor)]
     public Task<IActionResult> Respond(int id, bool accept, string? reason) =>
-        Run(() => workflow.RespondAsync(id, accept, User, reason));
+        Run(() => workflow.RespondAsync(id, accept, User, reason), accept
+            ? "Du har godtatt forespørselen. Dispatch må nå opprette tildelingen før ressursen sendes ut."
+            : "Du har avslått forespørselen. Ressursen er frigjort igjen.");
 
     [HttpPost, Authorize(Roles = AppRoles.DispatchTeam)]
     public Task<IActionResult> Allocate(int id, string? reason) =>
-        Run(() => workflow.AllocateAsync(id, User, reason));
+        Run(() => workflow.AllocateAsync(id, User, reason),
+            "Tildelingen er opprettet. Behovet er nå tildelt og kan følges under Aktive tildelinger.");
 
     [HttpPost, Authorize(Roles = AppRoles.DispatchTeam)]
     public Task<IActionResult> Cancel(int id, string? reason) =>
@@ -124,7 +129,7 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
         return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToAction(nameof(Index));
     }
 
-    private async Task<IActionResult> Run(Func<Task> action)
+    private async Task<IActionResult> Run(Func<Task> action, string? successMessage = null)
     {
         if (!ModelState.IsValid)
         {
@@ -134,7 +139,7 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
         try
         {
             await action();
-            TempData["WorkflowSuccess"] = "Endringen er lagret.";
+            TempData["WorkflowSuccess"] = successMessage ?? "Endringen er lagret.";
         }
         catch (WorkflowException exception)
         {
