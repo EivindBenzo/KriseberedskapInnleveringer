@@ -1,0 +1,49 @@
+@model HeimevernetInnlevering1.ViewModels.OperationalSearchViewModel
+@{
+    ViewData["Title"] = "Operativt søk";
+}
+
+<section class="operations-workspace search-workspace" aria-labelledby="search-heading">
+    <div class="page-heading">
+        <div>
+            <span class="eyebrow">OPERATIVT VERKTØY</span>
+            <h1 id="search-heading">Søk i beredskapen</h1>
+            <p>Finn ressurser og behov du har tilgang til. Resultatene er avgrenset av rollen din.</p>
+        </div>
+    </div>
+
+    <form method="get" class="workspace-search" role="search">
+        <label for="operationalSearch">Søk etter navn, type, sted eller beskrivelse</label>
+        <div class="workspace-search-row">
+            <input id="operationalSearch" name="q" value="@Model.Query" minlength="2" maxlength="100" autocomplete="off" />
+            <button type="submit" class="btn-submit">Søk</button>
+        </div>
+        <span asp-validation-for="Query" class="field-validation-error"></span>
+        @Html.ValidationMessage("q", new { @class = "field-validation-error" })
+    </form>
+
+    @if (Model.HasSearched)
+    {
+        <section class="dashboard-panel" aria-live="polite">
+            <h2>Treff <span class="count-badge">@Model.Results.Count</span></h2>
+            @if (Model.Results.Count == 0)
+            {
+                <p class="empty-state">Ingen ressurser eller behov du har tilgang til, passer «@Model.Query».</p>
+            }
+            else
+            {
+                <div class="search-results">
+                @foreach (var result in Model.Results)
+                {
+                    <a class="workflow-item search-result" href="@result.Url">
+                        <span class="eyebrow">@result.Category</span>
+                        <strong>@result.Title</strong>
+                        <span>@result.Details</span>
+                        <span class="status-badge">@result.Status</span>
+                    </a>
+                }
+                </div>
+            }
+        </section>
+    }
+</section>
