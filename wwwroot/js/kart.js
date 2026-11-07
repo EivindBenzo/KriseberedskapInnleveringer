@@ -51,15 +51,6 @@
             resourceBrowser.showModal();
         });
     }
-    const colorblindToggle = document.getElementById('colorblindToggle');
-    if (colorblindToggle) {
-        colorblindToggle.addEventListener('click', function () {
-            const enabled = kart.getContainer().classList.toggle('map-colorblind');
-            colorblindToggle.setAttribute('aria-pressed', String(enabled));
-            colorblindToggle.textContent = (enabled ? '◉ Standardfarger' : '◉ Fargeblindmodus');
-        });
-    }
-
     // Én markør per ressurs. Popup-teksten er ferdig HTML fra serveren, der teksten allerede er kodet.
     data.markorer.forEach(function (m) {
         const symbol = m.akutt

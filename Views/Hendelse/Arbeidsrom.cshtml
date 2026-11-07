@@ -15,7 +15,7 @@
     </div>
     @if (!string.IsNullOrWhiteSpace(Model.Incident.Beskrivelse))
     {
-        <p class="dashboard-briefing">@Model.Incident.Beskrivelse</p>
+        <p class="incident-description">@Model.Incident.Beskrivelse</p>
     }
     @if (TempData["WorkflowError"] is string error)
     {
@@ -26,10 +26,10 @@
         <p class="notice" role="status">@success</p>
     }
 
-    <section class="dashboard-action-grid" aria-label="Hendelsessammendrag">
-        <div class="dashboard-action dashboard-action-urgent"><span class="dashboard-action-count">@Model.OpenNeeds.Count(b => b.Prioritet == Statuser.Prioritet.Akutt)</span><span><strong>Akutte behov</strong><small>Prioriteres først</small></span></div>
-        <div class="dashboard-action dashboard-action-requests"><span class="dashboard-action-count">@Model.OpenNeeds.Count</span><span><strong>Åpne behov</strong><small>Krever koordinering</small></span></div>
-        <div class="dashboard-action dashboard-action-confirmed"><span class="dashboard-action-count">@Model.ActiveAssignments.Count</span><span><strong>Aktive tildelinger</strong><small>Følg levering og fremdrift</small></span></div>
+    <section class="incident-summary" aria-label="Hendelsessammendrag">
+        <div class="incident-metric incident-metric-urgent"><strong>@Model.OpenNeeds.Count(b => b.Prioritet == Statuser.Prioritet.Akutt)</strong><span>Akutte behov</span></div>
+        <div class="incident-metric"><strong>@Model.OpenNeeds.Count</strong><span>Åpne behov</span></div>
+        <div class="incident-metric incident-metric-active"><strong>@Model.ActiveAssignments.Count</strong><span>Aktive tildelinger</span></div>
     </section>
 
     <div class="incident-grid">

@@ -2,22 +2,43 @@
     const buttons = Array.from(document.querySelectorAll('[data-dashboard-target]'));
     const panels = Array.from(document.querySelectorAll('[data-dashboard-panel]'));
     const intro = document.getElementById('dashboardIntro');
+    const activePanelKey = 'beredskap.activeDashboardPanel';
+
+    function showPanel(target, scroll) {
+        buttons.forEach(function (item) {
+            item.setAttribute('aria-expanded', String(item.dataset.dashboardTarget === target));
+        });
+        panels.forEach(function (panel) {
+            panel.hidden = panel.dataset.dashboardPanel !== target;
+        });
+        sessionStorage.setItem(activePanelKey, target);
+        if (scroll) {
+            panels.find(function (panel) { return panel.dataset.dashboardPanel === target; })
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    const savedPanel = sessionStorage.getItem(activePanelKey);
+    if (savedPanel && panels.some(function (panel) { return panel.dataset.dashboardPanel === savedPanel; })) {
+        showPanel(savedPanel, false);
+    }
 
     buttons.forEach(function (button) {
         button.addEventListener('click', function () {
             const target = button.dataset.dashboardTarget;
             const isOpen = button.getAttribute('aria-expanded') === 'true';
-
-            buttons.forEach(function (item) {
-                item.setAttribute('aria-expanded', String(item === button && !isOpen));
-            });
-            panels.forEach(function (panel) {
-                panel.hidden = isOpen || panel.dataset.dashboardPanel !== target;
-            });
-            if (!isOpen) {
-                const firstPanel = panels.find(function (panel) { return panel.dataset.dashboardPanel === target; });
-                firstPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (isOpen) {
+                sessionStorage.removeItem(activePanelKey);
+                buttons.forEach(function (item) { item.setAttribute('aria-expanded', 'false'); });
+                panels.forEach(function (panel) { panel.hidden = true; });
+                return;
             }
+            showPanel(target, true);
         });
+    });
+
+    document.addEventListener('submit', function (event) {
+        const panel = event.target.closest('[data-dashboard-panel]');
+        if (panel) sessionStorage.setItem(activePanelKey, panel.dataset.dashboardPanel);
     });
 })();
