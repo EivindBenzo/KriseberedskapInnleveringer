@@ -66,12 +66,7 @@
                         <li><a asp-controller="Home" asp-action="Resources" class="nav-link" aria-current="@Aktiv("Home", "Resources", "Mine", "Edit", "Delete")">Ressurser</a></li>
                         @if (canUseOperations)
                         {
-                            @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Ressursleverandor)
-                                || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.DispatchTeam)
-                                || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
-                            {
-                                <li><a asp-controller="Operations" asp-action="Index" class="nav-link" aria-current="@Aktiv("Operations", "Index")">Forespørsler</a></li>
-                            }
+                            <li><a asp-controller="Home" asp-action="Preparedness" class="nav-link" aria-current="@Aktiv("Home", "Preparedness")">Beredskap</a></li>
                         }
                         @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.OffentligAktor))
                         {

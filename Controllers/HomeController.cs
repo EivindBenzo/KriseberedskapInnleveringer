@@ -24,6 +24,9 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
     public async Task<IActionResult> Dashboard([FromServices] DashboardService dashboard) =>
         View(await dashboard.BuildAsync(User, DateTime.UtcNow));
 
+    [HttpGet]
+    public IActionResult Preparedness() => View();
+
     [AllowAnonymous]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()

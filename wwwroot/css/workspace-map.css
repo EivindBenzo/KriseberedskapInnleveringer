@@ -28,17 +28,30 @@ body:has(.map-workspace) {
     place-items: center;
     width: 44px !important;
     height: 44px !important;
-    background: #fff;
-    border: 3px solid #d92d20;
+    background: transparent;
+    border: 0;
+}
+.urgent-map-marker::before {
+    position: absolute;
+    inset: 3px;
+    content: "";
+    border: 1px solid #d92d20;
     border-radius: 50%;
     box-shadow: 0 0 0 0 rgba(217, 45, 32, .75);
     animation: urgent-marker-pulse 1.2s ease-out infinite;
 }
-.urgent-map-marker img { width: 28px; height: 28px; }
+.urgent-map-marker img {
+    position: relative;
+    z-index: 1;
+    width: 28px;
+    height: 28px;
+    filter: drop-shadow(1px 0 #d92d20) drop-shadow(-1px 0 #d92d20) drop-shadow(0 1px #d92d20) drop-shadow(0 -1px #d92d20);
+}
 .urgent-map-marker span {
     position: absolute;
-    top: -7px;
-    right: -7px;
+    z-index: 2;
+    top: 0;
+    right: 0;
     display: grid;
     place-items: center;
     width: 20px;
