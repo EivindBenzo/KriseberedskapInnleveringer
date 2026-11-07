@@ -25,7 +25,18 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
         View(await dashboard.BuildAsync(User, DateTime.UtcNow));
 
     [HttpGet]
-    public IActionResult Preparedness() => View();
+    public async Task<IActionResult> Contacts()
+    {
+        var contacts = await (from user in db.Users.AsNoTracking()
+                              join userRole in db.UserRoles on user.Id equals userRole.UserId
+                              join role in db.Roles on userRole.RoleId equals role.Id
+                              where role.Name != null && AppRoles.All.Contains(role.Name)
+                              orderby role.Name, user.Fornavn, user.Etternavn
+                              select new ContactDirectoryEntry(
+                                  user.FulltNavn, role.Name!, user.Organisasjon, user.Email ?? user.UserName ?? "Ikke oppgitt",
+                                  user.PhoneNumber)).ToListAsync();
+        return View(contacts);
+    }
 
     [AllowAnonymous]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

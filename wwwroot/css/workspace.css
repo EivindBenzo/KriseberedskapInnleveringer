@@ -218,6 +218,9 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .dashboard-welcome p { max-width: 40ch; margin: .5rem 0 1rem; color: #e4f4f5; }
 .dashboard-welcome .btn-secondary { color: #fff; background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.55); }
 .dashboard-welcome .btn-secondary:hover { color: #fff; background: rgba(255,255,255,.2); }
+.dashboard-emergency { display: flex; flex-wrap: wrap; gap: .45rem; margin: 0 0 1rem; }
+.dashboard-emergency span { padding: .3rem .5rem; color: #e4f4f5; background: rgba(255,255,255,.1); border-radius: .35rem; font-size: .85rem; }
+.dashboard-emergency strong { color: #fff; margin-right: .25rem; }
 .dashboard-activity { border-left: 1px solid var(--border); }
 .dashboard-activity h2 { margin: 0 0 .75rem; font-size: 1.05rem; }
 .dashboard-activity ol { display: grid; gap: .65rem; margin: 0; padding: 0; list-style: none; }
@@ -225,20 +228,15 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .dashboard-activity li::before { position: absolute; top: .4rem; left: 0; width: .45rem; height: .45rem; content: ""; background: var(--accent); border-radius: 50%; }
 .dashboard-activity li strong, .dashboard-activity li span { display: block; }
 .dashboard-activity li span { margin-top: .12rem; color: var(--muted); font-size: .85rem; }
-.preparedness-page { max-width: 1100px; margin: auto; }
-.preparedness-hero { padding: 1.5rem; color: #fff; background: linear-gradient(135deg, #063d47, #087181); border-radius: .85rem; }
-.preparedness-hero .eyebrow { color: #d7f0f3; font-weight: 700; }
-.preparedness-hero h2 { margin: .35rem 0; color: #fff; }
-.preparedness-hero p { max-width: 68ch; margin: .5rem 0 0; color: #e4f4f5; }
-.preparedness-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; }
-.preparedness-grid article, .preparedness-note { padding: 1.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: .75rem; }
-.preparedness-grid h2, .preparedness-note h2 { margin: 0 0 .65rem; font-size: 1.1rem; }
-.preparedness-grid p, .preparedness-grid ol, .preparedness-note p { margin: 0; }
-.preparedness-grid ol { padding-left: 1.25rem; }
-.preparedness-grid li + li { margin-top: .55rem; }
-.preparedness-numbers { display: grid; gap: .5rem; margin-top: 1rem; }
-.preparedness-numbers span { padding: .5rem .65rem; background: var(--surface-end); border-radius: .4rem; }
-.preparedness-numbers strong { display: inline-block; min-width: 2.5rem; color: var(--accent); }
+.contacts-page { max-width: 1100px; margin: auto; }
+.contacts-intro { max-width: 65ch; margin: 0 0 1.25rem; color: var(--muted); }
+.contact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+.contact-card { padding: 1.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: .75rem; }
+.contact-card h2 { margin: .85rem 0 .25rem; font-size: 1.15rem; }
+.contact-card p { margin: 0; }
+.contact-card dl { display: grid; gap: .65rem; margin: 1rem 0 0; }
+.contact-card dt { color: var(--muted); font-size: .8rem; }
+.contact-card dd { margin: .15rem 0 0; overflow-wrap: anywhere; }
 .inventory-summary { padding: .6rem .75rem; margin: .6rem 0; border-left: 3px solid var(--accent); background: var(--surface-end); }
 
 /* Skjemaet «Meld behov»: skjema til venstre, kart til høyre (under hverandre på mobil). */
@@ -274,7 +272,6 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
     .dashboard-action-grid { grid-template-columns: 1fr; }
     .dashboard-briefing { grid-template-columns: 1fr; }
     .dashboard-activity { border-top: 1px solid var(--border); border-left: 0; }
-    .preparedness-grid { grid-template-columns: 1fr; }
     .need-form-grid {
         grid-template-columns: 1fr;
     }

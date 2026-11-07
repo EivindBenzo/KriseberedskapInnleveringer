@@ -1,0 +1,36 @@
+@using HeimevernetInnlevering1.Models
+@model IReadOnlyList<HeimevernetInnlevering1.ViewModels.ContactDirectoryEntry>
+@{
+    ViewData["Title"] = "Kontaktliste";
+}
+<section class="operations-workspace contacts-page" aria-labelledby="contacts-heading">
+    <div class="page-heading">
+        <div><span class="eyebrow">SAMARBEID OG ANSVAR</span><h1 id="contacts-heading">Kontaktliste</h1></div>
+        <a asp-action="Dashboard" class="btn-submit">Åpne oversikt</a>
+    </div>
+    <p class="contacts-intro">Finn riktig kontakt på tvers av roller før du registrerer, verifiserer eller koordinerer en ressurs.</p>
+    <div class="contact-grid">
+    @foreach (var contact in Model)
+    {
+        <article class="contact-card">
+            <span class="status-badge">@AppRoles.Label(contact.Role)</span>
+            <h2>@contact.Name</h2>
+            @if (!string.IsNullOrWhiteSpace(contact.Organization))
+            {
+                <p class="resource-meta">@contact.Organization</p>
+            }
+            <dl>
+                <div><dt>E-post</dt><dd><a href="mailto:@contact.Email">@contact.Email</a></dd></div>
+                @if (!string.IsNullOrWhiteSpace(contact.PhoneNumber))
+                {
+                    <div><dt>Telefon</dt><dd><a href="tel:@contact.PhoneNumber">@contact.PhoneNumber</a></dd></div>
+                }
+            </dl>
+        </article>
+    }
+    </div>
+    @if (Model.Count == 0)
+    {
+        <p class="empty-state">Ingen brukere med en operativ rolle er registrert ennå.</p>
+    }
+</section>

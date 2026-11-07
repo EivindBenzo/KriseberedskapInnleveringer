@@ -23,22 +23,13 @@ body:has(.map-workspace) {
 .map-expand-control:hover,
 .map-expand-control.is-expanded { background: var(--workspace-hover); }
 
-.urgent-map-marker {
+.leaflet-div-icon.urgent-map-marker {
     display: grid;
     place-items: center;
     width: 44px !important;
     height: 44px !important;
-    background: transparent;
-    border: 0;
-}
-.urgent-map-marker::before {
-    position: absolute;
-    inset: 3px;
-    content: "";
-    border: 1px solid #d92d20;
-    border-radius: 50%;
-    box-shadow: 0 0 0 0 rgba(217, 45, 32, .75);
-    animation: urgent-marker-pulse 1.2s ease-out infinite;
+    background: transparent !important;
+    border: 0 !important;
 }
 .urgent-map-marker img {
     position: relative;
@@ -46,6 +37,7 @@ body:has(.map-workspace) {
     width: 28px;
     height: 28px;
     filter: drop-shadow(1px 0 #d92d20) drop-shadow(-1px 0 #d92d20) drop-shadow(0 1px #d92d20) drop-shadow(0 -1px #d92d20);
+    animation: urgent-marker-pulse 1.2s ease-out infinite;
 }
 .urgent-map-marker span {
     position: absolute;
@@ -65,8 +57,8 @@ body:has(.map-workspace) {
 }
 
 @keyframes urgent-marker-pulse {
-    70% { box-shadow: 0 0 0 16px rgba(217, 45, 32, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(217, 45, 32, 0); }
+    70% { filter: drop-shadow(1px 0 #d92d20) drop-shadow(-1px 0 #d92d20) drop-shadow(0 1px #d92d20) drop-shadow(0 -1px #d92d20) drop-shadow(0 0 8px rgba(217, 45, 32, 0)); }
+    100% { filter: drop-shadow(1px 0 #d92d20) drop-shadow(-1px 0 #d92d20) drop-shadow(0 1px #d92d20) drop-shadow(0 -1px #d92d20); }
 }
 
 .placement-confirmation {
