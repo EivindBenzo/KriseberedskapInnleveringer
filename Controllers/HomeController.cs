@@ -33,7 +33,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
                               where role.Name != null && AppRoles.All.Contains(role.Name)
                               orderby role.Name, user.Fornavn, user.Etternavn
                               select new ContactDirectoryEntry(
-                                  user.FulltNavn, role.Name!, user.Organisasjon, user.Email ?? user.UserName ?? "Ikke oppgitt",
+                                  user.Id, user.FulltNavn, role.Name!, user.Organisasjon, user.Email ?? user.UserName ?? "Ikke oppgitt",
                                   user.PhoneNumber)).ToListAsync();
         return View(contacts);
     }

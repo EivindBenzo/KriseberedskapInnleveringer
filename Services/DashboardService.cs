@@ -95,6 +95,13 @@ public class DashboardService(AppDbContext db)
         TimelineEntry Entry(string action, string actor, DateTime at) => new(WorkflowLabels.Action(action), actor, at);
         var orderedNeeds = needs.Values.OrderBy(b => WorkflowTransitions.PriorityRank(b.Prioritet))
             .ThenBy(b => b.Frist ?? DateTime.MaxValue).ThenBy(b => b.Registrert).ToList();
+        var unreadMessageEntities = await db.Meldinger.AsNoTracking()
+            .Where(m => m.MottakerID == actorId && m.Lest == null)
+            .Include(m => m.SendtAv)
+            .OrderByDescending(m => m.Sendt).Take(5)
+            .ToListAsync();
+        var unreadMessages = unreadMessageEntities.Select(m => new InboxMessageEntry(
+            m.MeldingID, m.SendtAv?.FulltNavn ?? "Ukjent bruker", "", m.Emne, m.Innhold, m.Sendt, true)).ToList();
 
         return new DashboardViewModel
         {
@@ -117,7 +124,8 @@ public class DashboardService(AppDbContext db)
             AssignmentTimeline = assignments.ToDictionary(t => t.TildelingID, t => (IReadOnlyList<TimelineEntry>)audits
                 .Where(x => x.ForespørselID == t.ForespørselID).Select(x => Entry(x.Handling, x.Actor, x.Tidspunkt)).ToList()),
             RecentActivity = audits.OrderByDescending(a => a.Tidspunkt).ThenByDescending(a => a.Handling)
-                .Take(4).Select(a => Entry(a.Handling, a.Actor, a.Tidspunkt)).ToList()
+                .Take(4).Select(a => Entry(a.Handling, a.Actor, a.Tidspunkt)).ToList(),
+            UnreadMessages = unreadMessages
         };
     }
 }

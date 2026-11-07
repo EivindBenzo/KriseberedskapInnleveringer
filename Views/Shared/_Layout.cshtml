@@ -64,10 +64,6 @@
                         <li><a asp-controller="Home" asp-action="Dashboard" class="nav-link" aria-current="@Aktiv("Home", "Dashboard")">Oversikt</a></li>
                         <li><a asp-controller="Home" asp-action="Map" class="nav-link" aria-current="@Aktiv("Home", "Map")">Kart</a></li>
                         <li><a asp-controller="Home" asp-action="Resources" class="nav-link" aria-current="@Aktiv("Home", "Resources", "Mine", "Edit", "Delete")">Ressurser</a></li>
-                        @if (canUseOperations)
-                        {
-                            <li><a asp-controller="Home" asp-action="Contacts" class="nav-link" aria-current="@Aktiv("Home", "Contacts")">Kontaktliste</a></li>
-                        }
                         @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.OffentligAktor))
                         {
                             <li><a asp-controller="Behov" asp-action="Registrer" class="nav-link" aria-current="@Aktiv("Behov", "Registrer")">Meld behov</a></li>
@@ -76,6 +72,10 @@
                         {
                             <li><a asp-controller="Hendelse" asp-action="Index" class="nav-link" aria-current="@Aktiv("Hendelse", "Index")">Hendelser</a></li>
                             <li><a asp-controller="Admin" asp-action="Index" class="nav-link" aria-current="@Aktiv("Admin", "Index")">Brukere</a></li>
+                        }
+                        @if (canUseOperations)
+                        {
+                            <li><a asp-controller="Home" asp-action="Contacts" class="nav-link" aria-current="@Aktiv("Home", "Contacts")">Kontaktliste</a></li>
                         }
                     }
                     else

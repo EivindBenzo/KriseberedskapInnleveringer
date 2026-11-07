@@ -436,6 +436,47 @@ namespace HeimevernetInnlevering1.Migrations
                     b.ToTable("Hendelseslogg", (string)null);
                 });
 
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Melding", b =>
+                {
+                    b.Property<long>("MeldingID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("MeldingID"));
+
+                    b.Property<string>("Emne")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("Innhold")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime?>("Lest")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("MottakerID")
+                        .HasColumnType("int")
+                        .HasColumnName("Mottaker");
+
+                    b.Property<DateTime>("Sendt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("SendtAvID")
+                        .HasColumnType("int")
+                        .HasColumnName("SendtAv");
+
+                    b.HasKey("MeldingID");
+
+                    b.HasIndex("SendtAvID");
+
+                    b.HasIndex("MottakerID", "Lest", "Sendt");
+
+                    b.ToTable("Melding", (string)null);
+                });
+
             modelBuilder.Entity("HeimevernetInnlevering1.Models.Ressurs", b =>
                 {
                     b.Property<int>("RessursID")
@@ -861,6 +902,25 @@ namespace HeimevernetInnlevering1.Migrations
                         .IsRequired();
 
                     b.Navigation("OpprettetAv");
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Melding", b =>
+                {
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", "Mottaker")
+                        .WithMany()
+                        .HasForeignKey("MottakerID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", "SendtAv")
+                        .WithMany()
+                        .HasForeignKey("SendtAvID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Mottaker");
+
+                    b.Navigation("SendtAv");
                 });
 
             modelBuilder.Entity("HeimevernetInnlevering1.Models.Ressurs", b =>

@@ -31,12 +31,12 @@ public static class IdentitySeeder
         }
     }
 
-    public static readonly IReadOnlyList<(string Email, string Role, string Fornavn, string Etternavn, string Organisasjon)> DemoAccounts =
+    public static readonly IReadOnlyList<(string Email, string Role, string Fornavn, string Etternavn, string Organisasjon, string Phone)> DemoAccounts =
     [
-        ("offentlig@gmail.com", AppRoles.OffentligAktor, "Olav", "Offentlig", "Hamar kommune"),
-        ("ressurs@gmail.com", AppRoles.Ressursleverandor, "Rita", "Ressurs", "Innlandet Maskin AS"),
-        ("dispatch@gmail.com", AppRoles.DispatchTeam, "Dina", "Dispatch", "HV-distrikt Innlandet"),
-        ("kriseledelse@gmail.com", AppRoles.Kriseledelse, "Kari", "Kriseledelse", "Statsforvalteren i Innlandet")
+        ("offentlig@gmail.com", AppRoles.OffentligAktor, "Olav", "Offentlig", "Hamar kommune", "400 10 101"),
+        ("ressurs@gmail.com", AppRoles.Ressursleverandor, "Rita", "Ressurs", "Innlandet Maskin AS", "400 10 102"),
+        ("dispatch@gmail.com", AppRoles.DispatchTeam, "Dina", "Dispatch", "HV-distrikt Innlandet", "400 10 103"),
+        ("kriseledelse@gmail.com", AppRoles.Kriseledelse, "Kari", "Kriseledelse", "Statsforvalteren i Innlandet", "400 10 104")
     ];
 
     private static async Task MergeVerificationIntoDispatchAsync(RoleManager<Rolle> roles, UserManager<Bruker> users)
@@ -61,7 +61,7 @@ public static class IdentitySeeder
     {
         if (string.IsNullOrEmpty(password)) password = DefaultDemoPassword;
         var users = services.GetRequiredService<UserManager<Bruker>>();
-        foreach (var (email, role, fornavn, etternavn, organisasjon) in DemoAccounts)
+        foreach (var (email, role, fornavn, etternavn, organisasjon, phone) in DemoAccounts)
         {
             var user = await users.FindByEmailAsync(email);
             if (user == null)
@@ -69,9 +69,14 @@ public static class IdentitySeeder
                 user = new Bruker
                 {
                     UserName = email, Email = email, EmailConfirmed = true, Fornavn = fornavn, Etternavn = etternavn,
-                    Organisasjon = organisasjon, PhoneNumber = "40000000"
+                    Organisasjon = organisasjon, PhoneNumber = phone
                 };
                 EnsureSuccess(await users.CreateAsync(user, password));
+            }
+            else if (user.PhoneNumber != phone)
+            {
+                user.PhoneNumber = phone;
+                EnsureSuccess(await users.UpdateAsync(user));
             }
 
             var current = (await users.GetRolesAsync(user)).Where(AppRoles.All.Contains).ToList();

@@ -49,3 +49,18 @@ public class Hendelseslogg
     public string Handling { get; set; } = string.Empty;
     public string Begrunnelse { get; set; } = string.Empty;
 }
+
+/// <summary>Direkte melding mellom to registrerte operative brukere.</summary>
+public class Melding
+{
+    public long MeldingID { get; set; }
+    public int SendtAvID { get; set; }
+    public int MottakerID { get; set; }
+    public string Emne { get; set; } = string.Empty;
+    public string Innhold { get; set; } = string.Empty;
+    public DateTime Sendt { get; set; } = DateTime.UtcNow;
+    public DateTime? Lest { get; set; }
+
+    public Bruker? SendtAv { get; set; }
+    public Bruker? Mottaker { get; set; }
+}

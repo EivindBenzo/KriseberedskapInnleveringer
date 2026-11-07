@@ -1,0 +1,26 @@
+@model HeimevernetInnlevering1.ViewModels.InboxViewModel
+@{
+    ViewData["Title"] = "Meldinger";
+}
+<section class="operations-workspace contacts-page" aria-labelledby="messages-heading">
+    <div class="page-heading">
+        <div><span class="eyebrow">SAMARBEID OG ANSVAR</span><h1 id="messages-heading">Meldinger</h1></div>
+        <a asp-controller="Home" asp-action="Contacts" class="btn-submit">Åpne kontaktliste</a>
+    </div>
+    @if (Model.Messages.Count == 0)
+    {
+        <p class="empty-state">Du har ingen meldinger ennå.</p>
+    }
+    else
+    {
+        <div class="message-inbox">
+        @foreach (var message in Model.Messages)
+        {
+            <article class="message-item @(message.IsUnread ? "message-unread" : "")">
+                <div><h2>@message.Subject</h2><p class="resource-meta">Fra @message.SenderName · @message.SentAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p></div>
+                <p>@message.Body</p>
+            </article>
+        }
+        </div>
+    }
+</section>

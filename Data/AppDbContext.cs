@@ -27,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Forespørsel> Forespørsler => Set<Forespørsel>();
     public DbSet<Tildeling> Tildelinger => Set<Tildeling>();
     public DbSet<Hendelseslogg> Hendelseslogg => Set<Hendelseslogg>();
+    public DbSet<Melding> Meldinger => Set<Melding>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,6 +41,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         KonfigurerRessursOgVerifisering(modelBuilder);
         KonfigurerForespørselOgTildeling(modelBuilder);
         KonfigurerHendelseslogg(modelBuilder);
+        KonfigurerMeldinger(modelBuilder);
 
         SeedData.LeggTilOppslagsdata(modelBuilder);
     }
@@ -243,6 +245,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             e.Property(l => l.Begrunnelse).HasMaxLength(1000).IsRequired();
             e.HasIndex(l => new { l.RessursID, l.Tidspunkt });
             e.HasIndex(l => l.ForespørselID);
+        });
+    }
+
+    private static void KonfigurerMeldinger(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Melding>(e =>
+        {
+            e.ToTable("Melding");
+            e.HasKey(m => m.MeldingID);
+            e.Property(m => m.Emne).HasMaxLength(150).IsRequired();
+            e.Property(m => m.Innhold).HasMaxLength(2000).IsRequired();
+            e.Property(m => m.SendtAvID).HasColumnName("SendtAv");
+            e.Property(m => m.MottakerID).HasColumnName("Mottaker");
+            e.HasOne(m => m.SendtAv).WithMany().HasForeignKey(m => m.SendtAvID)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(m => m.Mottaker).WithMany().HasForeignKey(m => m.MottakerID)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(m => new { m.MottakerID, m.Lest, m.Sendt });
         });
     }
 }

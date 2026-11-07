@@ -9,6 +9,14 @@
         <a asp-action="Dashboard" class="btn-submit">Åpne oversikt</a>
     </div>
     <p class="contacts-intro">Finn riktig kontakt på tvers av roller før du registrerer, verifiserer eller koordinerer en ressurs.</p>
+    @if (TempData["MessageError"] is string error)
+    {
+        <p class="workspace-alert" role="alert">@error</p>
+    }
+    @if (TempData["MessageSuccess"] is string success)
+    {
+        <p class="notice" role="status">@success</p>
+    }
     <div class="contact-grid">
     @foreach (var contact in Model)
     {
@@ -26,6 +34,10 @@
                     <div><dt>Telefon</dt><dd><a href="tel:@contact.PhoneNumber">@contact.PhoneNumber</a></dd></div>
                 }
             </dl>
+            @if (contact.UserId != HeimevernetInnlevering1.Models.ResourcePermissions.BrukerId(User))
+            {
+                <button type="button" class="btn-submit contact-message-button" data-contact-name="@contact.Name" data-recipient-id="@contact.UserId">Send melding</button>
+            }
         </article>
     }
     </div>
@@ -34,3 +46,18 @@
         <p class="empty-state">Ingen brukere med en operativ rolle er registrert ennå.</p>
     }
 </section>
+<dialog id="messageComposer" class="message-composer" aria-labelledby="messageComposerHeading">
+    <form asp-controller="Messages" asp-action="Send" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="recipientId" id="messageRecipientId" />
+        <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
+        <div class="message-composer-heading">
+            <div><span class="eyebrow">NY MELDING</span><h2 id="messageComposerHeading">Til kontakt</h2></div>
+            <button type="button" class="message-close" data-close-message aria-label="Lukk">×</button>
+        </div>
+        <label>Emne <input name="subject" required maxlength="150" autocomplete="off" /></label>
+        <label>Melding <textarea name="body" required maxlength="2000"></textarea></label>
+        <button type="submit" class="btn-submit">Send melding</button>
+    </form>
+</dialog>
+<script src="~/js/messages.js" asp-append-version="true"></script>
