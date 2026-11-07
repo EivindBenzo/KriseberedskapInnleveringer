@@ -269,7 +269,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
             })
             .ToList();
 
-        if (User.IsInRole(AppRoles.DispatchTeam) || User.IsInRole(AppRoles.Kriseledelse))
+        if (User.Identity?.IsAuthenticated == true)
         {
             var akutteBehov = await db.Behov.AsNoTracking().Include(b => b.Behovstype)
                 .Where(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Status != Statuser.Behov.Løst)

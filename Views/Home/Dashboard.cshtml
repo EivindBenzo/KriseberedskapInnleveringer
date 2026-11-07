@@ -22,6 +22,14 @@
     var pendingIncoming = Model.IncomingRequests.Count(f => f.Svar == Statuser.Svar.Venter);
     var pendingDispatch = Model.Requests.Count(f => f.Svar == Statuser.Svar.Venter) + Model.VerificationQueue.Count;
     var publicInProgress = Model.Needs.Count(n => n.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes);
+    var displayName = User.Identity?.Name?.Split('@')[0] ?? "deg";
+    var nextStep = provider
+        ? pendingIncoming > 0 ? "Svar på forespørslene som venter på ressursene dine." : "Kontroller at ressursene dine er klare til bruk."
+        : dispatch
+            ? Model.UrgentNeeds.Count > 0 ? "Start med de akutte behovene og finn en passende ressurs." : "Gå gjennom ressurser som venter på verifisering."
+            : leader
+                ? Model.UrgentNeeds.Count > 0 ? "Vurder de akutte behovene før ordinære oppgaver." : "Følg opp aktive hendelser og pågående tildelinger."
+                : "Følg statusen på behovene dine og oppdater kontaktinformasjonen ved behov.";
 }
 <section class="operations-workspace dashboard" aria-labelledby="dashboard-heading">
 <div class="page-heading">
@@ -87,30 +95,28 @@ else
 }
 </section>
 <section id="dashboardIntro" class="dashboard-briefing" aria-label="Situasjonsbilde">
-@if (provider)
-{
-    <div><strong>@Model.OwnResources.Count</strong><span>registrerte ressurser</span></div>
-    <div><strong>@pendingIncoming</strong><span>forespørsler venter</span></div>
-    <div><strong>@providerAttention</strong><span>ressurser trenger oppfølging</span></div>
-}
-else if (dispatch)
-{
-    <div><strong>@Model.MatchingResources.Count</strong><span>ressurser kan forespørres</span></div>
-    <div><strong>@Model.VerificationQueue.Count</strong><span>venter på verifisering</span></div>
-    <div><strong>@Model.UrgentNeeds.Count</strong><span>akutte behov</span></div>
-}
-else if (leader)
-{
-    <div><strong>@Model.ActiveIncidents.Count</strong><span>aktive hendelser</span></div>
-    <div><strong>@Model.Needs.Count</strong><span>åpne behov</span></div>
-    <div><strong>@Model.Assignments.Count</strong><span>aktive tildelinger</span></div>
-}
-else
-{
-    <div><strong>@Model.Needs.Count</strong><span>innmeldte behov</span></div>
-    <div><strong>@publicInProgress</strong><span>under behandling</span></div>
-    <div><strong>@Model.UrgentNeeds.Count</strong><span>akutte behov</span></div>
-}
+    <div class="dashboard-welcome">
+        <span class="eyebrow">STATUS NÅ</span>
+        <h2>Hei, @displayName</h2>
+        <p>@nextStep</p>
+        <a asp-action="Map" class="btn-secondary">Se situasjonen på kartet</a>
+    </div>
+    <div class="dashboard-activity">
+        <h2>Siste aktivitet</h2>
+        @if (Model.RecentActivity.Count == 0)
+        {
+            <p class="resource-meta">Det er ingen ny aktivitet i dine arbeidsområder ennå.</p>
+        }
+        else
+        {
+            <ol>
+            @foreach (var activity in Model.RecentActivity)
+            {
+                <li><strong>@activity.Label</strong><span>@activity.Actor · @Stamp(activity.OccurredAtUtc)</span></li>
+            }
+            </ol>
+        }
+    </div>
 </section>
 
 @if (provider)

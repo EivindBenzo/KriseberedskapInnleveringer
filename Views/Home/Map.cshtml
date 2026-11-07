@@ -30,7 +30,7 @@
         {
             <a asp-action="Map" asp-route-register="true" class="btn-submit">+ Registrer ressurs</a>
         }
-        <a asp-action="Resources" class="btn-secondary">Ressurser og mine ressurser</a>
+        <button type="button" id="openResourceBrowser" class="btn-secondary">Ressurser og mine ressurser</button>
     </div>
     @if (isEditing)
     {
@@ -142,6 +142,48 @@
         </div>
     </div>
 </section>
+
+<dialog id="resourceBrowser" class="resource-browser-dialog" aria-labelledby="resourceBrowserTitle">
+    <form method="dialog" class="dialog-close-bar">
+        <button type="submit" class="dialog-close" aria-label="Lukk ressursoversikt">×</button>
+    </form>
+    <section class="resource-browser-panel" aria-labelledby="resourceBrowserTitle">
+        <div class="page-heading">
+            <div><span class="eyebrow">RESSURSOVERSIKT</span><h2 id="resourceBrowserTitle">Ressurser <span class="count-badge">@resources.Count</span></h2></div>
+            @if (canRegister)
+            {
+                <a asp-action="Map" asp-route-register="true" class="btn-submit">+ Registrer ressurs</a>
+            }
+        </div>
+        <p class="workspace-muted">Status og kontaktinformasjon for ressursene som vises i kartet.</p>
+        <div class="resource-browser-list">
+        @foreach (var r in resources)
+        {
+            var status = ResourceOperationalStatus.From(r, nå);
+            var typeNavn = r.Ressurstype?.Navn ?? "Ukjent";
+            <article class="resource-browser-card">
+                <div>
+                    <h3><img src="@Url.Content(RessursIkon.Sti(typeNavn, status))" alt="" width="32" height="32" /> @r.Navn</h3>
+                    <p class="resource-meta">@typeNavn · @r.Stedsnavn</p>
+                    <p><strong>@r.TilgjengeligAntall.ToString("0.##", CultureInfo.InvariantCulture) @r.Enhet</strong> tilgjengelig av @r.Antall.ToString("0.##", CultureInfo.InvariantCulture) @r.Enhet</p>
+                    <p class="resource-meta">Kontakt: @r.Kontaktperson, @r.Kontakttelefon</p>
+                </div>
+                <div>
+                    <span class="status-badge @(status.IsEligible ? "status-positive" : "status-warning")">@status.Availability</span>
+                    <span class="status-badge @(status.Verification == "Godkjent" ? "status-positive" : "status-warning")">@status.Verification</span>
+                    <div class="resource-actions">
+                        <a asp-action="Map" asp-route-focus="@r.RessursID" asp-route-type="@(valgtType.Length > 0 ? valgtType : null)" class="btn-secondary">Vis på kart</a>
+                        @if (ResourcePermissions.CanManage(User, r.EierID))
+                        {
+                            <a asp-action="Edit" asp-route-id="@r.RessursID" class="btn-secondary">Rediger</a>
+                        }
+                    </div>
+                </div>
+            </article>
+        }
+        </div>
+    </section>
+</dialog>
 
 @if (registrationOpen)
 {

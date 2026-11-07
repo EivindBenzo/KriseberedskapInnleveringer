@@ -36,6 +36,22 @@
     });
     kart.addControl(new ExpandControl());
 
+    function closeWhenBackdropClicked(dialog) {
+        if (!dialog) return;
+        dialog.addEventListener('click', function (event) {
+            if (event.target === dialog) dialog.close();
+        });
+    }
+
+    const resourceBrowser = document.getElementById('resourceBrowser');
+    const openResourceBrowser = document.getElementById('openResourceBrowser');
+    closeWhenBackdropClicked(resourceBrowser);
+    if (openResourceBrowser) {
+        openResourceBrowser.addEventListener('click', function () {
+            resourceBrowser.showModal();
+        });
+    }
+
     // Én markør per ressurs. Popup-teksten er ferdig HTML fra serveren, der teksten allerede er kodet.
     data.markorer.forEach(function (m) {
         const symbol = m.akutt
@@ -65,6 +81,7 @@
     let placementEnabled = p.lat != null;
 
     kart.getContainer().classList.add('placement-active');
+    closeWhenBackdropClicked(dialog);
     if (dialog) dialog.showModal();
     function showConfirmation(latlng) {
         confirmation.hidden = false;

@@ -79,9 +79,11 @@ public class DashboardService(AppDbContext db)
         var resourceIds = own.Concat(queue).Concat(matching).Select(r => r.RessursID).ToHashSet();
         var requestIds = incoming.Concat(requests).Select(f => f.ForespørselID)
             .Concat(assignments.Select(t => t.ForespørselID)).ToHashSet();
+        var needIds = needs.Keys.ToHashSet();
         var audits = await (from logg in db.Hendelseslogg.AsNoTracking()
                             where (logg.RessursID != null && resourceIds.Contains(logg.RessursID.Value)) ||
-                                  (logg.ForespørselID != null && requestIds.Contains(logg.ForespørselID.Value))
+                                  (logg.ForespørselID != null && requestIds.Contains(logg.ForespørselID.Value)) ||
+                                  (logg.BehovID != null && needIds.Contains(logg.BehovID.Value))
                             join actor in db.Users.AsNoTracking() on logg.UtførtAvID equals actor.Id into actors
                             from actor in actors.DefaultIfEmpty()
                             orderby logg.Tidspunkt, logg.LoggID
@@ -113,7 +115,9 @@ public class DashboardService(AppDbContext db)
             RequestTimeline = audits.Where(a => a.ForespørselID != null).GroupBy(a => a.ForespørselID!.Value).ToDictionary(g => g.Key,
                 g => (IReadOnlyList<TimelineEntry>)g.Select(a => Entry(a.Handling, a.Actor, a.Tidspunkt)).ToList()),
             AssignmentTimeline = assignments.ToDictionary(t => t.TildelingID, t => (IReadOnlyList<TimelineEntry>)audits
-                .Where(x => x.ForespørselID == t.ForespørselID).Select(x => Entry(x.Handling, x.Actor, x.Tidspunkt)).ToList())
+                .Where(x => x.ForespørselID == t.ForespørselID).Select(x => Entry(x.Handling, x.Actor, x.Tidspunkt)).ToList()),
+            RecentActivity = audits.OrderByDescending(a => a.Tidspunkt).ThenByDescending(a => a.Handling)
+                .Take(4).Select(a => Entry(a.Handling, a.Actor, a.Tidspunkt)).ToList()
         };
     }
 }

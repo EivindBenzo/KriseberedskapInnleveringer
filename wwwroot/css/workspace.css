@@ -204,10 +204,21 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .dashboard-action-urgent .dashboard-action-icon { background: #dc2626; }
 .dashboard-panel { scroll-margin-top: 1rem; animation: dashboard-panel-enter .2s ease-out; }
 @keyframes dashboard-panel-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-.dashboard-briefing { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 0 0 1.5rem; overflow: hidden; background: var(--border); border: 1px solid var(--border); border-radius: .85rem; }
-.dashboard-briefing div { padding: 1rem 1.25rem; background: var(--surface); }
-.dashboard-briefing strong { display: block; color: var(--heading); font-size: 1.55rem; line-height: 1.1; }
-.dashboard-briefing span { display: block; margin-top: .3rem; color: var(--muted); font-size: .9rem; }
+.dashboard-briefing { display: grid; grid-template-columns: minmax(16rem, .85fr) minmax(22rem, 1.15fr); gap: 0; margin: 0 0 1.5rem; overflow: hidden; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: .85rem; }
+.dashboard-welcome, .dashboard-activity { padding: 1.25rem 1.5rem; }
+.dashboard-welcome { background: linear-gradient(135deg, #063d47, #087181); color: #fff; }
+.dashboard-welcome .eyebrow { color: #d7f0f3; font-weight: 700; }
+.dashboard-welcome h2 { margin: .35rem 0; color: #fff; }
+.dashboard-welcome p { max-width: 40ch; margin: .5rem 0 1rem; color: #e4f4f5; }
+.dashboard-welcome .btn-secondary { color: #fff; background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.55); }
+.dashboard-welcome .btn-secondary:hover { color: #fff; background: rgba(255,255,255,.2); }
+.dashboard-activity { border-left: 1px solid var(--border); }
+.dashboard-activity h2 { margin: 0 0 .75rem; font-size: 1.05rem; }
+.dashboard-activity ol { display: grid; gap: .65rem; margin: 0; padding: 0; list-style: none; }
+.dashboard-activity li { position: relative; padding-left: 1rem; }
+.dashboard-activity li::before { position: absolute; top: .4rem; left: 0; width: .45rem; height: .45rem; content: ""; background: var(--accent); border-radius: 50%; }
+.dashboard-activity li strong, .dashboard-activity li span { display: block; }
+.dashboard-activity li span { margin-top: .12rem; color: var(--muted); font-size: .85rem; }
 .inventory-summary { padding: .6rem .75rem; margin: .6rem 0; border-left: 3px solid var(--accent); background: var(--surface-end); }
 
 /* Skjemaet «Meld behov»: skjema til venstre, kart til høyre (under hverandre på mobil). */
@@ -242,6 +253,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 @media (max-width: 900px) {
     .dashboard-action-grid { grid-template-columns: 1fr; }
     .dashboard-briefing { grid-template-columns: 1fr; }
+    .dashboard-activity { border-top: 1px solid var(--border); border-left: 0; }
     .need-form-grid {
         grid-template-columns: 1fr;
     }

@@ -39,13 +39,13 @@ public static class RessursIkon
     }
 
     /// <summary>
-    /// Stien til symbolet. Grønt symbol når ressursen er tilgjengelig, nøytralt blått når den ikke kan forespørres.
+    /// Stien til symbolet. Teal symbol når ressursen er tilgjengelig, nøytralt blått når den ikke kan forespørres.
     /// Rødt er reservert for akutte behov på kartet.
     /// </summary>
     public static string Sti(string? type, ResourceOperationalStatus? status = null)
     {
         var fil = Fil(type);
-        if (status?.IsEligible == true)
+        if (status?.Lifecycle == Statuser.Ressurs.Tilgjengelig)
             fil += "-available";
         return $"~/images/resources/{fil}.svg";
     }

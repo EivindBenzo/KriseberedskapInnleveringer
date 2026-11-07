@@ -14,8 +14,6 @@
             panels.forEach(function (panel) {
                 panel.hidden = isOpen || panel.dataset.dashboardPanel !== target;
             });
-            intro.hidden = !isOpen;
-
             if (!isOpen) {
                 const firstPanel = panels.find(function (panel) { return panel.dataset.dashboardPanel === target; });
                 firstPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });

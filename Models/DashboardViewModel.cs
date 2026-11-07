@@ -21,4 +21,5 @@ public class DashboardViewModel
         new Dictionary<int, IReadOnlyList<TimelineEntry>>();
     public IReadOnlyDictionary<int, IReadOnlyList<TimelineEntry>> AssignmentTimeline { get; init; } =
         new Dictionary<int, IReadOnlyList<TimelineEntry>>();
+    public IReadOnlyList<TimelineEntry> RecentActivity { get; init; } = [];
 }
