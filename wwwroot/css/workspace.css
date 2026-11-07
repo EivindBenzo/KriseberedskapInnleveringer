@@ -189,7 +189,9 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .progress-steps li[aria-current="step"] { font-weight: 700; }
 .dashboard-action-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.25rem 0 2rem; }
 .dashboard-action { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; min-height: 132px; width: 100%; margin: 0; padding: 1.3rem; color: var(--heading); text-align: left; border: 1px solid var(--border); border-radius: .85rem; background: var(--surface); cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
-.dashboard-action:hover, .dashboard-action[aria-expanded="true"] { background: var(--surface-end); box-shadow: 0 8px 20px var(--shadow); transform: translateY(-2px); }
+.dashboard-action:hover { background: var(--surface-end); box-shadow: 0 8px 20px var(--shadow); transform: translateY(-2px); }
+.dashboard-action[aria-expanded="true"] { background: var(--surface-end); box-shadow: 0 0 0 3px var(--accent), 0 8px 20px var(--shadow); transform: translateY(-2px); }
+.dashboard-action[aria-expanded="true"] .dashboard-action-count { color: white; background: var(--accent); }
 .dashboard-action strong, .dashboard-action small { display: block; }
 .dashboard-action small { margin-top: .2rem; color: var(--muted); font-size: .85rem; font-weight: 400; }
 .dashboard-action-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.65rem; height: 2.65rem; margin-right: .9rem; border-radius: 50%; color: white; font-size: 1.25rem; font-weight: 800; }
@@ -202,10 +204,10 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .dashboard-action-urgent .dashboard-action-icon { background: #dc2626; }
 .dashboard-panel { scroll-margin-top: 1rem; animation: dashboard-panel-enter .2s ease-out; }
 @keyframes dashboard-panel-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-.dashboard-intro { display: flex; align-items: center; gap: 1rem; max-width: 46rem; margin: 2.5rem auto; padding: 1.25rem 1.5rem; color: var(--muted); background: var(--surface); border: 1px dashed var(--border-strong); border-radius: .85rem; }
-.dashboard-intro > span { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; color: var(--accent); background: var(--hover); border-radius: 50%; font-size: 1.5rem; }
-.dashboard-intro strong { color: var(--heading); }
-.dashboard-intro p { margin: .15rem 0 0; }
+.dashboard-briefing { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 0 0 1.5rem; overflow: hidden; background: var(--border); border: 1px solid var(--border); border-radius: .85rem; }
+.dashboard-briefing div { padding: 1rem 1.25rem; background: var(--surface); }
+.dashboard-briefing strong { display: block; color: var(--heading); font-size: 1.55rem; line-height: 1.1; }
+.dashboard-briefing span { display: block; margin-top: .3rem; color: var(--muted); font-size: .9rem; }
 .inventory-summary { padding: .6rem .75rem; margin: .6rem 0; border-left: 3px solid var(--accent); background: var(--surface-end); }
 
 /* Skjemaet «Meld behov»: skjema til venstre, kart til høyre (under hverandre på mobil). */
@@ -239,6 +241,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 
 @media (max-width: 900px) {
     .dashboard-action-grid { grid-template-columns: 1fr; }
+    .dashboard-briefing { grid-template-columns: 1fr; }
     .need-form-grid {
         grid-template-columns: 1fr;
     }

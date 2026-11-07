@@ -9,7 +9,7 @@ namespace MariaDbIntegrationTests;
 
 /// <summary>
 /// Tester arbeidsflyten fra rapporten mot ekte MariaDB:
-/// ressurs → verifisering → forespørsel → svar fra eier → tildeling → fremdrift → returnert.
+/// ressurs → dispatch-verifisering → forespørsel → svar fra eier → tildeling → fremdrift → returnert.
 /// </summary>
 public class WorkflowTests
 {
@@ -26,13 +26,13 @@ public class WorkflowTests
     };
 
     private sealed record Aktører(
-        System.Security.Claims.ClaimsPrincipal Eier, System.Security.Claims.ClaimsPrincipal Verifiserer,
+        System.Security.Claims.ClaimsPrincipal Eier, System.Security.Claims.ClaimsPrincipal DispatchVerifiserer,
         System.Security.Claims.ClaimsPrincipal Dispatch, System.Security.Claims.ClaimsPrincipal Offentlig,
         System.Security.Claims.ClaimsPrincipal Leder);
 
     private static async Task<Aktører> AktørerAsync(TestDatabase test) => new(
         (await test.BrukerAsync(AppRoles.Ressursleverandor)).Principal,
-        (await test.BrukerAsync(AppRoles.Verifiseringsansvarlig)).Principal,
+        (await test.BrukerAsync(AppRoles.DispatchTeam)).Principal,
         (await test.BrukerAsync(AppRoles.DispatchTeam)).Principal,
         (await test.BrukerAsync(AppRoles.OffentligAktor)).Principal,
         (await test.BrukerAsync(AppRoles.Kriseledelse)).Principal);
@@ -52,7 +52,7 @@ public class WorkflowTests
         var ressursId = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
         Assert.Equal(Statuser.Ressurs.VenterPåVerifisering, await RessursStatus(test, ressursId));
 
-        await test.Workflow.VerifyAsync(ressursId, true, a.Verifiserer, null);
+        await test.Workflow.VerifyAsync(ressursId, true, a.DispatchVerifiserer, null);
         Assert.Equal(Statuser.Ressurs.Tilgjengelig, await RessursStatus(test, ressursId));
         Assert.Equal(1, await test.Db.Verifiseringer.CountAsync(v => v.RessursID == ressursId && v.Resultat == Statuser.Resultat.Godkjent));
 
@@ -81,15 +81,15 @@ public class WorkflowTests
     }
 
     [Fact]
-    public async Task VerifiseringsansvarligKanIkkeGodkjenneEgenRessursOgAvvisningKreverBegrunnelse()
+    public async Task DispatchKanIkkeGodkjenneEgenRessursOgAvvisningKreverBegrunnelse()
     {
         await using var test = await TestDatabase.CreateAsync();
         var (bruker, _) = await test.BrukerAsync(AppRoles.Ressursleverandor);
-        var begge = TestDatabase.Principal(bruker.Id, AppRoles.Ressursleverandor, AppRoles.Verifiseringsansvarlig);
+        var begge = TestDatabase.Principal(bruker.Id, AppRoles.Ressursleverandor, AppRoles.DispatchTeam);
         var id = await test.Workflow.RegisterResourceAsync(Ressurs(), begge);
         await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.VerifyAsync(id, true, begge, null));
 
-        var verifiserer = (await test.BrukerAsync(AppRoles.Verifiseringsansvarlig)).Principal;
+        var verifiserer = (await test.BrukerAsync(AppRoles.DispatchTeam)).Principal;
         await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.VerifyAsync(id, false, verifiserer, " "));
         await test.Workflow.VerifyAsync(id, false, verifiserer, "Mangler dokumentasjon");
         Assert.Equal(Statuser.Ressurs.Avvist, await RessursStatus(test, id));
@@ -105,7 +105,7 @@ public class WorkflowTests
         var behov1 = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
         var behov2 = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
         await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.CreateRequestAsync(behov1, ressurs, a.Dispatch));
-        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        await test.Workflow.VerifyAsync(ressurs, true, a.DispatchVerifiserer, null);
         await test.Workflow.CreateRequestAsync(behov1, ressurs, a.Dispatch);
         await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.CreateRequestAsync(behov2, ressurs, a.Dispatch));
     }
@@ -117,7 +117,7 @@ public class WorkflowTests
         var a = await AktørerAsync(test);
         var annenLeverandør = (await test.BrukerAsync(AppRoles.Ressursleverandor)).Principal;
         var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
-        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        await test.Workflow.VerifyAsync(ressurs, true, a.DispatchVerifiserer, null);
         var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
         var forespørsel = await test.Workflow.CreateRequestAsync(behov, ressurs, a.Dispatch);
 
@@ -135,7 +135,7 @@ public class WorkflowTests
         await using var test = await TestDatabase.CreateAsync();
         var a = await AktørerAsync(test);
         var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
-        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        await test.Workflow.VerifyAsync(ressurs, true, a.DispatchVerifiserer, null);
         var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
         var forespørsel = await test.Workflow.CreateRequestAsync(behov, ressurs, a.Dispatch);
         await test.Workflow.RespondAsync(forespørsel, true, a.Eier, null);
@@ -150,7 +150,7 @@ public class WorkflowTests
         await using var test = await TestDatabase.CreateAsync();
         var a = await AktørerAsync(test);
         var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
-        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        await test.Workflow.VerifyAsync(ressurs, true, a.DispatchVerifiserer, null);
         var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
         var forespørsel = await test.Workflow.CreateRequestAsync(behov, ressurs, a.Dispatch);
         await test.Workflow.RespondAsync(forespørsel, true, a.Eier, null);
@@ -169,7 +169,7 @@ public class WorkflowTests
         await using var test = await TestDatabase.CreateAsync();
         var a = await AktørerAsync(test);
         var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
-        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        await test.Workflow.VerifyAsync(ressurs, true, a.DispatchVerifiserer, null);
         var behov1 = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
         var behov2 = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
 
@@ -196,7 +196,7 @@ public class WorkflowTests
         await using var test = await TestDatabase.CreateAsync();
         var a = await AktørerAsync(test);
         var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
-        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        await test.Workflow.VerifyAsync(ressurs, true, a.DispatchVerifiserer, null);
 
         var bareKontakt = Ressurs(); bareKontakt.Kontaktperson = "Ny kontakt";
         Assert.False(await test.Workflow.UpdateResourceAsync(ressurs, bareKontakt, a.Eier));
@@ -217,7 +217,7 @@ public class WorkflowTests
         Assert.False(await test.Db.Ressurser.AnyAsync(r => r.RessursID == ny));
 
         var brukt = await test.Workflow.RegisterResourceAsync(Ressurs("Brukt"), a.Eier);
-        await test.Workflow.VerifyAsync(brukt, true, a.Verifiserer, null);
+        await test.Workflow.VerifyAsync(brukt, true, a.DispatchVerifiserer, null);
         var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
         var f = await test.Workflow.CreateRequestAsync(behov, brukt, a.Dispatch);
         await test.Workflow.RespondAsync(f, false, a.Eier, null);
@@ -297,7 +297,7 @@ public class WorkflowTests
         await using var test = await TestDatabase.CreateAsync();
         var a = await AktørerAsync(test);
         var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
-        await test.Workflow.VerifyAsync(ressurs, true, a.Verifiserer, null);
+        await test.Workflow.VerifyAsync(ressurs, true, a.DispatchVerifiserer, null);
         var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
         await test.Workflow.CreateRequestAsync(behov, ressurs, a.Dispatch);
         await Assert.ThrowsAsync<WorkflowException>(() =>
@@ -314,7 +314,7 @@ public class WorkflowTests
         vann.Enhet = "L";
         vann.ErForbruksvare = true;
         var ressursId = await test.Workflow.RegisterResourceAsync(vann, a.Eier);
-        await test.Workflow.VerifyAsync(ressursId, true, a.Verifiserer, null);
+        await test.Workflow.VerifyAsync(ressursId, true, a.DispatchVerifiserer, null);
 
         var behov = await test.Workflow.CreateNeedAsync(Behov(), a.Offentlig);
         var forespørselId = await test.Workflow.CreateRequestAsync(behov, ressursId, 1, a.Dispatch);

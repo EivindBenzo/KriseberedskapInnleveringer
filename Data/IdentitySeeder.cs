@@ -11,15 +11,18 @@ public static class IdentitySeeder
 {
     public const string BootstrapRole = AppRoles.Kriseledelse;
     public const string DefaultDemoPassword = "Dragoncool22!";
+    private const string RetiredVerificationRole = "Verifiseringsansvarlig";
 
     public static async Task SeedAsync(IServiceProvider services, IConfiguration configuration)
     {
         var roles = services.GetRequiredService<RoleManager<Rolle>>();
+        var users = services.GetRequiredService<UserManager<Bruker>>();
         foreach (var role in AppRoles.All)
         {
             if (!await roles.RoleExistsAsync(role))
                 EnsureSuccess(await roles.CreateAsync(new Rolle(role)));
         }
+        await MergeVerificationIntoDispatchAsync(roles, users);
         await BootstrapAdminAsync(services, configuration);
         if (configuration.GetValue<bool>("SEED_DEMO_ACCOUNTS"))
         {
@@ -33,9 +36,25 @@ public static class IdentitySeeder
         ("offentlig@gmail.com", AppRoles.OffentligAktor, "Olav", "Offentlig", "Hamar kommune"),
         ("ressurs@gmail.com", AppRoles.Ressursleverandor, "Rita", "Ressurs", "Innlandet Maskin AS"),
         ("dispatch@gmail.com", AppRoles.DispatchTeam, "Dina", "Dispatch", "HV-distrikt Innlandet"),
-        ("kriseledelse@gmail.com", AppRoles.Kriseledelse, "Kari", "Kriseledelse", "Statsforvalteren i Innlandet"),
-        ("verifisering@gmail.com", AppRoles.Verifiseringsansvarlig, "Vegard", "Verifisering", "HV-distrikt Innlandet")
+        ("kriseledelse@gmail.com", AppRoles.Kriseledelse, "Kari", "Kriseledelse", "Statsforvalteren i Innlandet")
     ];
+
+    private static async Task MergeVerificationIntoDispatchAsync(RoleManager<Rolle> roles, UserManager<Bruker> users)
+    {
+        if (!await roles.RoleExistsAsync(RetiredVerificationRole)) return;
+
+        foreach (var user in await users.GetUsersInRoleAsync(RetiredVerificationRole))
+        {
+            if (!await users.IsInRoleAsync(user, AppRoles.DispatchTeam))
+                EnsureSuccess(await users.AddToRoleAsync(user, AppRoles.DispatchTeam));
+            EnsureSuccess(await users.RemoveFromRoleAsync(user, RetiredVerificationRole));
+            EnsureSuccess(await users.UpdateSecurityStampAsync(user));
+        }
+
+        var retiredRole = await roles.FindByNameAsync(RetiredVerificationRole);
+        if (retiredRole is not null)
+            EnsureSuccess(await roles.DeleteAsync(retiredRole));
+    }
 
     /// <summary>Oppretter manglende demokontoer og sørger for riktig rolle. Eksisterende kontoer beholder passordet.</summary>
     public static async Task SeedDemoAccountsAsync(IServiceProvider services, string? password)

@@ -77,8 +77,8 @@ body:has(.map-workspace) {
     --workspace-surface-border: var(--border-strong);
     --workspace-hover: var(--hover);
     inset: 0;
-    width: min(1120px, 80vw);
-    max-width: 80vw;
+    width: min(1040px, calc(100vw - 2rem));
+    max-width: calc(100vw - 2rem);
     max-height: min(840px, 84dvh);
     margin: auto;
     padding: 0;
@@ -88,10 +88,12 @@ body:has(.map-workspace) {
     border-radius: 16px;
     box-shadow: 0 24px 80px rgba(2, 12, 27, .5);
     overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
 }
 
 .resource-registration-dialog::backdrop { background: rgba(3, 18, 35, .68); backdrop-filter: blur(3px); }
-.resource-registration-dialog .registration-panel { padding: clamp(1.25rem, 3vw, 2.5rem); overflow: auto; }
+.resource-registration-dialog .registration-panel { padding: clamp(1.25rem, 3vw, 2.5rem); }
 .resource-registration-dialog .workspace-form { max-width: 800px; margin: 1.25rem auto 0; }
 .resource-registration-dialog .registration-section { display: flow-root; min-inline-size: 0; width: 100%; margin: 0 0 1rem; padding: 1rem; background: var(--workspace-section-surface); border: 1px solid var(--workspace-section-border); border-radius: 10px; }
 .resource-registration-dialog .registration-section legend { float: inline-start; width: 100%; margin: 0 0 1rem; padding: 0 0 .7rem; color: var(--heading); border-bottom: 1px solid var(--workspace-section-border); font-size: 1rem; font-weight: 700; }
@@ -105,6 +107,12 @@ body:has(.map-workspace) {
 .resource-type-hint span { padding: .3rem .5rem; background: var(--workspace-input-surface); border: 1px solid var(--workspace-border); border-radius: 99px; }
 .registration-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; }
 .registration-actions .btn-submit { width: auto; margin: 0; }
+
+@media (max-width: 640px) {
+    .resource-registration-dialog { width: calc(100vw - 1rem); max-width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); }
+    .resource-registration-dialog .registration-panel { padding: 1rem; }
+    .resource-registration-dialog .form-row { grid-template-columns: 1fr; }
+}
 
 .main-content:has(.map-workspace) {
     display: flex;

@@ -266,10 +266,10 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
     public Task VerifyAsync(int ressursId, bool approve, ClaimsPrincipal actor, string? reason) =>
         Mutate(async () =>
         {
-            var aktør = Require(actor, AppRoles.Verifiseringsansvarlig);
+            var aktør = Require(actor, AppRoles.DispatchTeam);
             var ressurs = await HentRessurs(ressursId);
             if (ressurs.EierID == aktør)
-                throw new WorkflowException("Du kan ikke verifisere din egen ressurs. En annen verifiseringsansvarlig må kontrollere den.");
+                throw new WorkflowException("Du kan ikke verifisere din egen ressurs. En annen dispatch-bruker må kontrollere den.");
             if (Opptatt(ressurs)) throw new WorkflowException("Forespurte eller tildelte ressurser må frigjøres først.");
             if (!approve && ressurs.Status == Statuser.Ressurs.Avvist)
                 throw new WorkflowException("Ressursen er allerede avvist.");
@@ -278,7 +278,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             if (approve && GyldighetDager is < 1 or > 3650)
                 throw new WorkflowException("Ugyldig konfigurasjon for godkjenningens varighet.");
 
-            var begrunnelse = approve ? Begrunnelse(reason, "Godkjent av verifiseringsansvarlig.") : Begrunnelse(reason, "");
+            var begrunnelse = approve ? Begrunnelse(reason, "Godkjent av dispatch.") : Begrunnelse(reason, "");
             db.Verifiseringer.Add(new Verifisering
             {
                 RessursID = ressursId, VerifisertAvID = aktør, Tidspunkt = DateTime.UtcNow,

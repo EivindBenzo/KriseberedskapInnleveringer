@@ -12,7 +12,6 @@ public class ResourceAuthorizationTests
     [InlineData(8, 7, AppRoles.Ressursleverandor, false)]
     [InlineData(7, 7, AppRoles.OffentligAktor, false)]
     [InlineData(7, 7, AppRoles.DispatchTeam, false)]
-    [InlineData(7, 7, AppRoles.Verifiseringsansvarlig, false)]
     [InlineData(7, 7, AppRoles.Kriseledelse, false)]
     public void OnlyTheProviderWhoOwnsTheResourceCanManageIt(int userId, int eierId, string role, bool expected)
     {

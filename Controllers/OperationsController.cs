@@ -24,7 +24,6 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
         var provider = User.IsInRole(AppRoles.Ressursleverandor);
         var dispatch = User.IsInRole(AppRoles.DispatchTeam);
         var leader = User.IsInRole(AppRoles.Kriseledelse);
-        var verifier = User.IsInRole(AppRoles.Verifiseringsansvarlig);
         var publicActor = User.IsInRole(AppRoles.OffentligAktor);
         var now = DateTime.UtcNow;
 
@@ -33,8 +32,11 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
         IQueryable<Ressurs> All() => ResourceQueries.WithDetails(db.Ressurser.AsNoTracking()).AsSplitQuery();
         if (leader) Add(await All().ToListAsync());
         if (provider) Add(await All().Where(r => r.EierID == actorId).ToListAsync());
-        if (dispatch) Add(await All().Where(WorkflowEligibility.EligibleExpression(now)).ToListAsync());
-        if (verifier) Add(await All().Where(WorkflowEligibility.TrengerVerifisering(now)).ToListAsync());
+        if (dispatch)
+        {
+            Add(await All().Where(WorkflowEligibility.EligibleExpression(now)).ToListAsync());
+            Add(await All().Where(WorkflowEligibility.TrengerVerifisering(now)).ToListAsync());
+        }
 
         var requestQuery = db.Forespørsler.AsNoTracking()
             .Include(f => f.Ressurs!).ThenInclude(r => r.Ressurstype)
@@ -48,9 +50,8 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
             requestQuery = requestQuery.Where(f => provider && f.Ressurs!.EierID == actorId);
             assignmentQuery = assignmentQuery.Where(t => provider && t.Forespørsel!.Ressurs!.EierID == actorId);
         }
-        var noRequests = verifier && !seesAll && !provider;
-        List<Forespørsel> requests = noRequests ? [] : await requestQuery.OrderByDescending(f => f.Sendt).ToListAsync();
-        List<Tildeling> assignments = noRequests ? [] : await assignmentQuery.OrderByDescending(t => t.Tildelt).ToListAsync();
+        List<Forespørsel> requests = await requestQuery.OrderByDescending(f => f.Sendt).ToListAsync();
+        List<Tildeling> assignments = await assignmentQuery.OrderByDescending(t => t.Tildelt).ToListAsync();
 
         var needs = new Dictionary<int, Behov>();
         var needQuery = db.Behov.AsNoTracking().Include(b => b.Behovstype).Include(b => b.Hendelse);
@@ -81,7 +82,7 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
         });
     }
 
-    [HttpPost, Authorize(Roles = AppRoles.Verifiseringsansvarlig)]
+    [HttpPost, Authorize(Roles = AppRoles.DispatchTeam)]
     public Task<IActionResult> Verify(int id, bool approve, string? reason) =>
         Run(() => workflow.VerifyAsync(id, approve, User, reason));
 

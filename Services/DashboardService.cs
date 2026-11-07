@@ -13,7 +13,6 @@ public class DashboardService(AppDbContext db)
     {
         var actorId = ResourcePermissions.BrukerId(user) ?? throw new InvalidOperationException();
         var provider = user.IsInRole(AppRoles.Ressursleverandor);
-        var verifier = user.IsInRole(AppRoles.Verifiseringsansvarlig);
         var dispatch = user.IsInRole(AppRoles.DispatchTeam);
         var leader = user.IsInRole(AppRoles.Kriseledelse);
         var publicActor = user.IsInRole(AppRoles.OffentligAktor);
@@ -41,11 +40,6 @@ public class DashboardService(AppDbContext db)
             incoming = await Forespørsler().Where(f => f.Ressurs!.EierID == actorId)
                 .OrderByDescending(f => f.Sendt).Take(20).ToListAsync();
         }
-        if (verifier)
-        {
-            queue = await Ressurser().Where(WorkflowEligibility.TrengerVerifisering(nowUtc))
-                .OrderBy(r => r.Registrert).AsSplitQuery().ToListAsync();
-        }
         if (dispatch || leader)
         {
             requests = await Forespørsler()
@@ -58,6 +52,11 @@ public class DashboardService(AppDbContext db)
                 .OrderByDescending(t => t.Tildelt).ToListAsync();
             foreach (var behov in await BehovMedDetaljer().Where(b => b.Status != Statuser.Behov.Løst).ToListAsync())
                 needs[behov.BehovID] = behov;
+        }
+        if (dispatch)
+        {
+            queue = await Ressurser().Where(WorkflowEligibility.TrengerVerifisering(nowUtc))
+                .OrderBy(r => r.Registrert).AsSplitQuery().ToListAsync();
         }
         if (dispatch)
             matching = await Ressurser().Where(WorkflowEligibility.EligibleExpression(nowUtc))

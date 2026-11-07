@@ -21,7 +21,6 @@ public static class DemoDataSeeder
         var publicActor = await Id(AppRoles.OffentligAktor);
         var provider = await Id(AppRoles.Ressursleverandor);
         var dispatch = await Id(AppRoles.DispatchTeam);
-        var verifier = await Id(AppRoles.Verifiseringsansvarlig);
         var leader = await Id(AppRoles.Kriseledelse);
 
         var now = DateTime.UtcNow;
@@ -59,7 +58,7 @@ public static class DemoDataSeeder
         foreach (var (ressurs, hoursAgo) in new[] { (truck, 29), (drone, 27), (generator, 25) })
             db.Verifiseringer.Add(new Verifisering
             {
-                RessursID = ressurs.RessursID, VerifisertAvID = verifier, Tidspunkt = now.AddHours(-hoursAgo),
+                RessursID = ressurs.RessursID, VerifisertAvID = dispatch, Tidspunkt = now.AddHours(-hoursAgo),
                 Resultat = Statuser.Resultat.Godkjent
             });
 
@@ -109,11 +108,11 @@ public static class DemoDataSeeder
             });
         Logg(leader, "HendelseOpprettet", flom.Navn, 30);
         Logg(provider, "RessursRegistrert", "Kjøretøy: Terrengbil 4x4", 30, truck.RessursID);
-        Logg(verifier, "RessursGodkjent", "Godkjent av verifiseringsansvarlig.", 29, truck.RessursID);
+        Logg(dispatch, "RessursGodkjent", "Godkjent av dispatch.", 29, truck.RessursID);
         Logg(provider, "RessursRegistrert", "Drone: Drone med varmekamera", 28, drone.RessursID);
-        Logg(verifier, "RessursGodkjent", "Godkjent av verifiseringsansvarlig.", 27, drone.RessursID);
+        Logg(dispatch, "RessursGodkjent", "Godkjent av dispatch.", 27, drone.RessursID);
         Logg(provider, "RessursRegistrert", "Generator: Aggregat 20 kVA", 26, generator.RessursID);
-        Logg(verifier, "RessursGodkjent", "Godkjent av verifiseringsansvarlig.", 25, generator.RessursID);
+        Logg(dispatch, "RessursGodkjent", "Godkjent av dispatch.", 25, generator.RessursID);
         Logg(provider, "RessursRegistrert", "Maskin: Beltegraver 14 tonn", 2, excavator.RessursID);
         Logg(publicActor, "BehovRegistrert", strøm.Beskrivelse, 24, needId: strøm.BehovID);
         Logg(publicActor, "BehovRegistrert", søk.Beskrivelse, 8, needId: søk.BehovID);

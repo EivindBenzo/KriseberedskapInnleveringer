@@ -5,7 +5,6 @@
     var provider = User.IsInRole(AppRoles.Ressursleverandor);
     var dispatch = User.IsInRole(AppRoles.DispatchTeam);
     var leader = User.IsInRole(AppRoles.Kriseledelse);
-    var verifier = User.IsInRole(AppRoles.Verifiseringsansvarlig);
     var publicActor = User.IsInRole(AppRoles.OffentligAktor);
     var actorId = ResourcePermissions.BrukerId(User);
     var now = DateTime.UtcNow;
@@ -13,8 +12,7 @@
     var active = Model.Requests.Count(f => f.Svar is Statuser.Svar.Venter || (f.Svar == Statuser.Svar.Godtatt && f.Tildeling?.Fullført == null));
     var showRequests = provider || dispatch || leader;
     var showNeeds = publicActor || dispatch || leader || provider;
-    var resourceHeading = verifier && !provider && !dispatch && !leader ? "Verifiseringskø"
-        : provider ? "Mine ressurser" : dispatch && !leader ? "Tilgjengelige ressurser" : "Ressursoversikt";
+    var resourceHeading = provider ? "Mine ressurser" : dispatch && !leader ? "Operative ressurser" : "Ressursoversikt";
     bool CanVerify(Ressurs resource) =>
         !Statuser.Ressurs.Opptatt.Contains(resource.Status) && !WorkflowEligibility.HasCurrentApproval(resource, now);
     string Stamp(DateTime value) => value.ToString("dd.MM.yyyy HH:mm") + " UTC";
@@ -127,11 +125,11 @@
         }
     </div>
 }
-<details class="workflow-section" id="resources" open="@(vis == "resources" || (vis is null && verifier && !provider && !dispatch && !leader))">
+<details class="workflow-section" id="resources" open="@(vis == "resources")">
 <summary>@resourceHeading <span class="count-badge">@Model.Resources.Count</span></summary>
 @if (Model.Resources.Count == 0)
 {
-    <p>@(verifier && !provider && !dispatch && !leader ? "Ingen ressurser venter på verifisering." : "Ingen ressurser å vise.")</p>
+    <p>Ingen ressurser å vise.</p>
 }
 @foreach (var resource in Model.Resources)
 {
@@ -163,7 +161,7 @@
                 </form>
             }
         </details>
-        @if (verifier && CanVerify(resource))
+        @if (dispatch && CanVerify(resource))
         {
             <form asp-action="Verify" method="post">
                 <input type="hidden" name="id" value="@resource.RessursID" />
@@ -175,7 +173,7 @@
                 }
                 else
                 {
-                    <span>En annen verifiseringsansvarlig må godkjenne din ressurs.</span>
+                    <span>En annen dispatch-bruker må godkjenne din ressurs.</span>
                 }
                 <button name="approve" value="false" type="submit">Avvis</button>
             </form>

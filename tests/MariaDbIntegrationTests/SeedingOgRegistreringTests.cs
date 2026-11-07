@@ -90,7 +90,6 @@ public class SeedingOgRegistreringTests
     [Theory]
     [InlineData(AppRoles.Kriseledelse)]
     [InlineData(AppRoles.DispatchTeam)]
-    [InlineData(AppRoles.Verifiseringsansvarlig)]
     public async Task ManKanIkkeGiSegSelvEnBeskyttetRolleVedRegistrering(string rolle)
     {
         await using var test = await TestDatabase.CreateAsync();
