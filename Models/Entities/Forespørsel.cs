@@ -41,6 +41,7 @@ public class Tildeling
 public class Hendelseslogg
 {
     public long LoggID { get; set; }
+    public int? HendelseID { get; set; }
     public int? RessursID { get; set; }
     public int? BehovID { get; set; }
     public int? ForespørselID { get; set; }
@@ -48,6 +49,8 @@ public class Hendelseslogg
     public DateTime Tidspunkt { get; set; } = DateTime.UtcNow;
     public string Handling { get; set; } = string.Empty;
     public string Begrunnelse { get; set; } = string.Empty;
+
+    public Hendelse? Hendelse { get; set; }
 }
 
 /// <summary>Direkte melding mellom to registrerte operative brukere.</summary>

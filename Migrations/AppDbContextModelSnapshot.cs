@@ -417,6 +417,9 @@ namespace HeimevernetInnlevering1.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("varchar(60)");
 
+                    b.Property<int?>("HendelseID")
+                        .HasColumnType("int");
+
                     b.Property<int?>("RessursID")
                         .HasColumnType("int");
 
@@ -430,6 +433,8 @@ namespace HeimevernetInnlevering1.Migrations
                     b.HasKey("LoggID");
 
                     b.HasIndex("ForespørselID");
+
+                    b.HasIndex("HendelseID", "Tidspunkt");
 
                     b.HasIndex("RessursID", "Tidspunkt");
 
@@ -902,6 +907,16 @@ namespace HeimevernetInnlevering1.Migrations
                         .IsRequired();
 
                     b.Navigation("OpprettetAv");
+                });
+
+            modelBuilder.Entity("HeimevernetInnlevering1.Models.Hendelseslogg", b =>
+                {
+                    b.HasOne("HeimevernetInnlevering1.Models.Hendelse", "Hendelse")
+                        .WithMany()
+                        .HasForeignKey("HendelseID")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Hendelse");
                 });
 
             modelBuilder.Entity("HeimevernetInnlevering1.Models.Melding", b =>

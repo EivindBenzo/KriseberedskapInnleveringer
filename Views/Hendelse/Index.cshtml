@@ -19,6 +19,8 @@
         <p class="notice" role="status">@success</p>
     }
 
+    @if (User.IsInRole(AppRoles.Kriseledelse))
+    {
     <details class="workflow-section" open="@(hendelser.Count == 0 || !ViewData.ModelState.IsValid)">
         <summary>+ Opprett hendelse</summary>
         <form asp-action="Index" method="post" class="form-container">
@@ -45,6 +47,7 @@
             <button type="submit" class="btn-submit">Opprett hendelse</button>
         </form>
     </details>
+    }
 
     <h2>Alle hendelser <span class="count-badge">@hendelser.Count</span></h2>
     @if (hendelser.Count == 0)
@@ -63,7 +66,8 @@
             {
                 <p>@h.Beskrivelse</p>
             }
-            @if (h.Status == Statuser.Hendelse.Aktiv)
+            <a asp-action="Arbeidsrom" asp-route-id="@h.HendelseID" class="btn-secondary">Åpne arbeidsrom</a>
+            @if (h.Status == Statuser.Hendelse.Aktiv && User.IsInRole(AppRoles.Kriseledelse))
             {
                 <form asp-action="Avslutt" asp-route-id="@h.HendelseID" method="post" class="inline-form">
                     <button type="submit" class="btn-secondary">Avslutt hendelsen</button>

@@ -75,11 +75,12 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
     }
 
     private void Logg(int utførtAv, string handling, string begrunnelse, int? ressursId = null,
-        int? behovId = null, int? forespørselId = null) => db.Hendelseslogg.Add(new Hendelseslogg
+        int? behovId = null, int? forespørselId = null, int? hendelseId = null) => db.Hendelseslogg.Add(new Hendelseslogg
         {
             UtførtAvID = utførtAv, Handling = handling,
             Begrunnelse = begrunnelse.Length > 1000 ? begrunnelse[..1000] : begrunnelse,
-            Tidspunkt = DateTime.UtcNow, RessursID = ressursId, BehovID = behovId, ForespørselID = forespørselId
+            Tidspunkt = DateTime.UtcNow, RessursID = ressursId, BehovID = behovId, ForespørselID = forespørselId,
+            HendelseID = hendelseId
         });
 
     private async Task<Ressurs> HentRessurs(int id) =>

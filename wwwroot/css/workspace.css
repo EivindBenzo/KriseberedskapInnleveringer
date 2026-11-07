@@ -269,6 +269,27 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
     border-color: var(--color-teal, #087181);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-teal, #087181) 22%, transparent);
 }
+
+.incident-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+}
+
+.incident-log {
+    display: grid;
+    gap: .75rem;
+    padding-left: 1.25rem;
+}
+
+.incident-log li {
+    display: grid;
+    gap: .2rem;
+}
+
+@media (max-width: 720px) {
+    .incident-grid { grid-template-columns: 1fr; }
+}
 dialog.message-composer:not([open]), dialog.unread-message-dialog:not([open]) { display: none; }
 .message-composer::backdrop, .unread-message-dialog::backdrop { background: rgba(5, 23, 31, .18); }
 .message-composer form, .unread-message-dialog { display: grid; gap: .85rem; padding: 1.15rem; }

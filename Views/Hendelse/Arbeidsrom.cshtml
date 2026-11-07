@@ -1,0 +1,80 @@
+@model HeimevernetInnlevering1.ViewModels.IncidentWorkspaceViewModel
+@using HeimevernetInnlevering1.Models
+@{
+    ViewData["Title"] = Model.Incident.Navn;
+    string Stamp(DateTime value) => value.ToString("dd.MM.yyyy HH:mm") + " UTC";
+}
+<section class="operations-workspace incident-workspace" aria-labelledby="incident-workspace-heading">
+    <div class="page-heading">
+        <div>
+            <span class="eyebrow">HENDELSESARBEIDSROM</span>
+            <h1 id="incident-workspace-heading">@Model.Incident.Navn</h1>
+            <p>@Model.Incident.Område · startet @Stamp(Model.Incident.Starttidspunkt)</p>
+        </div>
+        <a asp-action="Index" class="btn-secondary">Alle hendelser</a>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.Incident.Beskrivelse))
+    {
+        <p class="dashboard-briefing">@Model.Incident.Beskrivelse</p>
+    }
+    @if (TempData["WorkflowError"] is string error)
+    {
+        <p class="workspace-alert" role="alert">@error</p>
+    }
+    @if (TempData["WorkflowSuccess"] is string success)
+    {
+        <p class="notice" role="status">@success</p>
+    }
+
+    <section class="dashboard-action-grid" aria-label="Hendelsessammendrag">
+        <div class="dashboard-action dashboard-action-urgent"><span class="dashboard-action-count">@Model.OpenNeeds.Count(b => b.Prioritet == Statuser.Prioritet.Akutt)</span><span><strong>Akutte behov</strong><small>Prioriteres først</small></span></div>
+        <div class="dashboard-action dashboard-action-requests"><span class="dashboard-action-count">@Model.OpenNeeds.Count</span><span><strong>Åpne behov</strong><small>Krever koordinering</small></span></div>
+        <div class="dashboard-action dashboard-action-confirmed"><span class="dashboard-action-count">@Model.ActiveAssignments.Count</span><span><strong>Aktive tildelinger</strong><small>Følg levering og fremdrift</small></span></div>
+    </section>
+
+    <div class="incident-grid">
+        <section class="dashboard-panel">
+            <h2>Åpne behov</h2>
+            @if (Model.OpenNeeds.Count == 0) { <p class="empty-state">Ingen åpne behov er knyttet til hendelsen.</p> }
+            @foreach (var need in Model.OpenNeeds)
+            {
+                <article class="workflow-item">
+                    <div class="results-heading"><h3>@need.Behovstype!.Navn · @need.Stedsnavn</h3><span class="status-badge @(need.Prioritet == Statuser.Prioritet.Akutt ? "status-critical" : "status-warning")">@Statuser.Visning(need.Prioritet)</span></div>
+                    <p>@need.Beskrivelse</p>
+                    <span class="resource-meta">@Statuser.Visning(need.Status)@(need.Frist is DateTime deadline ? " · frist " + Stamp(deadline) : "")</span>
+                </article>
+            }
+        </section>
+        <section class="dashboard-panel">
+            <h2>Aktive tildelinger</h2>
+            @if (Model.ActiveAssignments.Count == 0) { <p class="empty-state">Ingen aktive tildelinger i denne hendelsen.</p> }
+            @foreach (var assignment in Model.ActiveAssignments)
+            {
+                <article class="workflow-item">
+                    <div class="results-heading"><h3>@assignment.Forespørsel!.Ressurs!.Navn</h3><span class="status-badge status-positive">@Statuser.Visning(assignment.Fremdrift)</span></div>
+                    <p>@assignment.Forespørsel.Behov!.Behovstype!.Navn · @assignment.Forespørsel.Behov.Stedsnavn</p>
+                    <span class="resource-meta">Sist oppdatert @Stamp(assignment.SistOppdatert)</span>
+                </article>
+            }
+        </section>
+    </div>
+
+    <section class="dashboard-panel">
+        <h2>Operativ logg</h2>
+        <form asp-action="Beslutning" asp-route-id="@Model.Incident.HendelseID" method="post" class="inline-form">
+            <label for="decisionNote">Ny beslutning eller status</label>
+            <input id="decisionNote" name="note" maxlength="1000" required placeholder="Hva ble besluttet, av hvem og hvorfor?" />
+            <button type="submit" class="btn-submit">Legg til i loggen</button>
+        </form>
+        @if (Model.Activity.Count == 0) { <p class="empty-state">Ingen hendelsesbeslutninger er loggført ennå.</p> }
+        else
+        {
+            <ol class="incident-log">
+            @foreach (var entry in Model.Activity)
+            {
+                <li><strong>@entry.Handling</strong><span>@entry.Begrunnelse · @Stamp(entry.Tidspunkt)</span></li>
+            }
+            </ol>
+        }
+    </section>
+</section>

@@ -69,9 +69,13 @@
                         {
                             <li><a asp-controller="Behov" asp-action="Registrer" class="nav-link" aria-current="@Aktiv("Behov", "Registrer")">Meld behov</a></li>
                         }
-                        @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
+                        @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse)
+                            || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.DispatchTeam))
                         {
                             <li><a asp-controller="Hendelse" asp-action="Index" class="nav-link" aria-current="@Aktiv("Hendelse", "Index")">Hendelser</a></li>
+                        }
+                        @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
+                        {
                             <li><a asp-controller="Admin" asp-action="Index" class="nav-link" aria-current="@Aktiv("Admin", "Index")">Brukere</a></li>
                         }
                         @if (canUseOperations)

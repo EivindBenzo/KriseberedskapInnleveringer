@@ -245,6 +245,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             e.Property(l => l.Begrunnelse).HasMaxLength(1000).IsRequired();
             e.HasIndex(l => new { l.RessursID, l.Tidspunkt });
             e.HasIndex(l => l.ForespørselID);
+            e.HasIndex(l => new { l.HendelseID, l.Tidspunkt });
+            e.HasOne(l => l.Hendelse).WithMany()
+                .HasForeignKey(l => l.HendelseID).OnDelete(DeleteBehavior.SetNull);
         });
     }
 
