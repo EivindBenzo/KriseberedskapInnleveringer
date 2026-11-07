@@ -9,6 +9,7 @@
     var actorId = ResourcePermissions.BrukerId(User);
     var now = DateTime.UtcNow;
     var eligibleResources = Model.Resources.Where(r => WorkflowEligibility.IsEligible(r, now)).ToList();
+    var verificationCount = Model.Resources.Count(WorkflowEligibility.TrengerVerifisering(now).Compile());
     var active = Model.Requests.Count(f => f.Svar is Statuser.Svar.Venter || (f.Svar == Statuser.Svar.Godtatt && f.Tildeling?.Fullført == null));
     var showRequests = provider || dispatch || leader;
     var showNeeds = publicActor || dispatch || leader || provider;
@@ -19,6 +20,10 @@
 
     // Hvilken seksjon som skal være åpen (?vis=resources eller ?vis=needs). Bestemmes på serveren.
     var vis = ViewBag.Vis as string;
+    var showRequestsPanel = vis is null or "requests";
+    var showAssignmentsPanel = vis is null or "assignments";
+    var showResourcesPanel = vis is null or "resources" or "verification";
+    var showNeedsPanel = vis is null or "needs";
     // Etter en handling sendes brukeren tilbake til samme element på siden (#anker), så siden ikke hopper til toppen.
     string Tilbake(string? seksjon, string anker) => Url.Action("Index", new { vis = seksjon }) + "#" + anker;
 }
@@ -33,13 +38,17 @@
 <nav class="section-nav" aria-label="Arbeidsområder">
     @if (showRequests)
     {
-        <a href="#requests">Forespørsler <span class="count-badge">@active</span></a>
-        <a href="#assignments">Tildelinger</a>
+        <a asp-action="Index" asp-route-vis="requests" asp-fragment="requests" aria-current="@(vis == "requests" ? "page" : null)">Forespørsler <span class="count-badge">@active</span></a>
+        <a asp-action="Index" asp-route-vis="assignments" asp-fragment="assignments" aria-current="@(vis == "assignments" ? "page" : null)">Tildelinger</a>
     }
-    <a asp-action="Index" asp-route-vis="resources" asp-fragment="resources">@resourceHeading</a>
+    <a asp-action="Index" asp-route-vis="resources" asp-fragment="resources" aria-current="@(vis == "resources" ? "page" : null)">@resourceHeading</a>
+    @if (dispatch)
+    {
+        <a asp-action="Index" asp-route-vis="verification" asp-fragment="resources" aria-current="@(vis == "verification" ? "page" : null)">Verifisering <span class="count-badge">@verificationCount</span></a>
+    }
     @if (showNeeds)
     {
-        <a asp-action="Index" asp-route-vis="needs" asp-fragment="needs">Behov</a>
+        <a asp-action="Index" asp-route-vis="needs" asp-fragment="needs" aria-current="@(vis == "needs" ? "page" : null)">Behov</a>
     }
 </nav>
 @if (TempData["WorkflowError"] is string error)
@@ -50,6 +59,7 @@
 {
     <p class="notice" role="status">@success</p>
 }
+<div hidden="@(!showRequestsPanel)">
 <h2 id="requests" hidden="@(!showRequests)">@(provider && !dispatch && !leader ? "Forespørsler til meg" : "Forespørsler og koordinering")</h2>
 @if (showRequests && Model.Requests.Count == 0)
 {
@@ -99,6 +109,8 @@
         }
     </div>
 }
+</div>
+<div hidden="@(!showAssignmentsPanel)">
 <h2 id="assignments" hidden="@(!showRequests)">Tildelinger</h2>
 @if (showRequests && Model.Assignments.Count == 0)
 {
@@ -125,8 +137,9 @@
         }
     </div>
 }
-<details class="workflow-section" id="resources" open="@(vis == "resources")">
-<summary>@resourceHeading <span class="count-badge">@Model.Resources.Count</span></summary>
+</div>
+<details class="workflow-section" id="resources" hidden="@(!showResourcesPanel)" open>
+<summary>@(vis == "verification" ? "Ressurser som venter på verifisering" : resourceHeading) <span class="count-badge">@Model.Resources.Count</span></summary>
 @if (Model.Resources.Count == 0)
 {
     <p>Ingen ressurser å vise.</p>
@@ -181,7 +194,7 @@
     </div>
 }
 </details>
-<details class="workflow-section" id="needs" hidden="@(!showNeeds)" open="@(vis == "needs")">
+<details class="workflow-section" id="needs" hidden="@(!showNeeds || !showNeedsPanel)" open>
 <summary>Behov og fremdrift <span class="count-badge">@Model.Needs.Count</span></summary>
 @if (publicActor)
 {

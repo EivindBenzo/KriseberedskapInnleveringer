@@ -4,6 +4,7 @@ namespace HeimevernetInnlevering1.ViewModels;
 
 public class DashboardViewModel
 {
+    public string CurrentUserName { get; init; } = string.Empty;
     public IReadOnlyList<Ressurs> OwnResources { get; init; } = [];
     public IReadOnlyList<Forespørsel> IncomingRequests { get; init; } = [];
     public IReadOnlyList<Ressurs> VerificationQueue { get; init; } = [];

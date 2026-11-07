@@ -22,7 +22,7 @@
     var pendingIncoming = Model.IncomingRequests.Count(f => f.Svar == Statuser.Svar.Venter);
     var pendingDispatch = Model.Requests.Count(f => f.Svar == Statuser.Svar.Venter) + Model.VerificationQueue.Count;
     var publicInProgress = Model.Needs.Count(n => n.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes);
-    var displayName = User.Identity?.Name?.Split('@')[0] ?? "deg";
+    var displayName = Model.CurrentUserName;
     var nextStep = provider
         ? pendingIncoming > 0 ? "Svar på forespørslene som venter på ressursene dine." : "Kontroller at ressursene dine er klare til bruk."
         : dispatch

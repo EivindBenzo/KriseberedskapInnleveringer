@@ -55,6 +55,31 @@ body:has(.map-workspace) {
     font-size: .9rem;
     font-weight: 900;
 }
+.leaflet-div-icon.resource-map-marker {
+    display: grid;
+    place-items: center;
+    width: 52px !important;
+    height: 52px !important;
+    background: transparent !important;
+    border: 0 !important;
+}
+.resource-map-marker img { width: 32px; height: 32px; }
+.resource-map-marker span {
+    position: absolute;
+    right: -9px;
+    bottom: -3px;
+    padding: .12rem .32rem;
+    color: #fff;
+    background: #1d4ed8;
+    border: 1px solid #fff;
+    border-radius: .4rem;
+    font-size: .64rem;
+    font-weight: 800;
+    line-height: 1.15;
+    white-space: nowrap;
+}
+.resource-map-marker.delivery-fremme span, .resource-map-marker.delivery-fullført span { background: #15803d; }
+.map-delivery-key { display: inline-grid; place-items: center; width: 1rem; height: 1rem; margin-left: .5rem; color: #fff; background: #1d4ed8; border-radius: .25rem; font-size: .75rem; font-weight: 800; }
 
 @keyframes urgent-marker-pulse {
     70% { filter: drop-shadow(1px 0 #d92d20) drop-shadow(-1px 0 #d92d20) drop-shadow(0 1px #d92d20) drop-shadow(0 -1px #d92d20) drop-shadow(0 0 8px rgba(217, 45, 32, 0)); }

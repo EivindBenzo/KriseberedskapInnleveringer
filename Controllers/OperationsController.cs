@@ -19,7 +19,7 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
     [HttpGet]
     public async Task<IActionResult> Index(string? vis = null)
     {
-        ViewBag.Vis = vis is "resources" or "needs" ? vis : null;
+        ViewBag.Vis = vis is "resources" or "needs" or "requests" or "assignments" or "verification" ? vis : null;
         if (ResourcePermissions.BrukerId(User) is not int actorId) return Forbid();
         var provider = User.IsInRole(AppRoles.Ressursleverandor);
         var dispatch = User.IsInRole(AppRoles.DispatchTeam);
@@ -34,7 +34,8 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
         if (provider) Add(await All().Where(r => r.EierID == actorId).ToListAsync());
         if (dispatch)
         {
-            Add(await All().Where(WorkflowEligibility.EligibleExpression(now)).ToListAsync());
+            if (ViewBag.Vis as string != "verification")
+                Add(await All().Where(WorkflowEligibility.EligibleExpression(now)).ToListAsync());
             Add(await All().Where(WorkflowEligibility.TrengerVerifisering(now)).ToListAsync());
         }
 

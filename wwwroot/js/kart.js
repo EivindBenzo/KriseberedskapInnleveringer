@@ -56,6 +56,8 @@
     data.markorer.forEach(function (m) {
         const symbol = m.akutt
             ? L.divIcon({ className: 'urgent-map-marker', html: '<img src="' + m.ikon + '" alt=""><span aria-hidden="true">!</span>', iconSize: [44, 44], iconAnchor: [22, 22], popupAnchor: [0, -22] })
+            : m.leveranseStatus
+                ? L.divIcon({ className: 'resource-map-marker delivery-' + m.leveranseStatus.toLowerCase().replace(' ', '-'), html: '<img src="' + m.ikon + '" alt=""><span>' + m.leveranseStatus + '</span>', iconSize: [52, 52], iconAnchor: [26, 26], popupAnchor: [0, -24] })
             : L.icon({ iconUrl: m.ikon, iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -14] });
         const markor = L.marker([m.lat, m.lng], { icon: symbol, title: m.tittel, alt: m.tittel })
             .addTo(kart)

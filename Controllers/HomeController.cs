@@ -30,7 +30,8 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
         var contacts = await (from user in db.Users.AsNoTracking()
                               join userRole in db.UserRoles on user.Id equals userRole.UserId
                               join role in db.Roles on userRole.RoleId equals role.Id
-                              where role.Name != null && role.Name != AppRoles.OffentligAktor && AppRoles.All.Contains(role.Name)
+                              where role.Name != null && role.Name != AppRoles.OffentligAktor &&
+                                    user.Email != "verifisering@gmail.com" && AppRoles.All.Contains(role.Name)
                               orderby role.Name, user.Fornavn, user.Etternavn
                               select new ContactDirectoryEntry(
                                   user.Id, user.FulltNavn, role.Name!, user.Organisasjon, user.Email ?? user.UserName ?? "Ikke oppgitt",
@@ -278,9 +279,27 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
                             $"Sted: {html.Encode(r.Stedsnavn)}<br>Status: {html.Encode(status.Availability)} · " +
                             $"Godkjenning: {html.Encode(status.Verification)}<br><a href=\"{html.Encode(lenke)}\">Vis detaljer i listen</a>";
                 return new KartMarkor((double)r.Breddegrad, (double)r.Lengdegrad, BildeUrl(RessursIkon.Sti(type, status)),
-                    $"{r.Navn} ({type}) – {status.Availability}", popup, r.RessursID == focus);
+                    $"{r.Navn} ({type}) – {status.Availability}", popup, r.RessursID == focus, false, null, r.RessursID);
             })
             .ToList();
+        var resourceIds = ressurser.Select(resource => resource.RessursID).ToList();
+        var deliveryStates = await db.Tildelinger.AsNoTracking().Include(assignment => assignment.Forespørsel)
+            .Where(assignment => resourceIds.Contains(assignment.Forespørsel!.RessursID))
+            .OrderByDescending(assignment => assignment.SistOppdatert)
+            .Select(assignment => new { assignment.Forespørsel!.RessursID, assignment.Fremdrift, assignment.Fullført })
+            .ToListAsync();
+        var latestDelivery = deliveryStates.GroupBy(assignment => assignment.RessursID)
+            .ToDictionary(group => group.Key, group => group.First());
+        markører = markører.Select(marker =>
+        {
+            if (marker.RessursId is not int resourceId || !latestDelivery.TryGetValue(resourceId, out var delivery)) return marker;
+            var label = delivery.Fullført is not null ? "Fullført" : Statuser.Visning(delivery.Fremdrift);
+            return marker with
+            {
+                LeveranseStatus = label,
+                Popup = marker.Popup.Replace("</strong>", $"</strong><br>Leveranse: {html.Encode(label)}", StringComparison.Ordinal)
+            };
+        }).ToList();
 
         if (User.Identity?.IsAuthenticated == true)
         {

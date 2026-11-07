@@ -12,6 +12,8 @@ public class DashboardService(AppDbContext db)
     public async Task<DashboardViewModel> BuildAsync(ClaimsPrincipal user, DateTime nowUtc)
     {
         var actorId = ResourcePermissions.BrukerId(user) ?? throw new InvalidOperationException();
+        var currentUserName = await db.Users.AsNoTracking().Where(account => account.Id == actorId)
+            .Select(account => account.Fornavn).SingleOrDefaultAsync() ?? "deg";
         var provider = user.IsInRole(AppRoles.Ressursleverandor);
         var dispatch = user.IsInRole(AppRoles.DispatchTeam);
         var leader = user.IsInRole(AppRoles.Kriseledelse);
@@ -105,6 +107,7 @@ public class DashboardService(AppDbContext db)
 
         return new DashboardViewModel
         {
+            CurrentUserName = currentUserName,
             OwnResources = own,
             IncomingRequests = incoming,
             VerificationQueue = queue,
