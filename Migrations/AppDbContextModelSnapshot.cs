@@ -662,8 +662,15 @@ namespace HeimevernetInnlevering1.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("TildelingID"));
 
+                    b.Property<string>("Avvik")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
                     b.Property<int>("ForespørselID")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("ForventetFremme")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Fremdrift")
                         .IsConcurrencyToken()
@@ -672,6 +679,17 @@ namespace HeimevernetInnlevering1.Migrations
                         .HasColumnType("varchar(15)");
 
                     b.Property<DateTime?>("Fullført")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal?>("LevertAntall")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<string>("Mottakskontakt")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<DateTime?>("OverleveringBekreftet")
                         .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("SistOppdatert")

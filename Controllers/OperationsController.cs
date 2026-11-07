@@ -117,8 +117,12 @@ public class OperationsController(AppDbContext db, WorkflowService workflow) : C
         Run(() => workflow.CancelAsync(id, User, reason));
 
     [HttpPost, Authorize(Roles = AppRoles.DispatchTeam)]
-    public Task<IActionResult> Assignment(int id, string status, string? reason) =>
-        Run(() => workflow.UpdateAssignmentAsync(id, status, User, reason));
+    public Task<IActionResult> Assignment(int id, string status, string? reason, DateTime? expectedArrival,
+        string? receivingContact, decimal? deliveredQuantity, string? deviation) =>
+        Run(() => workflow.UpdateAssignmentAsync(id, status, User, reason, expectedArrival, receivingContact,
+            deliveredQuantity, deviation), status == Statuser.Fremdrift.Fullført
+                ? "Overleveringen er bekreftet og oppdraget er fullført."
+                : $"Tildelingen er oppdatert til {Statuser.Visning(status)}.");
 
     [HttpPost, Authorize(Roles = AppRoles.Ressursleverandor)]
     public Task<IActionResult> Availability(int id, bool available, string? reason) =>

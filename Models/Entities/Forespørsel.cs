@@ -30,6 +30,11 @@ public class Tildeling
     public string Fremdrift { get; set; } = Statuser.Fremdrift.Bekreftet;
     public DateTime SistOppdatert { get; set; } = DateTime.UtcNow;
     public DateTime? Fullført { get; set; }
+    public DateTime? ForventetFremme { get; set; }
+    public string? Mottakskontakt { get; set; }
+    public DateTime? OverleveringBekreftet { get; set; }
+    public decimal? LevertAntall { get; set; }
+    public string? Avvik { get; set; }
 
     public Forespørsel? Forespørsel { get; set; }
 }

@@ -227,6 +227,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             e.ToTable("Tildeling");
             e.HasKey(t => t.TildelingID);
             e.Property(t => t.Fremdrift).HasMaxLength(15).IsRequired().IsConcurrencyToken();
+            e.Property(t => t.Mottakskontakt).HasMaxLength(150);
+            e.Property(t => t.LevertAntall).HasPrecision(12, 2);
+            e.Property(t => t.Avvik).HasMaxLength(1000);
             // Forespørsel 1 – 0..1 Tildeling. HasOne/WithOne og unik indeks: én tildeling per forespørsel.
             e.HasOne(t => t.Forespørsel).WithOne(f => f.Tildeling)
                 .HasForeignKey<Tildeling>(t => t.ForespørselID).OnDelete(DeleteBehavior.Restrict);

@@ -523,7 +523,11 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
     });
 
     /// <summary>Fremdrift ett steg om gangen. «fremme» gir ressursen «i bruk», «fullført» gir «returnert».</summary>
-    public Task UpdateAssignmentAsync(int tildelingId, string neste, ClaimsPrincipal actor, string? reason) => Mutate(async () =>
+    public Task UpdateAssignmentAsync(int tildelingId, string neste, ClaimsPrincipal actor, string? reason) =>
+        UpdateAssignmentAsync(tildelingId, neste, actor, reason, null, null, null, null);
+
+    public Task UpdateAssignmentAsync(int tildelingId, string neste, ClaimsPrincipal actor, string? reason,
+        DateTime? forventetFremme, string? mottakskontakt, decimal? levertAntall, string? avvik) => Mutate(async () =>
     {
         var aktør = Require(actor, AppRoles.DispatchTeam);
         var t = await db.Tildelinger.Include(x => x.Forespørsel!).ThenInclude(f => f.Ressurs)
@@ -533,16 +537,29 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         var ressurs = t.Forespørsel!.Ressurs!;
         if (ressurs.ReservertAntall < t.Forespørsel.Antall)
             throw new WorkflowException("Tildelingen er ikke lenger aktiv.");
+        if (mottakskontakt?.Trim().Length > 150)
+            throw new WorkflowException("Mottakskontakten kan ha høyst 150 tegn.");
+        if (avvik?.Trim().Length > 1000)
+            throw new WorkflowException("Avviket kan ha høyst 1000 tegn.");
+        if (levertAntall is <= 0 or > 1000000)
+            throw new WorkflowException("Levert antall må være større enn 0.");
+        if (levertAntall > t.Forespørsel.Antall)
+            throw new WorkflowException($"Levert antall kan ikke overstige {t.Forespørsel.Antall:0.##} {ressurs.Enhet}.");
         t.Fremdrift = neste;
         t.SistOppdatert = DateTime.UtcNow;
+        if (forventetFremme is not null) t.ForventetFremme = forventetFremme;
+        if (!string.IsNullOrWhiteSpace(mottakskontakt)) t.Mottakskontakt = mottakskontakt.Trim();
+        if (!string.IsNullOrWhiteSpace(avvik)) t.Avvik = avvik.Trim();
         if (neste == Statuser.Fremdrift.Fremme && ressurs.TilgjengeligAntall <= 0) ressurs.Status = Statuser.Ressurs.IBruk;
         if (neste == Statuser.Fremdrift.Fullført)
         {
             t.Fullført = DateTime.UtcNow;
+            t.OverleveringBekreftet = DateTime.UtcNow;
+            t.LevertAntall ??= levertAntall ?? t.Forespørsel.Antall;
             ressurs.ReservertAntall -= t.Forespørsel.Antall;
             if (ressurs.ErForbruksvare)
             {
-                ressurs.Antall -= t.Forespørsel.Antall;
+                ressurs.Antall -= t.LevertAntall.Value;
                 OppdaterLagerstatus(ressurs);
             }
             else
@@ -552,6 +569,9 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             }
         }
         var handling = "Fremdrift" + string.Concat(neste.Split(' ').Select(Statuser.Visning));
-        Logg(aktør, handling, Begrunnelse(reason, $"Fremdrift: {neste}."), ressurs.RessursID, t.Forespørsel.BehovID, t.ForespørselID);
+        var standard = neste == Statuser.Fremdrift.Fullført
+            ? $"Overlevering bekreftet: {t.LevertAntall:0.##} {ressurs.Enhet}."
+            : $"Fremdrift: {neste}.";
+        Logg(aktør, handling, Begrunnelse(reason, standard), ressurs.RessursID, t.Forespørsel.BehovID, t.ForespørselID);
     });
 }

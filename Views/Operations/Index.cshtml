@@ -125,12 +125,23 @@
             <span class="status-badge">@Statuser.Visning(assignment.Fremdrift)</span>
         </div>
         <p>@assignment.Forespørsel.Behov!.Stedsnavn · Behov #@assignment.Forespørsel.BehovID · sist oppdatert @Stamp(assignment.SistOppdatert)</p>
+        @if (assignment.ForventetFremme is DateTime expectedArrival) { <p class="resource-meta">Forventet fremme: @Stamp(expectedArrival)</p> }
+        @if (!string.IsNullOrWhiteSpace(assignment.Mottakskontakt)) { <p class="resource-meta">Mottakskontakt: @assignment.Mottakskontakt</p> }
+        @if (assignment.OverleveringBekreftet is DateTime handover) { <p class="resource-meta">Overlevert @assignment.LevertAntall?.ToString("0.##") @assignment.Forespørsel.Ressurs.Enhet · bekreftet @Stamp(handover)</p> }
+        @if (!string.IsNullOrWhiteSpace(assignment.Avvik)) { <p class="resource-meta">Avvik: @assignment.Avvik</p> }
         @if (dispatch && next is not null)
         {
             <form asp-action="Assignment" method="post">
                 <input type="hidden" name="id" value="@assignment.TildelingID" />
                 <input type="hidden" name="returnUrl" value="@Tilbake(null, "tildeling-" + assignment.TildelingID)" />
                 <input type="hidden" name="status" value="@next" />
+                <label>Forventet fremme <input type="datetime-local" name="expectedArrival" value="@assignment.ForventetFremme?.ToString("yyyy-MM-ddTHH:mm")" /></label>
+                <label>Mottakskontakt <input name="receivingContact" maxlength="150" value="@assignment.Mottakskontakt" /></label>
+                @if (next == Statuser.Fremdrift.Fullført)
+                {
+                    <label>Levert antall <input type="number" name="deliveredQuantity" min="0.01" max="@assignment.Forespørsel.Antall.ToString(System.Globalization.CultureInfo.InvariantCulture)" step="0.01" value="@assignment.Forespørsel.Antall.ToString(System.Globalization.CultureInfo.InvariantCulture)" required /></label>
+                    <label>Avvik (valgfritt) <input name="deviation" maxlength="1000" /></label>
+                }
                 <label>Kommentar (valgfritt) <input name="reason" maxlength="1000" /></label>
                 <button type="submit" class="btn-submit">Sett til @next</button>
             </form>
