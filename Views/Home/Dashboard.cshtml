@@ -599,7 +599,7 @@ else
 </section>
 @if (Model.UnreadMessages.Count > 0)
 {
-    <dialog id="unreadMessages" class="unread-message-dialog" aria-labelledby="unreadMessagesHeading">
+    <dialog id="unreadMessages" class="unread-message-dialog" data-unread-message-ids="@string.Join(",", Model.UnreadMessages.Select(message => message.Id))" aria-labelledby="unreadMessagesHeading">
         <div class="message-composer-heading">
             <div><span class="eyebrow">NYE MELDINGER</span><h2 id="unreadMessagesHeading">@Model.UnreadMessages.Count uleste meldinger</h2></div>
             <button type="button" class="message-close" data-close-unread aria-label="Lukk">×</button>

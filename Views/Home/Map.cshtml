@@ -18,6 +18,7 @@
     var sted = Context.Request.Query["sted"].ToString();
     var nå = DateTime.UtcNow;
     var harPunkt = kart.Plassering?.Lat is not null;
+    var resourceOwner = User.Identity?.Name ?? "din innloggede konto";
 }
 
 <link rel="stylesheet" href="~/css/workspace-map.css" asp-append-version="true" />
@@ -198,10 +199,11 @@
             <form id="resourceRegistrationForm" method="post" asp-controller="Home" asp-action="@(isEditing ? "Edit" : "Map")" asp-route-id="@ViewBag.EditId" class="workspace-form">
                     <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
                     <fieldset class="registration-section">
-                        <legend>Hva kan dere tilby?</legend>
+                        <legend>Ressurs og beholdning</legend>
+                        <p class="registration-owner"><strong>Eier:</strong> @resourceOwner <span>Ressursen knyttes til denne kontoen og vises under «Mine ressurser».</span></p>
                         <div class="form-group">
-                            <label for="resourceName">Ressursnavn <span class="required">*</span></label>
-                            <input type="text" id="resourceName" name="Navn" value="@Model?.Navn" class="form-control" placeholder="f.eks. Lastebil 1" minlength="2" maxlength="150" required />
+                            <label for="resourceName">Navn på ressursen <span class="required">*</span></label>
+                            <input type="text" id="resourceName" name="Navn" value="@Model?.Navn" class="form-control" placeholder="f.eks. Drikkevann" minlength="2" maxlength="150" required />
                             <span asp-validation-for="Navn" class="text-danger"></span>
                         </div>
                         <div class="form-group">
@@ -249,7 +251,7 @@
                         <p class="workspace-muted">Forbruksvarer, som vann og sand, trekkes fra beholdningen når oppdraget er fullført. Utstyr og kjøretøy blir tilgjengelige igjen etter ny verifisering.</p>
                     </fieldset>
                     <fieldset class="registration-section">
-                        <legend>Tilgjengelighet og kontakt</legend>
+                        <legend>Tilgjengelighet</legend>
                         <div class="form-row-compact">
                             <div class="form-group">
                                 <label for="tilgjengeligFra">Tilgjengelig fra <span class="required">*</span></label>
@@ -262,16 +264,8 @@
                                 <span asp-validation-for="TilgjengeligTil" class="text-danger"></span>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="kontaktperson">Kontaktperson <span class="required">*</span></label>
-                            <input type="text" id="kontaktperson" name="Kontaktperson" value="@Model?.Kontaktperson" class="form-control" maxlength="150" required autocomplete="off" placeholder="f.eks. Ola Nordmann" />
-                            <span asp-validation-for="Kontaktperson" class="text-danger"></span>
-                        </div>
-                        <div class="form-group">
-                            <label for="kontakttelefon">Kontakttelefon <span class="required">*</span></label>
-                            <input type="tel" id="kontakttelefon" name="Kontakttelefon" value="@Model?.Kontakttelefon" class="form-control" maxlength="20" required autocomplete="off" placeholder="f.eks. 999 99 999" />
-                            <span asp-validation-for="Kontakttelefon" class="text-danger"></span>
-                        </div>
+                        <input type="hidden" name="Kontaktperson" value="@Model?.Kontaktperson" />
+                        <input type="hidden" name="Kontakttelefon" value="@Model?.Kontakttelefon" />
                     </fieldset>
                     <input type="hidden" id="latitude" name="Breddegrad" value="@(harPunkt ? Model!.Breddegrad!.Value.ToString(CultureInfo.InvariantCulture) : "")" />
                     <input type="hidden" id="longitude" name="Lengdegrad" value="@(harPunkt ? Model!.Lengdegrad!.Value.ToString(CultureInfo.InvariantCulture) : "")" />

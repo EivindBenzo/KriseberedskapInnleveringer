@@ -9,7 +9,7 @@ public sealed record ResourceFilter(string? Type = null, string? Query = null, s
     bool Mine = false, bool Eligible = false, int? OwnerId = null)
 {
     public static ResourceFilter For(ClaimsPrincipal user, string? type, string? query, string? city, bool mine, bool eligible) =>
-        new(type, query, city, mine, eligible || AppRoles.DispatchOnly(user), ResourcePermissions.BrukerId(user));
+        new(type, query, city, mine, eligible, ResourcePermissions.BrukerId(user));
 }
 
 public static class ResourceQueries

@@ -76,8 +76,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
                     Stedsforslag = treff.Skip(1).ToList()
                 };
         }
-        // Kontaktfeltene starter tomme: ressursen kan ha en annen kontaktperson enn den som registrerer.
-        var model = new RessursSkjemaViewModel();
+        var model = await NewResourceFormAsync();
         await ByggKart(model, senter, focus);
         return View(model);
     }
@@ -320,6 +319,17 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
     /// <summary>Alle ressurstyper fra tabellen Ressurstype, også de brukerne har lagt til selv.</summary>
     private async Task<List<string>> RessurstypeNavnAsync() =>
         await db.Ressurstyper.AsNoTracking().OrderBy(t => t.RessurstypeID).Select(t => t.Navn).ToListAsync();
+
+    private async Task<RessursSkjemaViewModel> NewResourceFormAsync()
+    {
+        var actorId = ResourcePermissions.BrukerId(User);
+        var owner = actorId is null ? null : await db.Users.AsNoTracking().SingleOrDefaultAsync(user => user.Id == actorId);
+        return new RessursSkjemaViewModel
+        {
+            Kontaktperson = owner?.FulltNavn ?? string.Empty,
+            Kontakttelefon = owner?.PhoneNumber ?? string.Empty
+        };
+    }
 
     /// <summary>Kontrollerer skjemaet og finner stedsnavnet for punktet på serveren.</summary>
     private async Task ValidateResourceAsync(RessursSkjemaViewModel model)

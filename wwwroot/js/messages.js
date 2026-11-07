@@ -25,10 +25,15 @@
 
     const unreadDialog = document.getElementById('unreadMessages');
     if (unreadDialog) {
-        unreadDialog.showModal();
-        unreadDialog.querySelector('[data-close-unread]').addEventListener('click', function () { unreadDialog.close(); });
+        const key = 'unread-message-popup:' + unreadDialog.dataset.unreadMessageIds;
+        const dismiss = function () {
+            sessionStorage.setItem(key, 'dismissed');
+            unreadDialog.close();
+        };
+        if (sessionStorage.getItem(key) !== 'dismissed') unreadDialog.showModal();
+        unreadDialog.querySelector('[data-close-unread]').addEventListener('click', dismiss);
         unreadDialog.addEventListener('click', function (event) {
-            if (event.target === unreadDialog) unreadDialog.close();
+            if (event.target === unreadDialog) dismiss();
         });
     }
 })();
