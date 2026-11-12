@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/workspace.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shell.css" asp-append-version="true" />
 </head>
 <body>
     <a class="skip-link" href="#main">Hopp til innhold</a>
@@ -39,11 +40,7 @@
                 <div class="nav-actions">
                 @if (User.Identity?.IsAuthenticated == true)
                 {
-                    @* Innloggede bytter tema og logger ut fra kontosiden. *@
-                    <a asp-controller="Account" asp-action="Profile" class="nav-profile" aria-label="Min konto" title="Min konto" aria-current="@Aktiv("Account", "Profile")">
-                        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4" fill="currentColor"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" fill="currentColor"/></svg>
-                        <img class="nav-avatar" src="@Url.Action("Avatar", "Account")" alt="" width="34" height="34" />
-                    </a>
+                    <partial name="_UserMenu" />
                 }
                 else
                 {

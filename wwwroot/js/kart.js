@@ -39,7 +39,7 @@
             }).addTo(kart);
         }
         if (flytt) kart.setView(brukerPosisjon, 13);
-        document.querySelectorAll('.map-popup-distance').forEach(oppdaterAvstand);
+        oppdaterAvstand();
     }
     function finnBruker(flytt) {
         if (!navigator.geolocation) return;
@@ -97,14 +97,6 @@
         });
     }
 
-    const resourceBrowser = document.getElementById('resourceBrowser');
-    const openResourceBrowser = document.getElementById('openResourceBrowser');
-    closeWhenBackdropClicked(resourceBrowser);
-    if (openResourceBrowser) {
-        openResourceBrowser.addEventListener('click', function () {
-            resourceBrowser.showModal();
-        });
-    }
     // Alle symboler har samme farge: et hvitt symbol på en mørk blå sirkel. Status vises i det lille merket,
     // og akutte behov har en rød ramme som blinker.
     const harGruppering = typeof L.markerClusterGroup === 'function';
@@ -124,59 +116,97 @@
         }).addTo(kart)
         : kart;
 
-    // Under serverens popup kommer en stor rutekapp (Google Maps starter ved brukerens posisjon).
-    function popupHandlinger(m) {
-        const rute = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(m.lat + ',' + m.lng) + '&travelmode=driving';
-        return '<a class="map-popup-route" href="' + rute + '" target="_blank" rel="noopener noreferrer">' +
-            '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M21.7 11.3l-9-9a1 1 0 0 0-1.4 0l-9 9a1 1 0 0 0 0 1.4l9 9a1 1 0 0 0 1.4 0l9-9a1 1 0 0 0 0-1.4zM14 14.5V12h-4v3H8v-4a1 1 0 0 1 1-1h5V7.5l3.5 3.5-3.5 3.5z"/></svg>' +
-            'Veibeskrivelse hit</a>';
-    }
+    const panel = document.getElementById('mapPanel');
+    const panelBody = document.getElementById('mapPanelBody');
+    const markorPerRessurs = {};
+    let valgtMarkor = null;
 
-    function medRute(m) {
-        const marker = '<div class="map-popup-links">';
-        return m.popup.indexOf(marker) >= 0 ? m.popup.replace(marker, popupHandlinger(m) + marker) : m.popup + popupHandlinger(m);
+    function avstandTekst(lat, lng) {
+        const km = brukerPosisjon.distanceTo(L.latLng(lat, lng)) / 1000;
+        return (km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(km < 10 ? 1 : 0).replace('.', ',') + ' km') + ' fra deg i luftlinje';
     }
-
-    function settAvstand(element) {
-        if (!brukerPosisjon || !element.dataset.lat) return;
-        const km = brukerPosisjon.distanceTo(L.latLng(+element.dataset.lat, +element.dataset.lng)) / 1000;
-        element.textContent = (km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(km < 10 ? 1 : 0).replace('.', ',') + ' km') + ' fra deg i luftlinje';
+    function oppdaterAvstand() {
+        const element = panelBody && panelBody.querySelector('.mp-distance');
+        if (!element || !brukerPosisjon || !valgtMarkor) return;
+        const ll = valgtMarkor.getLatLng();
+        element.textContent = avstandTekst(ll.lat, ll.lng);
         element.hidden = false;
     }
-    function oppdaterAvstand(element) { settAvstand(element); }
-
-    kart.on('popupopen', function (e) {
-        const element = e.popup.getElement && e.popup.getElement();
-        if (!element) return;
-        const posisjon = e.popup.getLatLng();
-        const avstand = element.querySelector('.map-popup-distance');
-        if (avstand) {
-            avstand.dataset.lat = posisjon.lat;
-            avstand.dataset.lng = posisjon.lng;
-            settAvstand(avstand);
-        }
-        const rad = element.querySelector('.map-popup-links');
-        const detaljer = rad && rad.querySelector('a:not([href^="tel:"])');
-        if (!rad || !detaljer || rad.querySelector('[data-popup-action]')) return;
-        // «Del» kopierer lenken til ressursen eller behovet, slik at den kan sendes til andre.
-        const del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'map-popup-btn';
-        del.dataset.popupAction = 'share';
-        del.textContent = 'Del';
-        del.addEventListener('click', function () {
-            const adresse = new URL(detaljer.getAttribute('href'), window.location.href).href;
-            const ferdig = function (melding) {
-                del.textContent = melding;
-                window.setTimeout(function () { del.textContent = 'Del'; }, 1800);
-            };
-            if (navigator.share) navigator.share({ title: document.title, url: adresse }).catch(function () { });
-            else if (navigator.clipboard) navigator.clipboard.writeText(adresse).then(function () { ferdig('Lenke kopiert ✓'); }, function () { ferdig('Kunne ikke kopiere'); });
-            else ferdig('Kunne ikke kopiere');
+    function velgKort(id) {
+        document.querySelectorAll('.rail-card').forEach(function (kort) {
+            const aktiv = id != null && kort.dataset.res === String(id);
+            kort.classList.toggle('is-selected', aktiv);
+            if (aktiv) kort.scrollIntoView({ block: 'nearest' });
         });
-        rad.appendChild(del);
+    }
+    function lukkPanel() {
+        if (!panel) return;
+        panel.hidden = true;
+        valgtMarkor = null;
+        velgKort(null);
+    }
+    // Detaljpanelet fylles med ferdig HTML fra serveren (all tekst er kodet der). Her kobles bare fanene,
+    // delingsknappen og avstanden til brukeren.
+    function visPanel(m, markor) {
+        valgtMarkor = markor;
+        panelBody.innerHTML = m.popup;
+        panel.hidden = false;
+        velgKort(m.ressursId);
+        const faner = panelBody.querySelectorAll('.mp-tabs button');
+        faner.forEach(function (knapp) {
+            knapp.addEventListener('click', function () {
+                faner.forEach(function (k) { k.setAttribute('aria-selected', k === knapp ? 'true' : 'false'); });
+                panelBody.querySelectorAll('.mp-pane').forEach(function (p) { p.hidden = p.dataset.pane !== knapp.dataset.tab; });
+            });
+        });
+        const del = panelBody.querySelector('[data-share]');
+        if (del) {
+            del.addEventListener('click', function (event) {
+                event.preventDefault();
+                const adresse = new URL(del.getAttribute('href'), window.location.href).href;
+                const tekst = del.querySelector('span');
+                const ferdig = function (melding) {
+                    tekst.textContent = melding;
+                    window.setTimeout(function () { tekst.textContent = 'Del lenke'; }, 1800);
+                };
+                if (navigator.share) navigator.share({ title: document.title, url: adresse }).catch(function () { });
+                else if (navigator.clipboard) navigator.clipboard.writeText(adresse).then(function () { ferdig('Lenke kopiert ✓'); }, function () { ferdig('Kunne ikke kopiere'); });
+                else ferdig('Kunne ikke kopiere');
+            });
+        }
+        oppdaterAvstand();
+        // Flytter kartet slik at markøren ikke havner under panelet.
+        const pt = kart.latLngToContainerPoint(markor.getLatLng());
+        const venstreKant = panel.getBoundingClientRect().left - kart.getContainer().getBoundingClientRect().left;
+        if (window.innerWidth > 860 && pt.x > venstreKant - 60) kart.panBy([pt.x - (venstreKant - 150), 0]);
+    }
+    if (panel) {
+        document.getElementById('mapPanelClose').addEventListener('click', lukkPanel);
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') lukkPanel(); });
+        kart.on('click', lukkPanel);
+    }
+    const workspace = document.getElementById('mapWorkspace');
+    const railToggle = document.getElementById('railToggle');
+    const railReopen = document.getElementById('railReopen');
+    function settRail(skjult) {
+        if (!workspace) return;
+        workspace.classList.toggle('rail-collapsed', skjult);
+        railToggle.setAttribute('aria-expanded', skjult ? 'false' : 'true');
+        window.setTimeout(function () { kart.invalidateSize(); }, 300);
+    }
+    if (railToggle) railToggle.addEventListener('click', function () { settRail(true); });
+    if (railReopen) railReopen.addEventListener('click', function () { settRail(false); });
+    document.querySelectorAll('.rail-card').forEach(function (kort) {
+        kort.addEventListener('click', function () {
+            const markor = markorPerRessurs[kort.dataset.res];
+            if (!markor) return;
+            const vis = function () { kart.setView(markor.getLatLng(), Math.max(kart.getZoom(), 14)); visPanel(markor.kartdata, markor); };
+            if (harGruppering) gruppe.zoomToShowLayer(markor, vis); else vis();
+            if (window.innerWidth <= 860) settRail(true);
+        });
     });
-    // Én markør per ressurs. Popup-teksten er ferdig HTML fra serveren, der teksten allerede er kodet.
+
+    // Én markør per ressurs. Klikk åpner detaljpanelet (eller en vanlig popup på sider uten panel).
     data.markorer.forEach(function (m) {
         const klasser = 'map-pin' + (m.akutt ? ' is-urgent' : '') +
             (m.leveranseStatus ? ' delivery-' + m.leveranseStatus.toLowerCase().replace(' ', '-') : '') +
@@ -187,12 +217,15 @@
             html: '<span class="' + klasser + '"><i style="--pin-icon:url(\'' + m.ikon + '\')"></i><b>' + merke + '</b></span>',
             iconSize: [48, 48], iconAnchor: [24, 24], popupAnchor: [0, -22]
         });
-        const markor = L.marker([m.lat, m.lng], { icon: symbol, title: m.tittel, alt: m.tittel, akutt: !!m.akutt, zIndexOffset: m.akutt ? 1000 : 0 })
-            .bindPopup(medRute(m), { className: 'map-popup', minWidth: 250, maxWidth: 290 });
+        const markor = L.marker([m.lat, m.lng], { icon: symbol, title: m.tittel, alt: m.tittel, akutt: !!m.akutt, zIndexOffset: m.akutt ? 1000 : 0 });
+        markor.kartdata = m;
+        if (panel) markor.on('click', function () { visPanel(m, markor); });
+        else markor.bindPopup(m.popup, { className: 'map-popup', minWidth: 250, maxWidth: 290 });
+        if (m.ressursId != null) markorPerRessurs[m.ressursId] = markor;
         gruppe.addLayer(markor);
         if (m.apen) {
-            if (harGruppering) gruppe.zoomToShowLayer(markor, function () { markor.openPopup(); });
-            else markor.openPopup();
+            const vis = function () { if (panel) visPanel(m, markor); else markor.openPopup(); };
+            if (harGruppering) gruppe.zoomToShowLayer(markor, vis); else vis();
         }
     });
     // Når et skjema er åpent: et klikk i kartet fyller ut de skjulte feltene for breddegrad og lengdegrad.

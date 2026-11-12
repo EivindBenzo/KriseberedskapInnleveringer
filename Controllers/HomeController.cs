@@ -275,10 +275,19 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
                 var type = r.Ressurstype?.Navn ?? "Ukjent";
                 var status = ResourceOperationalStatus.From(r, nå);
                 var lenke = Url?.Action(nameof(Map), new { focus = r.RessursID }) + "#ressurs-" + r.RessursID;
-                var popup = PopupHtml(html, $"Ressurs · {type}", r.Navn,
+                var godkjentTil = WorkflowEligibility.GodkjentTil(r);
+                var popup = PanelHtml(html, $"Ressurs · {type}", r.Navn, BildeUrl(RessursIkon.Sti(type, status)), false,
+                    NorwegianPlaces.Display(r.Stedsnavn, r.Breddegrad, r.Lengdegrad), r.Kontaktperson, r.Kontakttelefon,
                     [(status.Availability, status.IsEligible ? "ok" : "warn"), ($"Godkjenning: {status.Verification}", "info")],
-                    NorwegianPlaces.Display(r.Stedsnavn, r.Breddegrad, r.Lengdegrad), null, r.Kontaktperson,
-                    r.Kontakttelefon, lenke, "Detaljer");
+                    [("Beholdning", $"{r.TilgjengeligAntall:0.##} av {r.Antall:0.##} {r.Enhet} tilgjengelig"),
+                     ("Tilgjengelig", $"fra {r.TilgjengeligFra:dd.MM.yyyy}" + (r.TilgjengeligTil is DateOnly til ? $" til {til:dd.MM.yyyy}" : "")),
+                     ("Type", type)],
+                    r.Beskrivelse,
+                    [("Tilgjengelighet", status.Availability), ("Godkjenning", status.Verification),
+                     ("Godkjent til", godkjentTil?.ToString("dd.MM.yyyy HH:mm") + " UTC"), ("Registrert", r.Registrert.ToString("dd.MM.yyyy HH:mm") + " UTC")],
+                    (double)r.Breddegrad, (double)r.Lengdegrad, lenke, "Se detaljer",
+                    User.IsInRole(AppRoles.DispatchTeam) ? Url?.Action("Index", "Operations", new { vis = "needs" }) + "#needs" : null,
+                    status.IsEligible ? "Klar til å forespørres." : "Sjekk status før tildeling.");
                 return new KartMarkor((double)r.Breddegrad, (double)r.Lengdegrad, BildeUrl(RessursIkon.Sti(type, status)),
                     $"{r.Navn} ({type}) – {status.Availability}", popup, r.RessursID == focus, false, null, r.RessursID, status.IsEligible);
             })
@@ -312,9 +321,14 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
             {
                 var ressurstype = behov.Behovstype?.PassendeRessurstyper.FirstOrDefault()?.Ressurstype?.Navn;
                 var lenke = Url?.Action(nameof(Dashboard)) + "#behov-" + behov.BehovID;
-                var popup = PopupHtml(html, "Akutt behov", behov.Behovstype?.Navn ?? "Behov", [("Akutt", "urgent")],
-                    NorwegianPlaces.Display(behov.Stedsnavn, behov.Breddegrad, behov.Lengdegrad), behov.Beskrivelse,
-                    behov.Kontaktperson, behov.Kontakttelefon, lenke, "Åpne behovet");
+                var popup = PanelHtml(html, "Akutt behov", behov.Behovstype?.Navn ?? "Behov", BildeUrl(RessursIkon.Sti(ressurstype)), true,
+                    NorwegianPlaces.Display(behov.Stedsnavn, behov.Breddegrad, behov.Lengdegrad), behov.Kontaktperson, behov.Kontakttelefon,
+                    [("Akutt", "urgent"), (Statuser.Visning(behov.Status), "info")],
+                    [("Frist", behov.Frist?.ToString("dd.MM.yyyy HH:mm") + " UTC"), ("Status", Statuser.Visning(behov.Status))],
+                    behov.Beskrivelse,
+                    [("Prioritet", "Akutt"), ("Status", Statuser.Visning(behov.Status)), ("Frist", behov.Frist?.ToString("dd.MM.yyyy HH:mm") + " UTC")],
+                    (double)behov.Breddegrad, (double)behov.Lengdegrad, lenke, "Åpne behovet", null,
+                    "Akutt behov – kontakt stedet så raskt som mulig.");
                 markører.Add(new KartMarkor((double)behov.Breddegrad, (double)behov.Lengdegrad,
                     BildeUrl(RessursIkon.Sti(ressurstype)),
                     $"Akutt behov: {behov.Stedsnavn}", popup, false, true));
@@ -335,28 +349,48 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
     }
 
     /// <summary>
-    /// Innholdet i kartpopupen: kort og lett å lese. All tekst kodes (encoded) her på serveren; kart.js legger til
-    /// avstand fra brukeren og knappene for veibeskrivelse og deling.
+    /// Innholdet i detaljpanelet som åpnes når en markør velges: overskrift, kort sammendrag og tre faner
+    /// (Oversikt, Handlinger, Status). All tekst kodes (encoded) her på serveren; kart.js bytter fane og legger til avstand.
     /// </summary>
-    private static string PopupHtml(HtmlEncoder html, string kicker, string tittel,
-        IEnumerable<(string Tekst, string Type)> merker, string sted, string? beskrivelse, string? kontakt,
-        string? telefon, string lenke, string lenkeTekst)
+    private static string PanelHtml(HtmlEncoder html, string kicker, string tittel, string ikon, bool akutt,
+        string sted, string? kontakt, string? telefon, IEnumerable<(string Tekst, string Type)> merker,
+        IEnumerable<(string Etikett, string? Verdi)> oversikt, string? beskrivelse,
+        IEnumerable<(string Etikett, string? Verdi)> status, double lat, double lng, string lenke, string lenkeTekst,
+        string? foresporselLenke, string hint)
     {
-        var chips = string.Concat(merker.Select(m => $"<span class=\"map-popup-chip is-{m.Type}\">{html.Encode(m.Tekst)}</span>"));
+        string E(string? s) => html.Encode(s ?? "");
+        string Rader(IEnumerable<(string Etikett, string? Verdi)> rader) =>
+            string.Concat(rader.Where(r => !string.IsNullOrWhiteSpace(r.Verdi?.Trim())).Select(r => $"<div><dt>{E(r.Etikett)}</dt><dd>{E(r.Verdi)}</dd></div>"));
+        var chips = string.Concat(merker.Select(m => $"<span class=\"mp-chip is-{m.Type}\">{E(m.Tekst)}</span>"));
         var tel = new string((telefon ?? "").Where(c => char.IsDigit(c) || c == '+').ToArray());
-        var kontaktTekst = string.Join(" · ", new[] { kontakt, telefon }.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()));
-        var ring = tel.Length > 0 ? $"<a class=\"map-popup-btn\" href=\"tel:{html.Encode(tel)}\">Ring</a>" : "";
-        return $"<div class=\"map-popup-head\"><span class=\"map-popup-kicker\">{html.Encode(kicker)}</span>" +
-               $"<strong class=\"map-popup-title\">{html.Encode(tittel)}</strong></div>" +
-               "<div class=\"map-popup-body\">" +
-               $"<p class=\"map-popup-place\">{html.Encode(sted)}</p>" +
-               $"<div class=\"map-popup-chips\">{chips}<!--chips--></div>" +
-               (string.IsNullOrWhiteSpace(beskrivelse) ? "" : $"<p class=\"map-popup-desc\">{html.Encode(beskrivelse)}</p>") +
-               (kontaktTekst.Length == 0 ? "" : $"<p class=\"map-popup-contact\">{html.Encode(kontaktTekst)}</p>") +
-               "<p class=\"map-popup-distance\" hidden></p></div>" +
-               $"<div class=\"map-popup-links\">{ring}<a class=\"map-popup-btn\" href=\"{html.Encode(lenke)}\">{html.Encode(lenkeTekst)}</a></div>";
-    }
-    private string BildeUrl(string sti) => Url?.Content(sti) ?? sti.TrimStart('~');
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var rute = $"https://www.google.com/maps/dir/?api=1&destination={lat.ToString(inv)},{lng.ToString(inv)}&travelmode=driving";
+        string Handling(string href, string svg, string tekst, string attr = "") =>
+            $"<a class=\"mp-action\" href=\"{E(href)}\" {attr}><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">{svg}</svg><span>{E(tekst)}</span><i aria-hidden=\"true\">›</i></a>";
+        var handlinger = Handling(rute, "<path d=\"M5 20v-6a4 4 0 0 1 4-4h10\"/><path d=\"m15 5 4 5-4 5\"/>", "Veibeskrivelse", "target=\"_blank\" rel=\"noopener noreferrer\" data-primary")
+            + (tel.Length > 0 ? Handling("tel:" + tel, "<path d=\"M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z\"/>", akutt ? "Ring kontakt" : "Ring eier")
+                                 + Handling("sms:" + tel, "<path d=\"M4 5h16v11H9l-5 4z\"/>", "Send melding") : "")
+            + Handling(lenke, "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 11v5M12 8h.01\"/>", lenkeTekst)
+            + (foresporselLenke is null ? "" : Handling(foresporselLenke, "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"2\"/><path d=\"M12 8v8M8 12h8\"/>", "Opprett forespørsel"))
+            + Handling(lenke, "<circle cx=\"6\" cy=\"12\" r=\"2.5\"/><circle cx=\"18\" cy=\"6\" r=\"2.5\"/><circle cx=\"18\" cy=\"18\" r=\"2.5\"/><path d=\"m8.3 10.9 7.4-3.8M8.3 13.1l7.4 3.8\"/>", "Del lenke", "data-share");
+        return $"<div class=\"mp-head{(akutt ? " is-urgent" : "")}\"><span class=\"mp-icon\"><img src=\"{E(ikon)}\" alt=\"\" width=\"30\" height=\"30\" /></span>" +
+               $"<div><span class=\"mp-kicker\">{E(kicker)}</span><strong class=\"mp-title\">{E(tittel)}</strong></div></div>" +
+               "<div class=\"mp-body\">" +
+               "<div class=\"mp-summary\">" +
+               $"<p class=\"mp-line mp-place\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z\"/></svg><span>{E(sted)}</span></p>" +
+               (string.IsNullOrWhiteSpace(kontakt) && tel.Length == 0 ? "" :
+                   $"<p class=\"mp-line mp-contact\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8\" r=\"4\" fill=\"currentColor\"/><path d=\"M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z\" fill=\"currentColor\"/></svg><span>{E(string.Join(" · ", new[] { kontakt, telefon }.Where(x => !string.IsNullOrWhiteSpace(x))))}</span></p>") +
+               $"<div class=\"mp-chips\">{chips}<!--chips--></div></div>" +
+               "<div class=\"mp-tabs\" role=\"tablist\"><button type=\"button\" role=\"tab\" data-tab=\"oversikt\" aria-selected=\"true\">Oversikt</button>" +
+               "<button type=\"button\" role=\"tab\" data-tab=\"handlinger\" aria-selected=\"false\">Handlinger</button>" +
+               "<button type=\"button\" role=\"tab\" data-tab=\"status\" aria-selected=\"false\">Status</button></div>" +
+               $"<div class=\"mp-pane\" data-pane=\"oversikt\" role=\"tabpanel\"><dl class=\"mp-facts\">{Rader(oversikt)}</dl>" +
+               (string.IsNullOrWhiteSpace(beskrivelse) ? "" : $"<p class=\"mp-desc\">{E(beskrivelse)}</p>") +
+               "<p class=\"mp-distance\" hidden></p></div>" +
+               $"<div class=\"mp-pane\" data-pane=\"handlinger\" role=\"tabpanel\" hidden><p class=\"mp-hint\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 11v5M12 8h.01\"/></svg>{E(hint)}</p><div class=\"mp-actions\">{handlinger}</div></div>" +
+               $"<div class=\"mp-pane\" data-pane=\"status\" role=\"tabpanel\" hidden><dl class=\"mp-facts\">{Rader(status)}</dl></div>" +
+               "</div>";
+    }    private string BildeUrl(string sti) => Url?.Content(sti) ?? sti.TrimStart('~');
 
     /// <summary>Alle ressurstyper fra tabellen Ressurstype, også de brukerne har lagt til selv.</summary>
     private async Task<List<string>> RessurstypeNavnAsync() =>

@@ -1,0 +1,49 @@
+@using HeimevernetInnlevering1.Controllers
+@using HeimevernetInnlevering1.Services
+@inject ShellService Shell
+@{
+    var shell = await Shell.HentAsync(User);
+    var mørk = TemaController.Gjeldende(Context.Request) == TemaController.Mørk;
+    var tilbake = Context.Request.Path + Context.Request.QueryString;
+}
+<div class="user-menu">
+    <details class="um-pop um-bell">
+        <summary aria-label="Varsler@(shell.AntallUlest > 0 ? $" ({shell.AntallUlest} nye)" : "")" title="Varsler">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            @if (shell.AntallUlest > 0) { <span class="um-dot" aria-hidden="true"></span> }
+        </summary>
+        <div class="um-panel um-notifications">
+            <div class="um-panel-head"><strong>Varsler</strong><a asp-controller="Account" asp-action="Profile" asp-fragment="varsler">Innstillinger</a></div>
+            @if (shell.Varsler.Count == 0)
+            {
+                <p class="um-empty">Ingen nye varsler akkurat nå.</p>
+            }
+            else
+            {
+                <ul>
+                    @foreach (var v in shell.Varsler)
+                    {
+                        <li><a asp-controller="@v.Controller" asp-action="@v.Action" class="is-@v.Kategori"><strong>@v.Tekst</strong>@if (v.Detalj.Length > 0) { <span>@v.Detalj</span> }</a></li>
+                    }
+                </ul>
+            }
+        </div>
+    </details>
+    <details class="um-pop um-account">
+        <summary aria-label="Kontomeny" title="Kontomeny">
+            <span class="um-avatar" aria-hidden="true">@shell.Initialer<img class="nav-avatar" src="@Url.Action("Avatar", "Account")" alt="" width="36" height="36" /></span>
+            <svg class="um-chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <div class="um-panel um-dropdown">
+            <div class="um-who"><strong>@shell.Navn</strong></div>
+            <a asp-controller="Account" asp-action="Profile" class="um-item">Min profil</a>
+            <form asp-controller="Tema" asp-action="Bytt" method="post">
+                <input type="hidden" name="returnUrl" value="@tilbake" />
+                <button type="submit" class="um-item"><span>@(mørk ? "Lys modus" : "Mørk modus")</span><span aria-hidden="true">@(mørk ? "☀" : "☾")</span></button>
+            </form>
+            <form asp-controller="Account" asp-action="Logout" method="post">
+                <button type="submit" class="um-item is-danger">Logg ut</button>
+            </form>
+        </div>
+    </details>
+</div>

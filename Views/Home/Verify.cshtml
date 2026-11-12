@@ -9,7 +9,6 @@
     var valgtBy = (string?)ViewBag.City ?? "";
     var typer = (ViewBag.Ressurstyper as List<string>) ?? HeimevernetInnlevering1.Data.SeedData.RessurstypeNavn.ToList();
     var antallTilgjengelig = Model.Ressurser.Count(x => x.Status == Statuser.Ressurs.Tilgjengelig);
-    var antallByer = Model.Ressurser.Select(x => NorwegianPlaces.Display(x.Stedsnavn, x.Breddegrad, x.Lengdegrad)).Distinct().Count();
 }
 <section class="data-container resource-overview">
     <div class="page-heading">
@@ -74,7 +73,6 @@
         <div class="resource-stat"><strong>@Model.Ressurser.Count</strong><span>Ressurser i utvalget</span></div>
         <div class="resource-stat is-good"><strong>@antallTilgjengelig</strong><span>Tilgjengelige</span></div>
         <div class="resource-stat is-warn"><strong>@(Model.Ressurser.Count - antallTilgjengelig)</strong><span>Ikke tilgjengelige</span></div>
-        <div class="resource-stat"><strong>@antallByer</strong><span>Steder</span></div>
     </div>
     <div class="type-chips" role="group" aria-label="Filtrer på ressurstype">
         <a asp-action="Resources" asp-route-mine="@(mine ? "true" : null)" asp-route-city="@ViewBag.City" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)" class="type-chip @(string.IsNullOrEmpty((string?)ViewBag.SelectedType) ? "is-active" : "")">Alle</a>

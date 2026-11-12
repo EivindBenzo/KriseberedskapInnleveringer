@@ -9,8 +9,22 @@
     }
     bruk();
 
+    // Bjelle- og kontomenyen lukkes ved klikk utenfor eller Escape.
+    var menyer = document.querySelectorAll('.um-pop');
+    document.addEventListener('click', function (e) {
+        menyer.forEach(function (m) { if (!m.contains(e.target)) m.removeAttribute('open'); });
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') menyer.forEach(function (m) { m.removeAttribute('open'); });
+    });
+    menyer.forEach(function (m) {
+        m.addEventListener('toggle', function () {
+            if (m.open) menyer.forEach(function (a) { if (a !== m) a.removeAttribute('open'); });
+        });
+    });
+
     // Skjuler profilbilder som ikke lastes, slik at initialer/ikon vises i stedet.
-    document.querySelectorAll('.nav-profile img, [data-avatar-img]').forEach(function (img) {
+    document.querySelectorAll('.nav-avatar, [data-avatar-img]').forEach(function (img) {
         img.addEventListener('error', function () { img.remove(); });
     });
 

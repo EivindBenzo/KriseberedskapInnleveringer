@@ -31,8 +31,11 @@ public sealed record ResourceCity(string Name, int Count)
         return city.Length is > 0 and <= 120 && city.Any(char.IsLetter) ? city : null;
     }
 
+    // Byen regnes fra koordinatene først (nærmeste kjente by). Da havner «Hellemyr» og «Kjevik» under Kristiansand,
+    // uansett hvordan gateadressen eller stedsnavnet ble skrevet.
     public static string? FromResource(Ressurs resource) =>
-        FromLocation(HeimevernetInnlevering1.Services.NorwegianPlaces.Display(resource.Stedsnavn, resource.Breddegrad, resource.Lengdegrad));
+        FromLocation(HeimevernetInnlevering1.Services.NorwegianPlaces.Describe((double)resource.Breddegrad, (double)resource.Lengdegrad))
+        ?? FromLocation(HeimevernetInnlevering1.Services.NorwegianPlaces.Display(resource.Stedsnavn, resource.Breddegrad, resource.Lengdegrad));
 
     public static IReadOnlyList<ResourceCity> Aggregate(IEnumerable<Ressurs> resources) =>
         resources.Select(FromResource).OfType<string>()

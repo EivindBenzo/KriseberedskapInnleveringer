@@ -3,6 +3,7 @@ using HeimevernetInnlevering1.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using HeimevernetInnlevering1.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace HeimevernetInnlevering1.Controllers;
@@ -88,7 +89,10 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             FirstName = user.Fornavn,
             LastName = user.Etternavn,
             HasAvatar = await users.GetAuthenticationTokenAsync(user, AvatarProvider, AvatarToken) is not null,
-            Roles = roles
+            Roles = roles,
+            Ansvar = Ansvarsområde(roles),
+            Vakt = await users.GetAuthenticationTokenAsync(user, ShellService.Provider, ShellService.VaktToken) is { } v && ShellService.Vaktstatuser.Any(s => s.Verdi == v) ? v : "pa",
+            Varselvalg = ShellService.LesValg(await users.GetAuthenticationTokenAsync(user, ShellService.Provider, ShellService.VarselToken))
         };
         AddShortcuts(model, roles);
 
@@ -109,8 +113,17 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             model.Stats.Add(("Åpne behov", await db.Behov.AsNoTracking().CountAsync(b => b.Status != Statuser.Behov.Løst)));
             model.Stats.Add(("Akutte behov", await db.Behov.AsNoTracking().CountAsync(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Status != Statuser.Behov.Løst)));
         }
+        var logg = await db.Hendelseslogg.AsNoTracking().Where(l => l.UtførtAvID == user.Id)
+            .OrderByDescending(l => l.Tidspunkt).Take(5).Select(l => new { l.Handling, l.Begrunnelse, l.Tidspunkt }).ToListAsync();
+        model.Aktivitet.AddRange(logg.Select(l => (l.Handling, l.Begrunnelse, l.Tidspunkt)));
         return View(model);
     }
+
+    private static string Ansvarsområde(IReadOnlyCollection<string> roles) =>
+        roles.Contains(AppRoles.Kriseledelse) ? "Overordnet ledelse og brukeradministrasjon"
+        : roles.Contains(AppRoles.DispatchTeam) ? "Koordinering av behov, forespørsler og leveranser"
+        : roles.Contains(AppRoles.Ressursleverandor) ? "Ressurser og beholdning"
+        : roles.Contains(AppRoles.OffentligAktor) ? "Meldte behov og oppfølging" : "Ikke angitt";
 
     private static void AddShortcuts(ProfileViewModel model, IReadOnlyCollection<string> roles)
     {
@@ -124,6 +137,19 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             model.Shortcuts.Add(("Hendelser", "Koordiner hendelser og tildelinger.", "Hendelse", "Index"));
         if (roles.Contains(AppRoles.Kriseledelse))
             model.Shortcuts.Add(("Brukere", "Administrer kontoer og roller.", "Admin", "Index"));
+    }
+
+    // «Lagre endringer» på profilsiden: varselvalgene styrer hva bjellen viser (ShellService), og vaktstatus lagres på kontoen.
+    [Authorize, HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> SavePreferences(string[]? varsel, string? vakt)
+    {
+        var user = await users.GetUserAsync(User);
+        if (user is null) return RedirectToAction(nameof(Login));
+        await users.SetAuthenticationTokenAsync(user, ShellService.Provider, ShellService.VarselToken, ShellService.SkrivValg(varsel ?? []));
+        if (vakt is not null && ShellService.Vaktstatuser.Any(s => s.Verdi == vakt))
+            await users.SetAuthenticationTokenAsync(user, ShellService.Provider, ShellService.VaktToken, vakt);
+        TempData["ProfileMessage"] = "Endringene er lagret.";
+        return RedirectToAction(nameof(Profile));
     }
 
     [Authorize, HttpPost, ValidateAntiForgeryToken]

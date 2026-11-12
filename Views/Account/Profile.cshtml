@@ -1,145 +1,117 @@
 @model ProfileViewModel
-@using HeimevernetInnlevering1.Controllers
 @using HeimevernetInnlevering1.Models
+@using HeimevernetInnlevering1.Services
 @{
-    ViewData["Title"] = "Min konto";
-    var mørk = TemaController.Gjeldende(Context.Request) == TemaController.Mørk;
-    string Beskrivelse(string rolle) => rolle switch
+    ViewData["Title"] = "Min profil";
+    ViewData["PageTitle"] = "Operativ profil";
+    ViewData["PageSubtitle"] = "Din rolle, tilgjengelighet og varsler";
+    Layout = "_AppShell";
+    var rolle = Model.Roles.Count > 0 ? AppRoles.Label(Model.Roles[0]) : "Bruker";
+    var navn = Model.Name.Length > 0 ? Model.Name : Model.Email;
+    string Ikon(string label) => label switch
     {
-        AppRoles.Kriseledelse => "Overordnet oversikt, beslutninger og brukeradministrasjon.",
-        AppRoles.DispatchTeam => "Koordinerer behov, forespørsler og leveranser.",
-        AppRoles.Ressursleverandor => "Registrerer og vedlikeholder ressurser som kan settes inn.",
-        AppRoles.OffentligAktor => "Melder inn behov og følger opp status.",
-        _ => ""
+        "Oversikt" => "<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1.5\"/>",
+        "Kart" => "<path d=\"M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z\"/><circle cx=\"12\" cy=\"9\" r=\"2.5\"/>",
+        "Hendelser" => "<path d=\"M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z\"/><path d=\"M12 9v4M12 17h.01\"/>",
+        "Brukere" => "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2 20c0-3.5 3-6 7-6s7 2.5 7 6\"/>",
+        "Meld behov" => "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 8v8M8 12h8\"/>",
+        _ => "<path d=\"M21 8 12 3 3 8v8l9 5 9-5z\"/><path d=\"m3 8 9 5 9-5M12 13v8\"/>"
     };
 }
 
-<section class="profile-page" aria-labelledby="profileTitle">
-    <div class="profile-hero">
-        <div class="profile-avatar-wrap">
-            <span class="profile-avatar" aria-hidden="true">@Model.Initials@if (Model.HasAvatar) { <img src="@Url.Action("Avatar", "Account")" alt="" data-avatar-img /> }</span>
-        </div>
-        <div>
-            <span class="eyebrow">MIN KONTO</span>
-            <h1 id="profileTitle">@(Model.Name.Length > 0 ? Model.Name : Model.Email)</h1>
-            <div class="profile-roles">
-                @foreach (var rolle in Model.Roles)
-                {
-                    <span class="profile-role">@AppRoles.Label(rolle)</span>
-                }
-            </div>
-        </div>
-    </div>
-
+<section class="profile-shell" aria-labelledby="profileTitle">
     @if (TempData["ProfileMessage"] is string ok) { <p class="profile-flash is-ok" role="status">@ok</p> }
     @if (TempData["ProfileError"] is string feil) { <p class="profile-flash is-error" role="alert">@feil</p> }
 
-    <div class="profile-grid">
-        <article class="profile-card profile-card-wide">
-            <h2>Profilbilde</h2>
-            <div class="profile-setting">
-                <div><strong>Bytt bilde</strong><span>Velg et bilde fra enheten din. Det skaleres ned automatisk.</span></div>
-                <div class="profile-actions">
-                    <label class="btn-secondary profile-big-btn" for="avatarFile">Velg bilde</label>
-                    <input type="file" id="avatarFile" accept="image/*" hidden data-avatar-file />
-                    @if (Model.HasAvatar)
+    <div class="ph-hero">
+        <div class="ph-avatar-wrap">
+            <label class="ph-avatar" for="avatarFile" title="Bytt profilbilde">
+                <span aria-hidden="true">@Model.Initials</span>@if (Model.HasAvatar) { <img src="@Url.Action("Avatar", "Account")" alt="" data-avatar-img /> }
+                <span class="ph-avatar-edit" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+            </label>
+            <input type="file" id="avatarFile" accept="image/*" hidden data-avatar-file />
+            <form asp-action="SetAvatar" method="post" data-avatar-form hidden><input type="hidden" name="bilde" data-avatar-data /></form>
+        </div>
+        <div class="ph-id">
+            <span class="ph-kicker">MIN PROFIL</span>
+            <h2 id="profileTitle">@navn</h2>
+            <div class="ph-meta">
+                <span class="ph-role">@rolle</span>
+                @if (!string.IsNullOrWhiteSpace(Model.Organisation)) { <span>@Model.Organisation</span> }
+            </div>
+            @if (Model.HasAvatar)
+            {
+                <form asp-action="RemoveAvatar" method="post" class="ph-remove"><button type="submit">Fjern profilbilde</button></form>
+            }
+        </div>
+        <dl class="ph-contact">
+            @if (!string.IsNullOrWhiteSpace(Model.Phone)) { <div><dt>Telefon</dt><dd>@Model.Phone</dd></div> }
+            <div><dt>E-post</dt><dd>@Model.Email</dd></div>
+        </dl>
+    </div>
+
+    <form asp-action="SavePreferences" method="post" class="ph-form">
+        <div class="ph-grid">
+            <article class="ph-card">
+                <h3>Kontakt og ansvar</h3>
+                <dl class="ph-rows">
+                    <div><dt>Telefon</dt><dd>@(string.IsNullOrWhiteSpace(Model.Phone) ? "Ikke oppgitt" : Model.Phone)</dd></div>
+                    <div><dt>E-post</dt><dd>@Model.Email</dd></div>
+                    <div><dt>Ansvarsområde</dt><dd>@Model.Ansvar</dd></div>
+                    <div><dt><label for="vakt">Vaktstatus</label></dt><dd>
+                        <select id="vakt" name="vakt" class="ph-select">
+                            @foreach (var (verdi, tekst) in ShellService.Vaktstatuser)
+                            {
+                                <option value="@verdi" selected="@(Model.Vakt == verdi)">@tekst</option>
+                            }
+                        </select></dd></div>
+                </dl>
+            </article>
+
+            <article class="ph-card" id="varsler">
+                <h3>Varsler og preferanser</h3>
+                <ul class="ph-toggles">
+                    @foreach (var (nøkkel, tittel, beskrivelse) in ShellService.Kategorier)
                     {
-                        <form asp-action="RemoveAvatar" method="post"><button type="submit" class="btn-secondary profile-big-btn">Fjern</button></form>
+                        <li>
+                            <div><strong>@tittel</strong><span>@beskrivelse</span></div>
+                            <label class="ph-switch"><input type="checkbox" name="varsel" value="@nøkkel" checked="@Model.Varselvalg[nøkkel]" /><i aria-hidden="true"></i><span class="visually-hidden">@tittel</span></label>
+                        </li>
                     }
-                </div>
-            </div>
-            <form asp-action="SetAvatar" method="post" data-avatar-form hidden>
-                <input type="hidden" name="bilde" data-avatar-data />
-            </form>
-        </article>
+                </ul>
+            </article>
 
-        <article class="profile-card">
-            <h2>Kontaktopplysninger</h2>
-            <dl class="profile-details">
-                <div><dt>Navn</dt><dd>@(Model.Name.Length > 0 ? Model.Name : "Ikke oppgitt")</dd></div>
-                <div><dt>E-post</dt><dd><a href="mailto:@Model.Email">@Model.Email</a></dd></div>
-                <div><dt>Telefon</dt><dd>@if (string.IsNullOrWhiteSpace(Model.Phone)) { <text>Ikke oppgitt</text> } else { <a href="tel:@Model.Phone">@Model.Phone</a> }</dd></div>
-                <div><dt>Organisasjon</dt><dd>@(string.IsNullOrWhiteSpace(Model.Organisation) ? "Ikke oppgitt" : Model.Organisation)</dd></div>
-            </dl>
-        </article>
-
-        <article class="profile-card profile-card-wide">
-            <h2>Snarveier for din rolle</h2>
-            <div class="profile-shortcuts">
-                @foreach (var (label, desc, ctrl, act) in Model.Shortcuts)
-                {
-                    <a asp-controller="@ctrl" asp-action="@act" class="profile-shortcut"><strong>@label</strong><span>@desc</span></a>
-                }
-            </div>
-        </article>
-
-        <article class="profile-card">
-            <h2>Rediger opplysninger</h2>
-            <form asp-action="UpdateProfile" method="post" class="profile-form">
-                <label>Fornavn<input name="Fornavn" value="@Model.FirstName" required maxlength="100" autocomplete="given-name" /></label>
-                <label>Etternavn<input name="Etternavn" value="@Model.LastName" required maxlength="100" autocomplete="family-name" /></label>
-                <label>Telefon<input name="Telefon" value="@Model.Phone" required maxlength="20" type="tel" autocomplete="tel" /></label>
-                <label>Organisasjon<input name="Organisasjon" value="@Model.Organisation" maxlength="150" autocomplete="organization" /></label>
-                <button type="submit" class="btn-submit profile-big-btn">Lagre endringer</button>
-            </form>
-        </article>
-
-        <article class="profile-card">
-            <h2>Passord og sikkerhet</h2>
-            <form asp-action="ChangePassword" method="post" class="profile-form">
-                <label>Nåværende passord<input name="CurrentPassword" type="password" required autocomplete="current-password" /></label>
-                <label>Nytt passord (minst 12 tegn)<input name="NewPassword" type="password" required minlength="12" autocomplete="new-password" /></label>
-                <label>Bekreft nytt passord<input name="ConfirmPassword" type="password" required minlength="12" autocomplete="new-password" /></label>
-                <button type="submit" class="btn-submit profile-big-btn">Bytt passord</button>
-            </form>
-        </article>
-        @if (Model.Stats.Count > 0)
-        {
-            <article class="profile-card">
-                <h2>Din aktivitet</h2>
-                <div class="profile-stats">
-                    @foreach (var (label, value) in Model.Stats)
+            <article class="ph-card">
+                <h3>Mine snarveier</h3>
+                <div class="ph-shortcuts">
+                    @foreach (var (label, desc, ctrl, act) in Model.Shortcuts.Take(4))
                     {
-                        <div><strong>@value</strong><span>@label</span></div>
+                        <a asp-controller="@ctrl" asp-action="@act" class="ph-shortcut">
+                            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">@Html.Raw(Ikon(label))</svg>
+                            <span><strong>@label</strong><small>@desc</small></span>
+                            <i aria-hidden="true">›</i>
+                        </a>
                     }
                 </div>
             </article>
-        }
 
-        <article class="profile-card">
-            <h2>Innstillinger</h2>
-            <div class="profile-setting">
-                <div>
-                    <strong>Utseende</strong>
-                    <span>@(mørk ? "Mørk modus er på." : "Lys modus er på.") Valget huskes på denne enheten.</span>
-                </div>
-                <form asp-controller="Tema" asp-action="Bytt" method="post">
-                    <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
-                    <button type="submit" class="btn-secondary profile-big-btn" aria-label="@(mørk ? "Bytt til lys modus" : "Bytt til mørk modus")">
-                        <span aria-hidden="true">@(mørk ? "☀" : "☾")</span>&nbsp;@(mørk ? "Lys modus" : "Mørk modus")
-                    </button>
-                </form>
-            </div>
-            <div class="profile-setting">
-                <div><strong>Tekststørrelse</strong><span>Gjør teksten større hvis det er vanskelig å lese.</span></div>
-                <div class="profile-actions" role="group" aria-label="Tekststørrelse">
-                    <button type="button" class="btn-secondary profile-big-btn" data-pref-text="normal">Normal</button>
-                    <button type="button" class="btn-secondary profile-big-btn" data-pref-text="large">Stor</button>
-                </div>
-            </div>
-            <div class="profile-setting">
-                <div><strong>Reduserte animasjoner</strong><span>Demper blinking og bevegelse.</span></div>
-                <button type="button" class="btn-secondary profile-big-btn" data-pref-motion aria-pressed="false">Av</button>
-            </div>
-            <div class="profile-setting">
-                <div>
-                    <strong>Innlogging</strong>
-                    <span>Logg ut når du er ferdig, spesielt på delte enheter.</span>
-                </div>
-                <form asp-controller="Account" asp-action="Logout" method="post">
-                    <button type="submit" class="btn-danger profile-big-btn">Logg ut</button>
-                </form>
-            </div>
-        </article>
-    </div>
+            <article class="ph-card">
+                <h3>Siste aktivitet</h3>
+                @if (Model.Aktivitet.Count == 0)
+                {
+                    <p class="ph-empty">Ingen registrert aktivitet ennå. Handlinger du gjør i portalen vises her.</p>
+                }
+                else
+                {
+                    <ol class="ph-timeline">
+                        @foreach (var (handling, detalj, tid) in Model.Aktivitet)
+                        {
+                            <li><strong>@handling</strong>@if (!string.IsNullOrWhiteSpace(detalj)) { <span>@detalj</span> }<time datetime="@tid.ToString("o")">@tid.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</time></li>
+                        }
+                    </ol>
+                }
+            </article>
+        </div>
+        <div class="ph-save"><button type="submit" class="ph-save-btn">Lagre endringer</button></div>
+    </form>
 </section>

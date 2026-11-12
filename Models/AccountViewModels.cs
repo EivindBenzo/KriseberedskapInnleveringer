@@ -65,6 +65,10 @@ public class ProfileViewModel
     public IReadOnlyList<string> Roles { get; init; } = [];
     public List<(string Label, string Description, string Controller, string Action)> Shortcuts { get; } = [];
     public List<(string Label, int Value)> Stats { get; } = [];
+    public string Ansvar { get; init; } = string.Empty;
+    public string Vakt { get; init; } = "pa";
+    public Dictionary<string, bool> Varselvalg { get; init; } = [];
+    public List<(string Handling, string Detalj, DateTime Tid)> Aktivitet { get; } = [];
 
     public string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
         .Where(part => char.IsLetter(part[0])).Select(part => char.ToUpperInvariant(part[0])).Take(2)) is { Length: > 0 } initials
