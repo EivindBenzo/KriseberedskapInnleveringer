@@ -52,3 +52,17 @@ public class RegisterViewModel
 }
 
 public record AdminUserViewModel(int Id, string Navn, string Email, string? Organisasjon, string? Role);
+
+public class ProfileViewModel
+{
+    public string Name { get; init; } = string.Empty;
+    public string Email { get; init; } = string.Empty;
+    public string? Phone { get; init; }
+    public string? Organisation { get; init; }
+    public IReadOnlyList<string> Roles { get; init; } = [];
+    public List<(string Label, int Value)> Stats { get; } = [];
+
+    public string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Where(part => char.IsLetter(part[0])).Select(part => char.ToUpperInvariant(part[0])).Take(2)) is { Length: > 0 } initials
+        ? initials : "?";
+}

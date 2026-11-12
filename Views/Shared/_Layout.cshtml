@@ -37,17 +37,21 @@
                 <input type="checkbox" id="menuToggle" class="menu-checkbox" aria-controls="navMenu" />
 
                 <div class="nav-actions">
-                <form asp-controller="Tema" asp-action="Bytt" method="post">
-                    <input type="hidden" name="returnUrl" value="@gjeldendeSide" />
-                    <button type="submit" class="theme-toggle" aria-label="@(mørk ? "Bytt til lys modus" : "Bytt til mørk modus")">
-                        <span aria-hidden="true">@(mørk ? "☾" : "☀")</span>
-                        <span>@(mørk ? "Mørk modus" : "Lys modus")</span>
-                    </button>
-                </form>
                 @if (User.Identity?.IsAuthenticated == true)
                 {
-                    <form asp-controller="Account" asp-action="Logout" method="post">
-                        <button type="submit" class="nav-signout">Logg ut</button>
+                    @* Innloggede bytter tema og logger ut fra kontosiden. *@
+                    <a asp-controller="Account" asp-action="Profile" class="nav-profile" aria-label="Min konto" title="Min konto" aria-current="@Aktiv("Account", "Profile")">
+                        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4" fill="currentColor"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" fill="currentColor"/></svg>
+                    </a>
+                }
+                else
+                {
+                    <form asp-controller="Tema" asp-action="Bytt" method="post">
+                        <input type="hidden" name="returnUrl" value="@gjeldendeSide" />
+                        <button type="submit" class="theme-toggle" aria-label="@(mørk ? "Bytt til lys modus" : "Bytt til mørk modus")">
+                            <span aria-hidden="true">@(mørk ? "☾" : "☀")</span>
+                            <span>@(mørk ? "Mørk modus" : "Lys modus")</span>
+                        </button>
                     </form>
                 }
                 <label for="menuToggle" class="menu-toggle" aria-label="Meny">

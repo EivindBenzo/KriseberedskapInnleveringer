@@ -23,76 +23,119 @@ body:has(.map-workspace) {
 .map-expand-control:hover,
 .map-expand-control.is-expanded { background: var(--workspace-hover); }
 
-.leaflet-div-icon.urgent-map-marker {
-    display: grid;
-    place-items: center;
-    width: 44px !important;
-    height: 44px !important;
-    background: transparent !important;
-    border: 0 !important;
-}
-.urgent-map-marker img {
+/* Symboler: alle har samme mørke blå farge med hvitt symbol. Status vises i det lille merket. */
+.leaflet-div-icon.map-pin-wrapper, .map-pin-wrapper { background: transparent !important; border: 0 !important; }
+.map-pin {
     position: relative;
-    z-index: 1;
-    width: 28px;
-    height: 28px;
-    filter: drop-shadow(1px 0 #d92d20) drop-shadow(-1px 0 #d92d20) drop-shadow(0 1px #d92d20) drop-shadow(0 -1px #d92d20);
-    animation: urgent-marker-pulse 1.2s ease-out infinite;
-}
-.urgent-map-marker span {
-    position: absolute;
-    z-index: 2;
-    top: 0;
-    right: 0;
     display: grid;
     place-items: center;
-    width: 20px;
-    height: 20px;
-    color: #fff;
-    background: #d92d20;
-    border: 2px solid #fff;
+    width: 40px;
+    height: 40px;
+    margin: 4px;
+    background: #0b4a8f;
+    border: 3px solid #fff;
     border-radius: 50%;
-    font-size: .9rem;
-    font-weight: 900;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
 }
-.leaflet-div-icon.resource-map-marker {
-    display: grid;
-    place-items: center;
-    width: 52px !important;
-    height: 52px !important;
-    background: transparent !important;
-    border: 0 !important;
+.map-pin i {
+    display: block;
+    width: 22px;
+    height: 22px;
+    background-color: #fff;
+    -webkit-mask: var(--pin-icon) center / contain no-repeat;
+    mask: var(--pin-icon) center / contain no-repeat;
 }
-.resource-map-marker img { width: 32px; height: 32px; }
-.resource-map-marker span {
+.map-pin b {
     position: absolute;
-    right: 6px;
-    bottom: 10px;
-    padding: .12rem .32rem;
+    right: -10px;
+    bottom: -6px;
+    min-width: 20px;
+    padding: .05rem .3rem;
     color: #fff;
-    background: #c76b14;
-    border: 1px solid #fff;
-    border-radius: .4rem;
+    background: #087181;
+    border: 2px solid #fff;
+    border-radius: .5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
     font-size: .64rem;
     font-weight: 800;
-    line-height: 1.15;
+    line-height: 1.2;
+    text-align: center;
     white-space: nowrap;
 }
-.resource-map-marker.is-available img { filter: sepia(.35) saturate(1.7) hue-rotate(95deg) brightness(.78); }
-.resource-map-marker.is-unavailable img { filter: sepia(.9) saturate(1.7) hue-rotate(340deg) brightness(1.08); }
-.resource-map-marker.is-available span { background: #087181; }
-.resource-map-marker.delivery-bekreftet span, .resource-map-marker.delivery-på-vei span { background: #1d4ed8; }
-.resource-map-marker.delivery-fremme span, .resource-map-marker.delivery-fullført span { background: #15803d; }
-.resource-map-marker.is-available img { filter: sepia(.2) saturate(2.6) hue-rotate(160deg) brightness(.9); }
-.resource-map-marker.is-unavailable img { filter: sepia(.9) saturate(1.8) hue-rotate(345deg) brightness(1.05); }
-.resource-map-marker span { border-width: 2px; box-shadow: 0 0 0 1px #111; }
-.map-delivery-key { display: inline-grid; place-items: center; width: 1rem; height: 1rem; margin-left: .5rem; color: #fff; background: #1d4ed8; border-radius: .25rem; font-size: .75rem; font-weight: 800; }
+.map-pin.is-unavailable b { background: #c76b14; }
+.map-pin.delivery-bekreftet b, .map-pin.delivery-på-vei b { background: #1d4ed8; }
+.map-pin.delivery-fremme b, .map-pin.delivery-fullført b { background: #15803d; }
+.map-pin.is-urgent b { background: #d92d20; }
 
-@keyframes urgent-marker-pulse {
-    70% { filter: drop-shadow(1px 0 #d92d20) drop-shadow(-1px 0 #d92d20) drop-shadow(0 1px #d92d20) drop-shadow(0 -1px #d92d20) drop-shadow(0 0 8px rgba(217, 45, 32, 0)); }
-    100% { filter: drop-shadow(1px 0 #d92d20) drop-shadow(-1px 0 #d92d20) drop-shadow(0 1px #d92d20) drop-shadow(0 -1px #d92d20); }
+/* Akutte symboler har en rød ramme som blinker. */
+.map-pin.is-urgent, .map-cluster.is-urgent > span { animation: urgent-outline-flash 1s ease-in-out infinite; }
+.map-pin.is-urgent::after {
+    content: "";
+    position: absolute;
+    inset: -9px;
+    border: 3px solid #ff1f1f;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: urgent-ring-flash 1s ease-in-out infinite;
+}
+@keyframes urgent-outline-flash {
+    0%, 100% { box-shadow: 0 0 0 3px #ff1f1f, 0 0 12px 4px rgba(255, 31, 31, .85); }
+    50% { box-shadow: 0 0 0 3px rgba(255, 31, 31, 0), 0 0 0 0 rgba(255, 31, 31, 0); }
+}
+@keyframes urgent-ring-flash {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0; transform: scale(1.18); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .map-pin.is-urgent, .map-cluster.is-urgent > span, .map-pin.is-urgent::after { animation-duration: 2.4s; }
 }
 
+/* Klynger: samler symboler som ligger oppå hverandre. Klikk for å zoome inn eller spre dem. */
+.map-cluster { background: transparent; }
+.map-cluster > span {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    color: #fff;
+    background: #0b2f3a;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+    font-size: 1rem;
+    font-weight: 800;
+}
+.map-delivery-key { display: inline-grid; place-items: center; width: 1rem; height: 1rem; margin-left: .5rem; color: #fff; background: #1d4ed8; border-radius: .25rem; font-size: .75rem; font-weight: 800; }
+
+/* Popup */
+.map-popup .leaflet-popup-content-wrapper { padding: 0; overflow: hidden; color: var(--text); background: var(--surface); border-radius: 14px; box-shadow: 0 10px 30px rgba(2, 12, 27, .35); }
+.map-popup .leaflet-popup-content { margin: 0; width: auto !important; font: inherit; line-height: 1.4; }
+.map-popup .leaflet-popup-tip { background: var(--surface); }
+.map-popup a.leaflet-popup-close-button { top: 8px; right: 8px; width: 28px; height: 28px; padding: 0; color: #fff; font-size: 22px; line-height: 28px; }
+.map-popup-head { position: relative; display: grid; gap: .15rem; padding: .9rem 2.4rem .8rem 1rem; color: #fff; background: linear-gradient(135deg, #0b2f3a, #075265); }
+.map-popup-kicker { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+.map-popup-title { font-size: 1.1rem; line-height: 1.25; overflow-wrap: anywhere; }
+.map-popup-chip { justify-self: start; margin-top: .2rem; padding: .1rem .6rem; color: #fff; background: #087181; border: 1px solid rgba(255, 255, 255, .7); border-radius: 99px; font-size: .75rem; font-weight: 700; }
+.map-popup-chip.is-warn { background: #b45309; }
+.map-popup-chip.is-urgent { background: #d92d20; }
+.map-popup-head:has(.is-urgent) { background: linear-gradient(135deg, #7f1d1d, #b91c1c); }
+.map-popup-facts { display: grid; gap: .4rem; margin: 0; padding: .8rem 1rem .2rem; }
+.map-popup-facts dt { color: var(--muted); font-size: .72rem; font-weight: 600; }
+.map-popup-facts dd { margin: 0; overflow-wrap: anywhere; font-size: .9rem; }
+.map-popup-actions, .map-popup-links { display: flex; flex-wrap: wrap; gap: .4rem; padding: .5rem 1rem; }
+.map-popup-links { padding-top: .7rem; padding-bottom: 0; }
+.map-popup-actions { padding-bottom: .9rem; }
+.map-popup-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: .35rem .75rem; color: var(--accent) !important; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; font: inherit; font-size: .85rem; font-weight: 600; text-decoration: none; cursor: pointer; }
+.map-popup-btn:hover { background: var(--hover); border-color: var(--accent); }
+.map-popup-btn.is-primary { flex: 1 1 100%; color: #fff !important; background: #006a7a; border-color: #006a7a; }
+.map-popup-btn.is-primary:hover { background: #005563; }
+.leaflet-popup-content a.map-popup-btn { text-decoration: none; }
+:root[data-theme="dark"] .map-popup-btn.is-primary { color: #fff !important; }
+
+.map-key-badge { display: inline-grid; place-items: center; min-width: 1.1rem; height: 1.1rem; margin-left: .5rem; padding: 0 .25rem; color: #fff; border-radius: .3rem; font-size: .75rem; font-weight: 800; }
+.map-key-badge.is-ok { background: #087181; }
+.map-key-badge.is-off { background: #c76b14; }
+.map-key-badge.is-urgent { background: #d92d20; box-shadow: 0 0 0 2px #ff1f1f; }
 .placement-confirmation {
     display: flex;
     align-items: center;

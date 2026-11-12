@@ -106,5 +106,5 @@
 </section>
 
 <script src="~/lib/leaflet/leaflet.js"></script>
-<script type="application/json" id="kartdata">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(kart, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)))</script>
+<script type="application/json" id="kartdata">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(kart with { OmrissUrl = Url.Content("~/data/norway-outline.json") }, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)))</script>
 <script src="~/js/kart.js" asp-append-version="true"></script>

@@ -104,8 +104,9 @@ function kjørKart(data) {
         map: () => kart,
         tileLayer: () => ({ addTo() { return this; } }),
         icon: valg => ({ valg }),
+        divIcon: valg => ({ valg }),
         marker(punkt, valg) {
-            const m = { punkt, valg, addTo() { markører.push(m); return m; }, bindPopup(html) { m.popup = html; return m; },
+            const m = { punkt, valg, addTo() { markører.push(m); return m; }, bindPopup(html) { m.popup = html; return m; }, getLatLng() { return m.punkt; },
                 openPopup() { m.åpen = true; }, setLatLng(p) { m.punkt = p; } };
             return m;
         }
@@ -123,8 +124,9 @@ test('kart.js tegner markørene og popup-teksten som serveren har laget', () => 
     assert.equal(JSON.stringify(kart.senter), '[58.1,7.9]');
     assert.equal(kart.zoom, 15);
     assert.equal(markører.length, 1);
-    assert.equal(markører[0].valg.icon.valg.iconUrl, '/images/resources/car-available.svg');
-    assert.equal(markører[0].popup, '<strong>Bil</strong>');
+    assert.match(markører[0].valg.icon.valg.html, /car-available\.svg/);
+    assert.ok(markører[0].popup.startsWith('<strong>Bil</strong>'));
+    assert.match(markører[0].popup, /google\.com\/maps\/dir/);
     assert.equal(markører[0].åpen, true);
     assert.equal(hendelser.click, undefined, 'uten skjema gjør et klikk i kartet ingenting');
 });

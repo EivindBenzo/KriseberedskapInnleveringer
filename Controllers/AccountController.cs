@@ -3,6 +3,7 @@ using HeimevernetInnlevering1.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace HeimevernetInnlevering1.Controllers;
 
@@ -68,6 +69,42 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             await users.DeleteAsync(user);
         }
         ModelState.AddModelError(string.Empty, "Kunne ikke opprette kontoen. Kontroller opplysningene og passordkravene, eller prøv å logge inn.");
+        return View(model);
+    }
+
+    [Authorize, HttpGet]
+    public async Task<IActionResult> Profile([FromServices] AppDbContext db)
+    {
+        var user = await users.GetUserAsync(User);
+        if (user is null) return RedirectToAction(nameof(Login));
+
+        var roles = (await users.GetRolesAsync(user)).Where(AppRoles.All.Contains).ToList();
+        var model = new ProfileViewModel
+        {
+            Name = user.FulltNavn,
+            Email = user.Email ?? user.UserName ?? "Ikke oppgitt",
+            Phone = user.PhoneNumber,
+            Organisation = user.Organisasjon,
+            Roles = roles
+        };
+
+        if (roles.Contains(AppRoles.Ressursleverandor))
+        {
+            var resources = db.Ressurser.AsNoTracking().Where(r => r.EierID == user.Id);
+            model.Stats.Add(("Mine ressurser", await resources.CountAsync()));
+            model.Stats.Add(("Venter på verifisering", await resources.CountAsync(r => r.Status == Statuser.Ressurs.VenterPåVerifisering)));
+        }
+        if (roles.Contains(AppRoles.OffentligAktor))
+        {
+            var needs = db.Behov.AsNoTracking().Where(b => b.RegistrertAvID == user.Id);
+            model.Stats.Add(("Behov meldt inn", await needs.CountAsync()));
+            model.Stats.Add(("Akutte behov", await needs.CountAsync(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Status != Statuser.Behov.Løst)));
+        }
+        if (roles.Contains(AppRoles.DispatchTeam) || roles.Contains(AppRoles.Kriseledelse))
+        {
+            model.Stats.Add(("Åpne behov", await db.Behov.AsNoTracking().CountAsync(b => b.Status != Statuser.Behov.Løst)));
+            model.Stats.Add(("Akutte behov", await db.Behov.AsNoTracking().CountAsync(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Status != Statuser.Behov.Løst)));
+        }
         return View(model);
     }
 

@@ -3,13 +3,24 @@
 // (KartVisning) og ligger som JSON i <script id="kartdata">. Dette skriptet bare tegner det.
 (function () {
     const data = JSON.parse(document.getElementById('kartdata').textContent);
-    const kart = L.map('map').setView([data.lat, data.lng], data.zoom);
+    // Kartet er begrenset til Norge: Kartverkets gråtonekart som bakgrunn, og alt utenfor landegrensen dempes.
+    const norgeGrenser = L.latLngBounds([57.5, 3.0], [71.6, 31.5]);
+    const kart = L.map('map', { maxBounds: norgeGrenser, maxBoundsViscosity: 1, minZoom: 4 }).setView([data.lat, data.lng], data.zoom);
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topograatone/default/webmercator/{z}/{y}/{x}.png', {
+        minZoom: 4,
+        maxZoom: 18,
+        bounds: norgeGrenser,
+        attribution: '&copy; <a href="https://www.kartverket.no/">Kartverket</a>'
     }).addTo(kart);
 
+    if (data.omrissUrl && typeof fetch === 'function') {
+        fetch(data.omrissUrl).then(function (svar) { return svar.json(); }).then(function (ringer) {
+            const verden = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
+            L.polygon([verden].concat(ringer), { stroke: false, fillColor: '#0b2f3a', fillOpacity: .38, interactive: false }).addTo(kart);
+            L.polygon(ringer, { color: '#087181', weight: 2, fill: false, interactive: false }).addTo(kart);
+        }).catch(function () { /* Kartet fungerer uten omriss. */ });
+    }
     const ExpandControl = L.Control.extend({
         options: { position: 'bottomright' },
         onAdd: function () {
@@ -51,22 +62,73 @@
             resourceBrowser.showModal();
         });
     }
-    // Én markør per ressurs. Popup-teksten er ferdig HTML fra serveren, der teksten allerede er kodet.
-    data.markorer.forEach(function (m) {
-        const symbol = m.akutt
-            ? L.divIcon({ className: 'urgent-map-marker', html: '<img src="' + m.ikon + '" alt=""><span aria-hidden="true">!</span>', iconSize: [44, 44], iconAnchor: [22, 22], popupAnchor: [0, -22] })
-            : L.divIcon({
-                className: 'resource-map-marker ' + (m.kanForespørres ? 'is-available' : 'is-unavailable') +
-                    (m.leveranseStatus ? ' delivery-' + m.leveranseStatus.toLowerCase().replace(' ', '-') : ''),
-                html: '<img src="' + m.ikon + '" alt=""><span>' + (m.leveranseStatus || (m.kanForespørres ? '✓' : '−')) + '</span>',
-                iconSize: [52, 52], iconAnchor: [26, 26], popupAnchor: [0, -24]
+    // Alle symboler har samme farge: et hvitt symbol på en mørk blå sirkel. Status vises i det lille merket,
+    // og akutte behov har en rød ramme som blinker.
+    const harGruppering = typeof L.markerClusterGroup === 'function';
+    const gruppe = harGruppering
+        ? L.markerClusterGroup({
+            maxClusterRadius: 48,
+            showCoverageOnHover: false,
+            spiderfyOnMaxZoom: true,
+            iconCreateFunction: function (klynge) {
+                const akutt = klynge.getAllChildMarkers().some(function (mark) { return mark.options.akutt; });
+                return L.divIcon({
+                    className: 'map-cluster' + (akutt ? ' is-urgent' : ''),
+                    html: '<span>' + klynge.getChildCount() + '</span>',
+                    iconSize: [44, 44]
+                });
+            }
+        }).addTo(kart)
+        : kart;
+
+    function popupHandlinger(m) {
+        const rute = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(m.lat + ',' + m.lng) + '&travelmode=driving';
+        return '<div class="map-popup-actions">' +
+            '<a class="map-popup-btn is-primary" href="' + rute + '" target="_blank" rel="noopener noreferrer">Veibeskrivelse fra min posisjon</a>' +
+            '<button type="button" class="map-popup-btn" data-popup-action="zoom">Zoom hit</button>' +
+            '<button type="button" class="map-popup-btn" data-popup-action="copy">Kopier koordinater</button></div>';
+    }
+
+    kart.on('popupopen', function (e) {
+        const element = e.popup.getElement && e.popup.getElement();
+        if (!element) return;
+        const posisjon = e.popup.getLatLng();
+        element.querySelectorAll('[data-popup-action]').forEach(function (knapp) {
+            knapp.addEventListener('click', function () {
+                if (knapp.dataset.popupAction === 'zoom') {
+                    kart.setView(posisjon, Math.max(kart.getZoom(), 15));
+                    return;
+                }
+                const tekst = posisjon.lat.toFixed(5) + ', ' + posisjon.lng.toFixed(5);
+                const ferdig = function (melding) {
+                    knapp.textContent = melding;
+                    window.setTimeout(function () { knapp.textContent = 'Kopier koordinater'; }, 1800);
+                };
+                if (navigator.clipboard) navigator.clipboard.writeText(tekst).then(function () { ferdig('Kopiert ✓'); }, function () { ferdig(tekst); });
+                else ferdig(tekst);
             });
-        const markor = L.marker([m.lat, m.lng], { icon: symbol, title: m.tittel, alt: m.tittel })
-            .addTo(kart)
-            .bindPopup(m.popup);
-        if (m.apen) markor.openPopup();
+        });
     });
 
+    // Én markør per ressurs. Popup-teksten er ferdig HTML fra serveren, der teksten allerede er kodet.
+    data.markorer.forEach(function (m) {
+        const klasser = 'map-pin' + (m.akutt ? ' is-urgent' : '') +
+            (m.leveranseStatus ? ' delivery-' + m.leveranseStatus.toLowerCase().replace(' ', '-') : '') +
+            (!m.akutt && !m.kanForespørres ? ' is-unavailable' : '');
+        const merke = m.akutt ? '!' : (m.leveranseStatus || (m.kanForespørres ? '✓' : '−'));
+        const symbol = L.divIcon({
+            className: 'map-pin-wrapper',
+            html: '<span class="' + klasser + '"><i style="--pin-icon:url(\'' + m.ikon + '\')"></i><b>' + merke + '</b></span>',
+            iconSize: [48, 48], iconAnchor: [24, 24], popupAnchor: [0, -22]
+        });
+        const markor = L.marker([m.lat, m.lng], { icon: symbol, title: m.tittel, alt: m.tittel, akutt: !!m.akutt, zIndexOffset: m.akutt ? 1000 : 0 })
+            .bindPopup(m.popup + popupHandlinger(m), { className: 'map-popup', minWidth: 270, maxWidth: 340 });
+        gruppe.addLayer(markor);
+        if (m.apen) {
+            if (harGruppering) gruppe.zoomToShowLayer(markor, function () { markor.openPopup(); });
+            else markor.openPopup();
+        }
+    });
     // Når et skjema er åpent: et klikk i kartet fyller ut de skjulte feltene for breddegrad og lengdegrad.
     // Stedsnavnet finner serveren når skjemaet lagres.
     const p = data.plassering;

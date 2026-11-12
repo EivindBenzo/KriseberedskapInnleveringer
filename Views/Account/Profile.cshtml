@@ -1,0 +1,91 @@
+@model ProfileViewModel
+@using HeimevernetInnlevering1.Controllers
+@using HeimevernetInnlevering1.Models
+@{
+    ViewData["Title"] = "Min konto";
+    var mørk = TemaController.Gjeldende(Context.Request) == TemaController.Mørk;
+    string Beskrivelse(string rolle) => rolle switch
+    {
+        AppRoles.Kriseledelse => "Overordnet oversikt, beslutninger og brukeradministrasjon.",
+        AppRoles.DispatchTeam => "Koordinerer behov, forespørsler og leveranser.",
+        AppRoles.Ressursleverandor => "Registrerer og vedlikeholder ressurser som kan settes inn.",
+        AppRoles.OffentligAktor => "Melder inn behov og følger opp status.",
+        _ => ""
+    };
+}
+
+<section class="profile-page" aria-labelledby="profileTitle">
+    <div class="profile-hero">
+        <span class="profile-avatar" aria-hidden="true">@Model.Initials</span>
+        <div>
+            <span class="eyebrow">MIN KONTO</span>
+            <h1 id="profileTitle">@(Model.Name.Length > 0 ? Model.Name : Model.Email)</h1>
+            <div class="profile-roles">
+                @foreach (var rolle in Model.Roles)
+                {
+                    <span class="profile-role">@AppRoles.Label(rolle)</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="profile-grid">
+        <article class="profile-card">
+            <h2>Kontaktopplysninger</h2>
+            <dl class="profile-details">
+                <div><dt>Navn</dt><dd>@(Model.Name.Length > 0 ? Model.Name : "Ikke oppgitt")</dd></div>
+                <div><dt>E-post</dt><dd><a href="mailto:@Model.Email">@Model.Email</a></dd></div>
+                <div><dt>Telefon</dt><dd>@if (string.IsNullOrWhiteSpace(Model.Phone)) { <text>Ikke oppgitt</text> } else { <a href="tel:@Model.Phone">@Model.Phone</a> }</dd></div>
+                <div><dt>Organisasjon</dt><dd>@(string.IsNullOrWhiteSpace(Model.Organisation) ? "Ikke oppgitt" : Model.Organisation)</dd></div>
+            </dl>
+        </article>
+
+        <article class="profile-card">
+            <h2>Tilgang og roller</h2>
+            <ul class="profile-role-list">
+                @foreach (var rolle in Model.Roles)
+                {
+                    <li><strong>@AppRoles.Label(rolle)</strong><span>@Beskrivelse(rolle)</span></li>
+                }
+            </ul>
+        </article>
+
+        @if (Model.Stats.Count > 0)
+        {
+            <article class="profile-card">
+                <h2>Din aktivitet</h2>
+                <div class="profile-stats">
+                    @foreach (var (label, value) in Model.Stats)
+                    {
+                        <div><strong>@value</strong><span>@label</span></div>
+                    }
+                </div>
+            </article>
+        }
+
+        <article class="profile-card">
+            <h2>Innstillinger</h2>
+            <div class="profile-setting">
+                <div>
+                    <strong>Utseende</strong>
+                    <span>@(mørk ? "Mørk modus er på." : "Lys modus er på.") Valget huskes på denne enheten.</span>
+                </div>
+                <form asp-controller="Tema" asp-action="Bytt" method="post">
+                    <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                    <button type="submit" class="btn-secondary" aria-label="@(mørk ? "Bytt til lys modus" : "Bytt til mørk modus")">
+                        <span aria-hidden="true">@(mørk ? "☀" : "☾")</span>&nbsp;@(mørk ? "Lys modus" : "Mørk modus")
+                    </button>
+                </form>
+            </div>
+            <div class="profile-setting">
+                <div>
+                    <strong>Innlogging</strong>
+                    <span>Logg ut når du er ferdig, spesielt på delte enheter.</span>
+                </div>
+                <form asp-controller="Account" asp-action="Logout" method="post">
+                    <button type="submit" class="btn-danger">Logg ut</button>
+                </form>
+            </div>
+        </article>
+    </div>
+</section>

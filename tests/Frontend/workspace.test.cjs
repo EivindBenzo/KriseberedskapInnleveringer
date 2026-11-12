@@ -23,7 +23,7 @@ test('navigation exposes operational destinations, prototype identity and keyboa
     assert.match(layout, /<label for="menuToggle" class="menu-toggle"/);
     assert.match(read('wwwroot/css/site.css'), /\.menu-checkbox:checked ~ \.nav-menu \{/);
     assert.match(layout, /Hopp til innhold/);
-    assert.match(layout, /asp-controller="Account" asp-action="Logout" method="post"/);
+    assert.match(layout, /asp-controller="Account" asp-action="Profile"/);
 });
 
 test('resources keep mine actions inside their context', () => {

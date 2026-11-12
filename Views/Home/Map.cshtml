@@ -138,7 +138,7 @@
                 {
                     <li><a asp-action="Map" asp-route-sted="@(sted.Length > 0 ? sted : null)">Vis alle</a></li>
                 }
-                <li class="map-key-colors"><span class="dot dot-blue"></span>Blå ✓ = kan forespørres <span class="dot dot-orange"></span>Oransje − = ikke tilgjengelig nå <span class="dot dot-red"></span>Rød ! = akutt behov <span class="map-delivery-key">→</span> = tildeling pågår</li>
+                <li class="map-key-colors"><span class="map-key-badge is-ok">✓</span>Kan forespørres <span class="map-key-badge is-off">−</span>Ikke tilgjengelig nå <span class="map-key-badge is-urgent">!</span>Akutt behov (blinkende rød ramme) <span class="map-delivery-key">→</span>Tildeling pågår</li>
             </ul>
         </div>
     </div>
@@ -280,6 +280,8 @@
 }
 
 <link rel="stylesheet" href="~/lib/leaflet/leaflet.css" />
+<link rel="stylesheet" href="~/lib/leaflet.markercluster/MarkerCluster.css" />
 <script src="~/lib/leaflet/leaflet.js"></script>
-<script type="application/json" id="kartdata">@Html.Raw(JsonSerializer.Serialize(kart, new JsonSerializerOptions(JsonSerializerDefaults.Web)))</script>
+<script src="~/lib/leaflet.markercluster/leaflet.markercluster.js"></script>
+<script type="application/json" id="kartdata">@Html.Raw(JsonSerializer.Serialize(kart with { OmrissUrl = Url.Content("~/data/norway-outline.json") }, new JsonSerializerOptions(JsonSerializerDefaults.Web)))</script>
 <script src="~/js/kart.js" asp-append-version="true"></script>
