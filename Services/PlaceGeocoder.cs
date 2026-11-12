@@ -64,7 +64,7 @@ public sealed class PlaceGeocoder : IPlaceGeocoder, IDisposable
         if (_cache.TryGetValue<string>(key, out var cached)) return cached!;
         using var json = await RequestAsync($"reverse?format=jsonv2&addressdetails=1&zoom=18&{point}", cancellationToken);
         var label = json is null ? null : ReverseLabel(json.RootElement, latitude, longitude);
-        var result = label ?? fallback;
+        var result = label ?? NorwegianPlaces.Describe(latitude, longitude) ?? fallback;
         _cache.Set(key, result, new MemoryCacheEntryOptions().SetSize(1)
             .SetAbsoluteExpiration(label is null ? TimeSpan.FromSeconds(30) : TimeSpan.FromHours(24)));
         return result;

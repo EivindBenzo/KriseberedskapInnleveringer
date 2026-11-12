@@ -17,7 +17,7 @@ public sealed record ResourceCity(string Name, int Count)
 
     public static string? FromLocation(string? location)
     {
-        var label = Normalize(location);
+        var label = Regex.Replace(Normalize(location), @"^Nær\s+", "");
         // Reverse geocoding stores "street house-number, locality", or just locality.
         // Its coordinate-only fallback is not a city.
         if (label.Length == 0 || label.Any(char.IsControl) || label.Contains('<') || label.Contains('>') ||
@@ -31,8 +31,11 @@ public sealed record ResourceCity(string Name, int Count)
         return city.Length is > 0 and <= 120 && city.Any(char.IsLetter) ? city : null;
     }
 
+    public static string? FromResource(Ressurs resource) =>
+        FromLocation(HeimevernetInnlevering1.Services.NorwegianPlaces.Display(resource.Stedsnavn, resource.Breddegrad, resource.Lengdegrad));
+
     public static IReadOnlyList<ResourceCity> Aggregate(IEnumerable<Ressurs> resources) =>
-        resources.Select(r => FromLocation(r.Stedsnavn)).OfType<string>()
+        resources.Select(FromResource).OfType<string>()
             .GroupBy(c => c, StringComparer.OrdinalIgnoreCase)
             .Select(g => new ResourceCity(g.OrderBy(c => c == c.ToLowerInvariant() || c == c.ToUpperInvariant())
                 .ThenBy(c => c, StringComparer.Ordinal).First(), g.Count()))

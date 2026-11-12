@@ -40,7 +40,7 @@ public static class ResourceQueries
     public static bool MatchesCity(Ressurs resource, string? city)
     {
         var wanted = ResourceCity.Normalize(city);
-        return wanted.Length == 0 || string.Equals(ResourceCity.FromLocation(resource.Stedsnavn), wanted,
+        return wanted.Length == 0 || string.Equals(ResourceCity.FromResource(resource), wanted,
             StringComparison.OrdinalIgnoreCase);
     }
 

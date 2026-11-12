@@ -16,7 +16,9 @@
 
 <section class="profile-page" aria-labelledby="profileTitle">
     <div class="profile-hero">
-        <span class="profile-avatar" aria-hidden="true">@Model.Initials</span>
+        <div class="profile-avatar-wrap">
+            <span class="profile-avatar" aria-hidden="true">@Model.Initials@if (Model.HasAvatar) { <img src="@Url.Action("Avatar", "Account")" alt="" data-avatar-img /> }</span>
+        </div>
         <div>
             <span class="eyebrow">MIN KONTO</span>
             <h1 id="profileTitle">@(Model.Name.Length > 0 ? Model.Name : Model.Email)</h1>
@@ -29,7 +31,28 @@
         </div>
     </div>
 
+    @if (TempData["ProfileMessage"] is string ok) { <p class="profile-flash is-ok" role="status">@ok</p> }
+    @if (TempData["ProfileError"] is string feil) { <p class="profile-flash is-error" role="alert">@feil</p> }
+
     <div class="profile-grid">
+        <article class="profile-card profile-card-wide">
+            <h2>Profilbilde</h2>
+            <div class="profile-setting">
+                <div><strong>Bytt bilde</strong><span>Velg et bilde fra enheten din. Det skaleres ned automatisk.</span></div>
+                <div class="profile-actions">
+                    <label class="btn-secondary profile-big-btn" for="avatarFile">Velg bilde</label>
+                    <input type="file" id="avatarFile" accept="image/*" hidden data-avatar-file />
+                    @if (Model.HasAvatar)
+                    {
+                        <form asp-action="RemoveAvatar" method="post"><button type="submit" class="btn-secondary profile-big-btn">Fjern</button></form>
+                    }
+                </div>
+            </div>
+            <form asp-action="SetAvatar" method="post" data-avatar-form hidden>
+                <input type="hidden" name="bilde" data-avatar-data />
+            </form>
+        </article>
+
         <article class="profile-card">
             <h2>Kontaktopplysninger</h2>
             <dl class="profile-details">
@@ -40,16 +63,36 @@
             </dl>
         </article>
 
-        <article class="profile-card">
-            <h2>Tilgang og roller</h2>
-            <ul class="profile-role-list">
-                @foreach (var rolle in Model.Roles)
+        <article class="profile-card profile-card-wide">
+            <h2>Snarveier for din rolle</h2>
+            <div class="profile-shortcuts">
+                @foreach (var (label, desc, ctrl, act) in Model.Shortcuts)
                 {
-                    <li><strong>@AppRoles.Label(rolle)</strong><span>@Beskrivelse(rolle)</span></li>
+                    <a asp-controller="@ctrl" asp-action="@act" class="profile-shortcut"><strong>@label</strong><span>@desc</span></a>
                 }
-            </ul>
+            </div>
         </article>
 
+        <article class="profile-card">
+            <h2>Rediger opplysninger</h2>
+            <form asp-action="UpdateProfile" method="post" class="profile-form">
+                <label>Fornavn<input name="Fornavn" value="@Model.FirstName" required maxlength="100" autocomplete="given-name" /></label>
+                <label>Etternavn<input name="Etternavn" value="@Model.LastName" required maxlength="100" autocomplete="family-name" /></label>
+                <label>Telefon<input name="Telefon" value="@Model.Phone" required maxlength="20" type="tel" autocomplete="tel" /></label>
+                <label>Organisasjon<input name="Organisasjon" value="@Model.Organisation" maxlength="150" autocomplete="organization" /></label>
+                <button type="submit" class="btn-submit profile-big-btn">Lagre endringer</button>
+            </form>
+        </article>
+
+        <article class="profile-card">
+            <h2>Passord og sikkerhet</h2>
+            <form asp-action="ChangePassword" method="post" class="profile-form">
+                <label>Nåværende passord<input name="CurrentPassword" type="password" required autocomplete="current-password" /></label>
+                <label>Nytt passord (minst 12 tegn)<input name="NewPassword" type="password" required minlength="12" autocomplete="new-password" /></label>
+                <label>Bekreft nytt passord<input name="ConfirmPassword" type="password" required minlength="12" autocomplete="new-password" /></label>
+                <button type="submit" class="btn-submit profile-big-btn">Bytt passord</button>
+            </form>
+        </article>
         @if (Model.Stats.Count > 0)
         {
             <article class="profile-card">
@@ -72,10 +115,21 @@
                 </div>
                 <form asp-controller="Tema" asp-action="Bytt" method="post">
                     <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
-                    <button type="submit" class="btn-secondary" aria-label="@(mørk ? "Bytt til lys modus" : "Bytt til mørk modus")">
+                    <button type="submit" class="btn-secondary profile-big-btn" aria-label="@(mørk ? "Bytt til lys modus" : "Bytt til mørk modus")">
                         <span aria-hidden="true">@(mørk ? "☀" : "☾")</span>&nbsp;@(mørk ? "Lys modus" : "Mørk modus")
                     </button>
                 </form>
+            </div>
+            <div class="profile-setting">
+                <div><strong>Tekststørrelse</strong><span>Gjør teksten større hvis det er vanskelig å lese.</span></div>
+                <div class="profile-actions" role="group" aria-label="Tekststørrelse">
+                    <button type="button" class="btn-secondary profile-big-btn" data-pref-text="normal">Normal</button>
+                    <button type="button" class="btn-secondary profile-big-btn" data-pref-text="large">Stor</button>
+                </div>
+            </div>
+            <div class="profile-setting">
+                <div><strong>Reduserte animasjoner</strong><span>Demper blinking og bevegelse.</span></div>
+                <button type="button" class="btn-secondary profile-big-btn" data-pref-motion aria-pressed="false">Av</button>
             </div>
             <div class="profile-setting">
                 <div>
@@ -83,7 +137,7 @@
                     <span>Logg ut når du er ferdig, spesielt på delte enheter.</span>
                 </div>
                 <form asp-controller="Account" asp-action="Logout" method="post">
-                    <button type="submit" class="btn-danger">Logg ut</button>
+                    <button type="submit" class="btn-danger profile-big-btn">Logg ut</button>
                 </form>
             </div>
         </article>

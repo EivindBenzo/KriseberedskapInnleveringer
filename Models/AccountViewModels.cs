@@ -59,10 +59,29 @@ public class ProfileViewModel
     public string Email { get; init; } = string.Empty;
     public string? Phone { get; init; }
     public string? Organisation { get; init; }
+    public string FirstName { get; init; } = string.Empty;
+    public string LastName { get; init; } = string.Empty;
+    public bool HasAvatar { get; init; }
     public IReadOnlyList<string> Roles { get; init; } = [];
+    public List<(string Label, string Description, string Controller, string Action)> Shortcuts { get; } = [];
     public List<(string Label, int Value)> Stats { get; } = [];
 
     public string Initials => string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
         .Where(part => char.IsLetter(part[0])).Select(part => char.ToUpperInvariant(part[0])).Take(2)) is { Length: > 0 } initials
         ? initials : "?";
+}
+
+public class ProfileEditModel
+{
+    [Required, StringLength(100)] public string Fornavn { get; set; } = string.Empty;
+    [Required, StringLength(100)] public string Etternavn { get; set; } = string.Empty;
+    [Required, Phone, StringLength(20)] public string Telefon { get; set; } = string.Empty;
+    [StringLength(150)] public string? Organisasjon { get; set; }
+}
+
+public class ChangePasswordModel
+{
+    [Required, DataType(DataType.Password)] public string CurrentPassword { get; set; } = string.Empty;
+    [Required, StringLength(128, MinimumLength = 12), DataType(DataType.Password)] public string NewPassword { get; set; } = string.Empty;
+    [Required, DataType(DataType.Password), Compare(nameof(NewPassword))] public string ConfirmPassword { get; set; } = string.Empty;
 }

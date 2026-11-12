@@ -16,10 +16,6 @@ public sealed record KartVisning(double Lat, double Lng, int Zoom)
 
     /// <summary>Andre steder som passet søket, vist som lenker under søkefeltet.</summary>
     public IReadOnlyList<PlaceResult> Stedsforslag { get; init; } = [];
-
-    /// <summary>Adressen til landegrensen for Norge (wwwroot/data/norway-outline.json). Kartet dempes utenfor den.</summary>
-    public string? OmrissUrl { get; init; }
-
     public IReadOnlyList<KartMarkor> Markorer { get; init; } = [];
 
     /// <summary>Satt når brukeren skal klikke i kartet for å velge en plassering i et skjema.</summary>

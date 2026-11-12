@@ -85,8 +85,12 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             Email = user.Email ?? user.UserName ?? "Ikke oppgitt",
             Phone = user.PhoneNumber,
             Organisation = user.Organisasjon,
+            FirstName = user.Fornavn,
+            LastName = user.Etternavn,
+            HasAvatar = await users.GetAuthenticationTokenAsync(user, AvatarProvider, AvatarToken) is not null,
             Roles = roles
         };
+        AddShortcuts(model, roles);
 
         if (roles.Contains(AppRoles.Ressursleverandor))
         {
@@ -106,6 +110,107 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             model.Stats.Add(("Akutte behov", await db.Behov.AsNoTracking().CountAsync(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Status != Statuser.Behov.Løst)));
         }
         return View(model);
+    }
+
+    private static void AddShortcuts(ProfileViewModel model, IReadOnlyCollection<string> roles)
+    {
+        model.Shortcuts.Add(("Oversikt", "Se status og det som krever handling nå.", "Home", "Dashboard"));
+        model.Shortcuts.Add(("Kart", "Ressurser og akutte behov på kartet.", "Home", "Map"));
+        if (roles.Contains(AppRoles.OffentligAktor))
+            model.Shortcuts.Add(("Meld behov", "Send inn et nytt behov med sted.", "Behov", "Registrer"));
+        if (roles.Contains(AppRoles.Ressursleverandor))
+            model.Shortcuts.Add(("Mine ressurser", "Se, rediger og følg opp ressursene dine.", "Home", "Mine"));
+        if (roles.Contains(AppRoles.DispatchTeam) || roles.Contains(AppRoles.Kriseledelse))
+            model.Shortcuts.Add(("Hendelser", "Koordiner hendelser og tildelinger.", "Hendelse", "Index"));
+        if (roles.Contains(AppRoles.Kriseledelse))
+            model.Shortcuts.Add(("Brukere", "Administrer kontoer og roller.", "Admin", "Index"));
+    }
+
+    [Authorize, HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateProfile(ProfileEditModel model)
+    {
+        var user = await users.GetUserAsync(User);
+        if (user is null) return RedirectToAction(nameof(Login));
+        if (!ModelState.IsValid)
+        {
+            TempData["ProfileError"] = "Kontroller opplysningene: navn og et gyldig telefonnummer må oppgis.";
+            return RedirectToAction(nameof(Profile));
+        }
+        user.Fornavn = model.Fornavn.Trim();
+        user.Etternavn = model.Etternavn.Trim();
+        user.PhoneNumber = model.Telefon.Trim();
+        user.Organisasjon = string.IsNullOrWhiteSpace(model.Organisasjon) ? null : model.Organisasjon.Trim();
+        var result = await users.UpdateAsync(user);
+        if (result.Succeeded) TempData["ProfileMessage"] = "Opplysningene dine er oppdatert.";
+        else TempData["ProfileError"] = "Kunne ikke lagre endringene. Prøv igjen.";
+        return RedirectToAction(nameof(Profile));
+    }
+
+    [Authorize, HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(ChangePasswordModel model)
+    {
+        var user = await users.GetUserAsync(User);
+        if (user is null) return RedirectToAction(nameof(Login));
+        if (!ModelState.IsValid)
+        {
+            TempData["ProfileError"] = "Passordet må være minst 12 tegn, og de to nye passordene må være like.";
+            return RedirectToAction(nameof(Profile));
+        }
+        var result = await users.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
+        if (result.Succeeded)
+        {
+            await signIn.RefreshSignInAsync(user);
+            TempData["ProfileMessage"] = "Passordet er byttet.";
+        }
+        else TempData["ProfileError"] = "Kunne ikke bytte passord. Kontroller det nåværende passordet og passordkravene.";
+        return RedirectToAction(nameof(Profile));
+    }
+
+    // Profilbildet lagres som et lite JPEG-bilde (nettleseren skalerer det ned) i Identity sin tokentabell.
+    private const string AvatarProvider = "Profil";
+    private const string AvatarToken = "Profilbilde";
+    private const string JpegPrefix = "data:image/jpeg;base64,";
+
+    [Authorize, HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetAvatar(string? bilde)
+    {
+        var user = await users.GetUserAsync(User);
+        if (user is null) return RedirectToAction(nameof(Login));
+        if (bilde is not null && bilde.StartsWith(JpegPrefix, StringComparison.Ordinal) && bilde.Length < 200_000
+            && IsJpeg(bilde[JpegPrefix.Length..]))
+        {
+            await users.SetAuthenticationTokenAsync(user, AvatarProvider, AvatarToken, bilde);
+            TempData["ProfileMessage"] = "Profilbildet er oppdatert.";
+        }
+        else TempData["ProfileError"] = "Bildet kunne ikke brukes. Velg et vanlig bilde (JPEG, PNG eller WebP).";
+        return RedirectToAction(nameof(Profile));
+    }
+
+    [Authorize, HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveAvatar()
+    {
+        var user = await users.GetUserAsync(User);
+        if (user is null) return RedirectToAction(nameof(Login));
+        await users.RemoveAuthenticationTokenAsync(user, AvatarProvider, AvatarToken);
+        TempData["ProfileMessage"] = "Profilbildet er fjernet.";
+        return RedirectToAction(nameof(Profile));
+    }
+
+    [Authorize, HttpGet]
+    public async Task<IActionResult> Avatar()
+    {
+        var user = await users.GetUserAsync(User);
+        var data = user is null ? null : await users.GetAuthenticationTokenAsync(user, AvatarProvider, AvatarToken);
+        if (data is null || !data.StartsWith(JpegPrefix, StringComparison.Ordinal)) return NotFound();
+        Response.Headers.CacheControl = "private, no-cache";
+        return File(Convert.FromBase64String(data[JpegPrefix.Length..]), "image/jpeg");
+    }
+
+    private static bool IsJpeg(string base64)
+    {
+        var buffer = new byte[base64.Length * 3 / 4 + 3];
+        return Convert.TryFromBase64String(base64, buffer, out var written) && written > 3
+            && buffer[0] == 0xFF && buffer[1] == 0xD8 && buffer[2] == 0xFF;
     }
 
     [Authorize, HttpPost, ValidateAntiForgeryToken]

@@ -1,11 +1,15 @@
 @model HeimevernetInnlevering1.ViewModels.DataPageViewModel
 @using HeimevernetInnlevering1.Models
+@using HeimevernetInnlevering1.Services
 @{
     var mine = ViewBag.Mine is true;
     var history = ViewBag.ResourceHistory is true;
     ViewData["Title"] = "Ressurser";
     var now = DateTime.UtcNow;
     var valgtBy = (string?)ViewBag.City ?? "";
+    var typer = (ViewBag.Ressurstyper as List<string>) ?? HeimevernetInnlevering1.Data.SeedData.RessurstypeNavn.ToList();
+    var antallTilgjengelig = Model.Ressurser.Count(x => x.Status == Statuser.Ressurs.Tilgjengelig);
+    var antallByer = Model.Ressurser.Select(x => NorwegianPlaces.Display(x.Stedsnavn, x.Breddegrad, x.Lengdegrad)).Distinct().Count();
 }
 <section class="data-container resource-overview">
     <div class="page-heading">
@@ -66,6 +70,19 @@
     else
     {
     <div>
+    <div class="resource-stats" aria-label="Sammendrag">
+        <div class="resource-stat"><strong>@Model.Ressurser.Count</strong><span>Ressurser i utvalget</span></div>
+        <div class="resource-stat is-good"><strong>@antallTilgjengelig</strong><span>Tilgjengelige</span></div>
+        <div class="resource-stat is-warn"><strong>@(Model.Ressurser.Count - antallTilgjengelig)</strong><span>Ikke tilgjengelige</span></div>
+        <div class="resource-stat"><strong>@antallByer</strong><span>Steder</span></div>
+    </div>
+    <div class="type-chips" role="group" aria-label="Filtrer på ressurstype">
+        <a asp-action="Resources" asp-route-mine="@(mine ? "true" : null)" asp-route-city="@ViewBag.City" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)" class="type-chip @(string.IsNullOrEmpty((string?)ViewBag.SelectedType) ? "is-active" : "")">Alle</a>
+        @foreach (var typ in typer)
+        {
+            <a asp-action="Resources" asp-route-type="@typ" asp-route-mine="@(mine ? "true" : null)" asp-route-city="@ViewBag.City" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)" class="type-chip @(typ == (string?)ViewBag.SelectedType ? "is-active" : "")">@typ</a>
+        }
+    </div>
     <form asp-action="Resources" method="get" class="filter-bar">
         <input type="hidden" name="mine" value="@mine.ToString().ToLowerInvariant()" />
         @* Byene og antallet ressurser i hver by regnes ut på serveren (ResourceCity.Aggregate). *@
@@ -110,23 +127,23 @@
     {
         <p>Ingen ressurser passer valget. Prøv en annen type eller fjern søket.</p>
     }
-    <div class="resource-list">
+    <div class="resource-list is-grid">
         @foreach (var r in Model.Ressurser)
         {
             var status = ResourceOperationalStatus.From(r, now);
             var typeNavn = r.Ressurstype?.Navn ?? "Ukjent";
             var godkjentTil = WorkflowEligibility.GodkjentTil(r);
-            <div class="resource-row" id="ressurs-@r.RessursID">
+            <div class="resource-row resource-card @(r.Status == Statuser.Ressurs.Tilgjengelig ? "is-available" : "is-unavailable")" id="ressurs-@r.RessursID">
                 <div>
                     <h2><img src="@Url.Content(RessursIkon.Sti(typeNavn, status))" alt="" width="32" height="32" /> @r.Navn</h2>
-                    <p class="resource-meta">@typeNavn · @r.Stedsnavn</p>
+                    <p class="resource-meta">@typeNavn</p>
+                    <p class="resource-place"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>@NorwegianPlaces.Display(r.Stedsnavn, r.Breddegrad, r.Lengdegrad)</p>
                     <details class="resource-facts">
                         <summary>Detaljer om ressursen</summary>
                         <dl>
                             <div><dt>Registrert</dt><dd>@r.Registrert.ToString("dd.MM.yyyy HH:mm") UTC</dd></div>
                             <div><dt>Tilgjengelig</dt><dd>fra @r.TilgjengeligFra.ToString("dd.MM.yyyy")@(r.TilgjengeligTil is DateOnly til ? " til " + til.ToString("dd.MM.yyyy") : "")</dd></div>
                             <div><dt>Kontakt</dt><dd>@r.Kontaktperson, @r.Kontakttelefon</dd></div>
-                            <div><dt>Koordinater</dt><dd>@r.Breddegrad.ToString("F5"), @r.Lengdegrad.ToString("F5")</dd></div>
                             @if (!string.IsNullOrWhiteSpace(r.Beskrivelse))
                             {
                                 <div><dt>Beskrivelse</dt><dd>@r.Beskrivelse</dd></div>

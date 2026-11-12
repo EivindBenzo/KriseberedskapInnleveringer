@@ -3,24 +3,67 @@
 // (KartVisning) og ligger som JSON i <script id="kartdata">. Dette skriptet bare tegner det.
 (function () {
     const data = JSON.parse(document.getElementById('kartdata').textContent);
-    // Kartet er begrenset til Norge: Kartverkets gråtonekart som bakgrunn, og alt utenfor landegrensen dempes.
-    const norgeGrenser = L.latLngBounds([57.5, 3.0], [71.6, 31.5]);
-    const kart = L.map('map', { maxBounds: norgeGrenser, maxBoundsViscosity: 1, minZoom: 4 }).setView([data.lat, data.lng], data.zoom);
+    // Kartet kan flyttes fritt. Kartverkets topografiske kart er svært detaljert i Norge, og et vanlig gatekart
+    // ligger under, slik at man også ser noe når man zoomer ut eller flytter seg utenfor Kartverkets dekning.
+    const kart = L.map('map', { minZoom: 3, worldCopyJump: true, zoomSnap: 0.5 }).setView([data.lat, data.lng], data.zoom);
+    const tomRute = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+    const gatekart = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    });
+    const topo = L.layerGroup([
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }),
+        L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png', {
+            minZoom: 3, maxZoom: 19, maxNativeZoom: 18, bounds: [[57, 3], [81, 34]], errorTileUrl: tomRute,
+            attribution: '&copy; <a href="https://www.kartverket.no/">Kartverket</a>'
+        })
+    ]);
+    const flyfoto = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19, attribution: 'Tiles &copy; Esri'
+    });
+    topo.addTo(kart);
+    L.control.layers({ 'Topografisk (Kartverket)': topo, 'Gatekart': gatekart, 'Flyfoto': flyfoto }, null, { position: 'topright' }).addTo(kart);
 
-    L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topograatone/default/webmercator/{z}/{y}/{x}.png', {
-        minZoom: 4,
-        maxZoom: 18,
-        bounds: norgeGrenser,
-        attribution: '&copy; <a href="https://www.kartverket.no/">Kartverket</a>'
-    }).addTo(kart);
-
-    if (data.omrissUrl && typeof fetch === 'function') {
-        fetch(data.omrissUrl).then(function (svar) { return svar.json(); }).then(function (ringer) {
-            const verden = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
-            L.polygon([verden].concat(ringer), { stroke: false, fillColor: '#0b2f3a', fillOpacity: .38, interactive: false }).addTo(kart);
-            L.polygon(ringer, { color: '#087181', weight: 2, fill: false, interactive: false }).addTo(kart);
-        }).catch(function () { /* Kartet fungerer uten omriss. */ });
+    // Kartet åpner der brukeren er. Vi lar være når siden allerede har et bestemt sted: et søk, en ressurs
+    // som skal vises eller et punkt som er valgt i et skjema.
+    let brukerPosisjon = null;
+    let brukerMarkor = null;
+    const harBestemtSted = !!data.melding || data.markorer.some(function (m) { return m.apen; }) ||
+        (data.plassering && data.plassering.lat != null) || /[?&]sted=/.test(window.location.search);
+    function visBrukerPosisjon(pos, flytt) {
+        brukerPosisjon = L.latLng(pos.coords.latitude, pos.coords.longitude);
+        if (brukerMarkor) brukerMarkor.setLatLng(brukerPosisjon);
+        else {
+            brukerMarkor = L.marker(brukerPosisjon, {
+                interactive: false, keyboard: false, zIndexOffset: -500,
+                icon: L.divIcon({ className: 'map-user-wrapper', html: '<span class="map-user-dot"></span>', iconSize: [22, 22], iconAnchor: [11, 11] })
+            }).addTo(kart);
+        }
+        if (flytt) kart.setView(brukerPosisjon, 13);
+        document.querySelectorAll('.map-popup-distance').forEach(oppdaterAvstand);
     }
+    function finnBruker(flytt) {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(function (pos) { visBrukerPosisjon(pos, flytt); }, function () { /* Uten tillatelse vises kartet der serveren startet det. */ },
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
+    }
+    finnBruker(!harBestemtSted);
+    const LocateControl = L.Control.extend({
+        options: { position: 'bottomright' },
+        onAdd: function () {
+            const knapp = L.DomUtil.create('button', 'leaflet-bar map-expand-control map-locate-control');
+            knapp.type = 'button';
+            knapp.title = 'Vis min posisjon';
+            knapp.setAttribute('aria-label', 'Vis min posisjon');
+            knapp.innerHTML = '&#x2316;';
+            L.DomEvent.disableClickPropagation(knapp);
+            L.DomEvent.on(knapp, 'click', function () {
+                if (brukerPosisjon) kart.setView(brukerPosisjon, Math.max(kart.getZoom(), 13));
+                else finnBruker(true);
+            });
+            return knapp;
+        }
+    });
+    kart.addControl(new LocateControl());
     const ExpandControl = L.Control.extend({
         options: { position: 'bottomright' },
         onAdd: function () {
@@ -81,35 +124,58 @@
         }).addTo(kart)
         : kart;
 
+    // Under serverens popup kommer en stor rutekapp (Google Maps starter ved brukerens posisjon).
     function popupHandlinger(m) {
         const rute = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(m.lat + ',' + m.lng) + '&travelmode=driving';
-        return '<div class="map-popup-actions">' +
-            '<a class="map-popup-btn is-primary" href="' + rute + '" target="_blank" rel="noopener noreferrer">Veibeskrivelse fra min posisjon</a>' +
-            '<button type="button" class="map-popup-btn" data-popup-action="zoom">Zoom hit</button>' +
-            '<button type="button" class="map-popup-btn" data-popup-action="copy">Kopier koordinater</button></div>';
+        return '<a class="map-popup-route" href="' + rute + '" target="_blank" rel="noopener noreferrer">' +
+            '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M21.7 11.3l-9-9a1 1 0 0 0-1.4 0l-9 9a1 1 0 0 0 0 1.4l9 9a1 1 0 0 0 1.4 0l9-9a1 1 0 0 0 0-1.4zM14 14.5V12h-4v3H8v-4a1 1 0 0 1 1-1h5V7.5l3.5 3.5-3.5 3.5z"/></svg>' +
+            'Veibeskrivelse hit</a>';
     }
+
+    function medRute(m) {
+        const marker = '<div class="map-popup-links">';
+        return m.popup.indexOf(marker) >= 0 ? m.popup.replace(marker, popupHandlinger(m) + marker) : m.popup + popupHandlinger(m);
+    }
+
+    function settAvstand(element) {
+        if (!brukerPosisjon || !element.dataset.lat) return;
+        const km = brukerPosisjon.distanceTo(L.latLng(+element.dataset.lat, +element.dataset.lng)) / 1000;
+        element.textContent = (km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(km < 10 ? 1 : 0).replace('.', ',') + ' km') + ' fra deg i luftlinje';
+        element.hidden = false;
+    }
+    function oppdaterAvstand(element) { settAvstand(element); }
 
     kart.on('popupopen', function (e) {
         const element = e.popup.getElement && e.popup.getElement();
         if (!element) return;
         const posisjon = e.popup.getLatLng();
-        element.querySelectorAll('[data-popup-action]').forEach(function (knapp) {
-            knapp.addEventListener('click', function () {
-                if (knapp.dataset.popupAction === 'zoom') {
-                    kart.setView(posisjon, Math.max(kart.getZoom(), 15));
-                    return;
-                }
-                const tekst = posisjon.lat.toFixed(5) + ', ' + posisjon.lng.toFixed(5);
-                const ferdig = function (melding) {
-                    knapp.textContent = melding;
-                    window.setTimeout(function () { knapp.textContent = 'Kopier koordinater'; }, 1800);
-                };
-                if (navigator.clipboard) navigator.clipboard.writeText(tekst).then(function () { ferdig('Kopiert ✓'); }, function () { ferdig(tekst); });
-                else ferdig(tekst);
-            });
+        const avstand = element.querySelector('.map-popup-distance');
+        if (avstand) {
+            avstand.dataset.lat = posisjon.lat;
+            avstand.dataset.lng = posisjon.lng;
+            settAvstand(avstand);
+        }
+        const rad = element.querySelector('.map-popup-links');
+        const detaljer = rad && rad.querySelector('a:not([href^="tel:"])');
+        if (!rad || !detaljer || rad.querySelector('[data-popup-action]')) return;
+        // «Del» kopierer lenken til ressursen eller behovet, slik at den kan sendes til andre.
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'map-popup-btn';
+        del.dataset.popupAction = 'share';
+        del.textContent = 'Del';
+        del.addEventListener('click', function () {
+            const adresse = new URL(detaljer.getAttribute('href'), window.location.href).href;
+            const ferdig = function (melding) {
+                del.textContent = melding;
+                window.setTimeout(function () { del.textContent = 'Del'; }, 1800);
+            };
+            if (navigator.share) navigator.share({ title: document.title, url: adresse }).catch(function () { });
+            else if (navigator.clipboard) navigator.clipboard.writeText(adresse).then(function () { ferdig('Lenke kopiert ✓'); }, function () { ferdig('Kunne ikke kopiere'); });
+            else ferdig('Kunne ikke kopiere');
         });
+        rad.appendChild(del);
     });
-
     // Én markør per ressurs. Popup-teksten er ferdig HTML fra serveren, der teksten allerede er kodet.
     data.markorer.forEach(function (m) {
         const klasser = 'map-pin' + (m.akutt ? ' is-urgent' : '') +
@@ -122,7 +188,7 @@
             iconSize: [48, 48], iconAnchor: [24, 24], popupAnchor: [0, -22]
         });
         const markor = L.marker([m.lat, m.lng], { icon: symbol, title: m.tittel, alt: m.tittel, akutt: !!m.akutt, zIndexOffset: m.akutt ? 1000 : 0 })
-            .bindPopup(m.popup + popupHandlinger(m), { className: 'map-popup', minWidth: 270, maxWidth: 340 });
+            .bindPopup(medRute(m), { className: 'map-popup', minWidth: 250, maxWidth: 290 });
         gruppe.addLayer(markor);
         if (m.apen) {
             if (harGruppering) gruppe.zoomToShowLayer(markor, function () { markor.openPopup(); });

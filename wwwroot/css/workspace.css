@@ -200,21 +200,20 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .dashboard-action small { margin-top: .2rem; color: var(--muted); font-size: .85rem; font-weight: 400; }
 .dashboard-action-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.65rem; height: 2.65rem; margin-right: .9rem; border-radius: 50%; color: white; font-size: 1.25rem; font-weight: 800; }
 .dashboard-action-count { min-width: 2.7rem; padding: .45rem .7rem; color: var(--heading); text-align: center; background: var(--surface); border: 1px solid currentColor; border-radius: 99px; font-size: 1.25rem; font-weight: 800; }
-.dashboard-action-confirmed { border-top: 4px solid #16a34a; }
-.dashboard-action-confirmed .dashboard-action-count { color: #15803d; }
-.dashboard-action-requests .dashboard-action-count, .dashboard-action-followup .dashboard-action-count { color: #b45309; }
-.dashboard-action-urgent .dashboard-action-count { color: #dc2626; }
-:root[data-theme="dark"] .dashboard-action-confirmed .dashboard-action-count { color: #4ade80; }
-:root[data-theme="dark"] .dashboard-action-requests .dashboard-action-count, :root[data-theme="dark"] .dashboard-action-followup .dashboard-action-count { color: #fbbf24; }
-:root[data-theme="dark"] .dashboard-action-urgent .dashboard-action-count { color: #f87171; }
-:root[data-theme] .dashboard-action[aria-expanded="true"] .dashboard-action-count { color: #fff; }
-.dashboard-action-confirmed .dashboard-action-icon { background: #16a34a; }
-.dashboard-action-requests { border-top: 4px solid #d97706; }
-.dashboard-action-requests .dashboard-action-icon { background: #d97706; }
-.dashboard-action-urgent { border-top: 4px solid #dc2626; }
-.dashboard-action-urgent .dashboard-action-icon { background: #dc2626; }
-.dashboard-action-followup { border-top: 4px solid #d97706; }
-.dashboard-action-followup .dashboard-action-icon { background: #d97706; }
+/* Hvert kort har sin egen tone (grønn, oransje, rød). Kortet er svakt farget, og når det er åpent blir
+   den samme fargen sterkere. */
+.dashboard-action { --tone: var(--accent); background: color-mix(in srgb, var(--tone) 12%, var(--surface)); border: 2px solid color-mix(in srgb, var(--tone) 55%, var(--surface)); }
+.dashboard-action:hover { background: color-mix(in srgb, var(--tone) 20%, var(--surface)); border-color: var(--tone); }
+.dashboard-action[aria-expanded="true"] { background: color-mix(in srgb, var(--tone) 34%, var(--surface)); border-color: var(--tone); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 45%, transparent), 0 10px 24px var(--shadow); }
+.dashboard-action[aria-expanded="true"] .dashboard-action-count { color: #fff; background: var(--tone); border-color: var(--tone); }
+.dashboard-action-icon { background: var(--tone); box-shadow: 0 2px 8px color-mix(in srgb, var(--tone) 55%, transparent); }
+.dashboard-action-count { color: var(--tone); background: color-mix(in srgb, var(--tone) 10%, var(--surface)); border: 2px solid var(--tone); }
+.dashboard-action-confirmed { --tone: #15a34a; }
+.dashboard-action-requests, .dashboard-action-followup { --tone: #e07b00; }
+.dashboard-action-urgent { --tone: #dc1f1f; }
+:root[data-theme="dark"] .dashboard-action-confirmed { --tone: #22c55e; }
+:root[data-theme="dark"] .dashboard-action-requests, :root[data-theme="dark"] .dashboard-action-followup { --tone: #f59e0b; }
+:root[data-theme="dark"] .dashboard-action-urgent { --tone: #ef3b3b; }
 .dashboard-panel { scroll-margin-top: 1rem; animation: dashboard-panel-enter .2s ease-out; }
 @keyframes dashboard-panel-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .dashboard-briefing { display: grid; grid-template-columns: minmax(16rem, .85fr) minmax(22rem, 1.15fr); gap: 0; margin: 0 0 1.5rem; overflow: hidden; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: .85rem; }
@@ -477,3 +476,36 @@ form:has(option[value="-1"]:checked) .annen-type { display: block; }
 @supports not selector(:has(*)) {
     .annen-type { display: block; }
 }
+
+/* Runde 2: ressurser og felles utseende */
+.resource-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .8rem; margin: 1rem 0; }
+.resource-stat { padding: 1rem 1.1rem; border-radius: 1rem; border: 1px solid var(--border); background: var(--surface); box-shadow: 0 6px 18px var(--shadow); display: grid; gap: .15rem; border-left: 5px solid var(--accent); }
+.resource-stat strong { font-size: 1.9rem; line-height: 1; color: var(--heading); }
+.resource-stat span { color: var(--muted); font-size: .9rem; }
+.resource-stat.is-good { border-left-color: #15a34a; } .resource-stat.is-good strong { color: #15a34a; }
+.resource-stat.is-warn { border-left-color: #e07b00; } .resource-stat.is-warn strong { color: #e07b00; }
+.type-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin: .5rem 0 1rem; }
+.type-chip { padding: .5rem 1rem; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); text-decoration: none; font-weight: 600; transition: background .15s, transform .15s; }
+.type-chip:hover { background: var(--hover); transform: translateY(-1px); }
+.type-chip.is-active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.data-container .resource-list.is-grid { grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr)); gap: 1.1rem; }
+.data-container .resource-row.resource-card { grid-template-columns: 1fr; align-content: start; gap: .8rem; border-radius: 1.1rem; border-top: 5px solid #15a34a; box-shadow: 0 8px 22px var(--shadow); transition: transform .15s, box-shadow .15s; }
+.data-container .resource-row.resource-card.is-unavailable { border-top-color: #e07b00; }
+.data-container .resource-row.resource-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px var(--shadow); }
+.resource-card .resource-status { border: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.resource-card .resource-status h3 { display: none; }
+.resource-card .resource-status p { margin: 0; }
+.resource-place { display: flex; align-items: center; gap: .35rem; color: var(--accent); font-weight: 600; }
+.resource-card .resource-actions { gap: .5rem; padding-top: .8rem; border-top: 1px dashed var(--border); }
+.resource-card .resource-actions .btn-secondary, .resource-card .resource-actions .btn-danger { flex: 1 1 auto; text-align: center; }
+.resource-card .resource-destructive-actions { flex: 1 1 100%; display: flex; }
+
+/* Felles oppdatering */
+.page-heading { padding: 1.2rem 1.4rem; margin-bottom: 1rem; border-radius: 1.2rem; border: 1px solid var(--border); background: linear-gradient(135deg, var(--surface), var(--surface-end)); box-shadow: 0 8px 24px var(--shadow); }
+.page-heading h1 { margin: 0; letter-spacing: -.01em; }
+.section-nav { display: flex; flex-wrap: wrap; gap: .4rem; padding: .35rem; border-radius: 999px; background: var(--surface-end); border: 1px solid var(--border); width: fit-content; max-width: 100%; }
+.section-nav a { padding: .5rem 1.1rem; border-radius: 999px; text-decoration: none; font-weight: 600; color: var(--text); }
+.section-nav a[aria-current="page"] { background: var(--accent); color: #fff; box-shadow: 0 4px 12px var(--shadow); }
+.btn-submit, .btn-secondary, .btn-danger { border-radius: .8rem; transition: transform .15s, box-shadow .15s; }
+.btn-submit:hover, .btn-secondary:hover, .btn-danger:hover { transform: translateY(-1px); box-shadow: 0 6px 16px var(--shadow); }
+.data-container .filter-bar { border-radius: 1rem; box-shadow: 0 4px 14px var(--shadow); }

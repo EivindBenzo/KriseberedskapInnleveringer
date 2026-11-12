@@ -283,5 +283,5 @@
 <link rel="stylesheet" href="~/lib/leaflet.markercluster/MarkerCluster.css" />
 <script src="~/lib/leaflet/leaflet.js"></script>
 <script src="~/lib/leaflet.markercluster/leaflet.markercluster.js"></script>
-<script type="application/json" id="kartdata">@Html.Raw(JsonSerializer.Serialize(kart with { OmrissUrl = Url.Content("~/data/norway-outline.json") }, new JsonSerializerOptions(JsonSerializerDefaults.Web)))</script>
+<script type="application/json" id="kartdata">@Html.Raw(JsonSerializer.Serialize(kart, new JsonSerializerOptions(JsonSerializerDefaults.Web)))</script>
 <script src="~/js/kart.js" asp-append-version="true"></script>

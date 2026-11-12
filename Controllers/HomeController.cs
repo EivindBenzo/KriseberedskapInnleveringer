@@ -275,9 +275,10 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
                 var type = r.Ressurstype?.Navn ?? "Ukjent";
                 var status = ResourceOperationalStatus.From(r, nå);
                 var lenke = Url?.Action(nameof(Map), new { focus = r.RessursID }) + "#ressurs-" + r.RessursID;
-                var popup = PopupHtml(html, "Ressurs", r.Navn, status.Availability, status.IsEligible ? "ok" : "warn",
-                    [("Type", type), ("Sted", r.Stedsnavn), ("Godkjenning", status.Verification),
-                     ("Kontakt", r.Kontaktperson)], r.Kontakttelefon, lenke, "Vis detaljer i listen");
+                var popup = PopupHtml(html, $"Ressurs · {type}", r.Navn,
+                    [(status.Availability, status.IsEligible ? "ok" : "warn"), ($"Godkjenning: {status.Verification}", "info")],
+                    NorwegianPlaces.Display(r.Stedsnavn, r.Breddegrad, r.Lengdegrad), null, r.Kontaktperson,
+                    r.Kontakttelefon, lenke, "Detaljer");
                 return new KartMarkor((double)r.Breddegrad, (double)r.Lengdegrad, BildeUrl(RessursIkon.Sti(type, status)),
                     $"{r.Navn} ({type}) – {status.Availability}", popup, r.RessursID == focus, false, null, r.RessursID, status.IsEligible);
             })
@@ -297,7 +298,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
             return marker with
             {
                 LeveranseStatus = label,
-                Popup = marker.Popup.Replace("</dl>", $"<div><dt>Leveranse</dt><dd>{html.Encode(label)}</dd></div></dl>", StringComparison.Ordinal)
+                Popup = marker.Popup.Replace("<!--chips-->", $"<span class=\"map-popup-chip is-info\">Leveranse: {html.Encode(label)}</span>", StringComparison.Ordinal)
             };
         }).ToList();
 
@@ -311,9 +312,9 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
             {
                 var ressurstype = behov.Behovstype?.PassendeRessurstyper.FirstOrDefault()?.Ressurstype?.Navn;
                 var lenke = Url?.Action(nameof(Dashboard)) + "#behov-" + behov.BehovID;
-                var popup = PopupHtml(html, "Akutt behov", behov.Behovstype?.Navn ?? "Behov", "Akutt", "urgent",
-                    [("Sted", behov.Stedsnavn), ("Beskrivelse", behov.Beskrivelse), ("Kontakt", behov.Kontaktperson)],
-                    behov.Kontakttelefon, lenke, "Åpne behovet");
+                var popup = PopupHtml(html, "Akutt behov", behov.Behovstype?.Navn ?? "Behov", [("Akutt", "urgent")],
+                    NorwegianPlaces.Display(behov.Stedsnavn, behov.Breddegrad, behov.Lengdegrad), behov.Beskrivelse,
+                    behov.Kontaktperson, behov.Kontakttelefon, lenke, "Åpne behovet");
                 markører.Add(new KartMarkor((double)behov.Breddegrad, (double)behov.Lengdegrad,
                     BildeUrl(RessursIkon.Sti(ressurstype)),
                     $"Akutt behov: {behov.Stedsnavn}", popup, false, true));
@@ -334,23 +335,27 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
     }
 
     /// <summary>
-    /// Innholdet i kartpopupen. All tekst kodes (encoded) her på serveren; kart.js legger til knappene for
-    /// veibeskrivelse, zoom og kopiering av koordinater.
+    /// Innholdet i kartpopupen: kort og lett å lese. All tekst kodes (encoded) her på serveren; kart.js legger til
+    /// avstand fra brukeren og knappene for veibeskrivelse og deling.
     /// </summary>
-    private static string PopupHtml(HtmlEncoder html, string type, string tittel, string merke, string merkeType,
-        IEnumerable<(string Etikett, string Verdi)> fakta, string? telefon, string lenke, string lenkeTekst)
+    private static string PopupHtml(HtmlEncoder html, string kicker, string tittel,
+        IEnumerable<(string Tekst, string Type)> merker, string sted, string? beskrivelse, string? kontakt,
+        string? telefon, string lenke, string lenkeTekst)
     {
-        var rader = string.Concat(fakta.Where(f => !string.IsNullOrWhiteSpace(f.Verdi))
-            .Select(f => $"<div><dt>{html.Encode(f.Etikett)}</dt><dd>{html.Encode(f.Verdi)}</dd></div>"));
+        var chips = string.Concat(merker.Select(m => $"<span class=\"map-popup-chip is-{m.Type}\">{html.Encode(m.Tekst)}</span>"));
         var tel = new string((telefon ?? "").Where(c => char.IsDigit(c) || c == '+').ToArray());
-        var ring = tel.Length > 0 ? $"<a class=\"map-popup-btn\" href=\"tel:{html.Encode(tel)}\">Ring {html.Encode(telefon!.Trim())}</a>" : "";
-        return $"<div class=\"map-popup-head\"><span class=\"map-popup-kicker\">{html.Encode(type)}</span>" +
-               $"<strong class=\"map-popup-title\">{html.Encode(tittel)}</strong>" +
-               $"<span class=\"map-popup-chip is-{merkeType}\">{html.Encode(merke)}</span></div>" +
-               $"<dl class=\"map-popup-facts\">{rader}</dl>" +
-               $"<div class=\"map-popup-links\"><a class=\"map-popup-btn\" href=\"{html.Encode(lenke)}\">{html.Encode(lenkeTekst)}</a>{ring}</div>";
+        var kontaktTekst = string.Join(" · ", new[] { kontakt, telefon }.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()));
+        var ring = tel.Length > 0 ? $"<a class=\"map-popup-btn\" href=\"tel:{html.Encode(tel)}\">Ring</a>" : "";
+        return $"<div class=\"map-popup-head\"><span class=\"map-popup-kicker\">{html.Encode(kicker)}</span>" +
+               $"<strong class=\"map-popup-title\">{html.Encode(tittel)}</strong></div>" +
+               "<div class=\"map-popup-body\">" +
+               $"<p class=\"map-popup-place\">{html.Encode(sted)}</p>" +
+               $"<div class=\"map-popup-chips\">{chips}<!--chips--></div>" +
+               (string.IsNullOrWhiteSpace(beskrivelse) ? "" : $"<p class=\"map-popup-desc\">{html.Encode(beskrivelse)}</p>") +
+               (kontaktTekst.Length == 0 ? "" : $"<p class=\"map-popup-contact\">{html.Encode(kontaktTekst)}</p>") +
+               "<p class=\"map-popup-distance\" hidden></p></div>" +
+               $"<div class=\"map-popup-links\">{ring}<a class=\"map-popup-btn\" href=\"{html.Encode(lenke)}\">{html.Encode(lenkeTekst)}</a></div>";
     }
-
     private string BildeUrl(string sti) => Url?.Content(sti) ?? sti.TrimStart('~');
 
     /// <summary>Alle ressurstyper fra tabellen Ressurstype, også de brukerne har lagt til selv.</summary>
