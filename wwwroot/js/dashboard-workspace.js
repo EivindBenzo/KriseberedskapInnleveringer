@@ -110,8 +110,8 @@ document.addEventListener('click', function (e) {
         var q = form.querySelector('[data-as-qty]'), r = form.querySelector('[data-as-rest]'); if (!q || !r) return;
         var left = Math.max(0, Math.round((Number(form.dataset.mangler) - Number(q.value || 0)) * 100) / 100);
         r.textContent = left;
-        var box = form.querySelector('[data-as-after]'); box.classList.toggle('is-done', left === 0);
-        form.querySelector('[data-as-note]').textContent = left === 0 ? 'Behovet blir fullt dekket' : 'av ' + form.dataset.mangler + ' som mangler nå';
+        var box = form.querySelector('[data-as-after]'); box.classList.toggle('is-done', left === 0); var st = box.querySelector('strong'); st.hidden = left === 0;
+        form.querySelector('[data-as-note]').textContent = left === 0 ? 'Behovet blir dekket' : 'Gjenstår etter tildeling';
     }
     document.querySelectorAll('[data-as-form]').forEach(function (f) {
         sync(f, true);

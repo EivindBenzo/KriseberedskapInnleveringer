@@ -1775,3 +1775,12 @@ dialog.as-dialog[open]{position:fixed;inset:0;margin:auto;width:80vw;height:80vh
 :root[data-theme="dark"] .as-after strong,:root[data-theme="dark"] .as-after small{color:#fca5a5}
 :root[data-theme="dark"] .as-after.is-done{background:#10301f;border-color:#22c55e;color:#bbf7d0}
 :root[data-theme="dark"] .as-after.is-done strong,:root[data-theme="dark"] .as-after.is-done small{color:#bbf7d0}
+
+/* Round 27b: no scroll, cleaner preview */
+.as-dialog .as-body{overflow:hidden;gap:.5rem;padding:.2rem 2rem .6rem}
+.as-dialog .as-head{padding:1rem 2rem .5rem}
+.as-dialog .as-foot{padding:.7rem 2rem}
+.as-after{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.65rem 1rem;border-radius:10px;background:#fff4f2;border:0;border-left:4px solid #c62828;color:#7a2a24;font-weight:600}
+.as-after strong{margin:0;font-size:1.25rem;color:#c62828}
+.as-after.is-done{background:#e8f5ec;border-left-color:#16a34a;color:#166534;justify-content:flex-start}
+.as-after.is-done::before{content:"✓";font-weight:800;margin-right:.2rem}
