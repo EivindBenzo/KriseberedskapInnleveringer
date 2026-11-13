@@ -74,3 +74,22 @@ document.addEventListener('click', function (e) {
     var input = b.closest('form').querySelector('input[name="reason"]');
     if (input && input.hidden) { e.preventDefault(); input.hidden = false; input.required = true; input.focus(); }
 });
+
+/* Round 21: deep links (#id) open the right panel and highlight the card */
+(function () {
+    function go() {
+        var id = decodeURIComponent(location.hash.slice(1));
+        if (!id) return;
+        var el = document.getElementById(id);
+        if (!el) return;
+        var panel = el.closest('[data-dashboard-panel]');
+        if (panel) {
+            document.querySelectorAll('[data-dashboard-panel]').forEach(function (p) { p.hidden = p.dataset.dashboardPanel !== panel.dataset.dashboardPanel; });
+            try { sessionStorage.setItem('beredskap.activeDashboardPanel', panel.dataset.dashboardPanel); } catch (e) { }
+        }
+        el.classList.add('is-target');
+        setTimeout(function () { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
+        setTimeout(function () { el.classList.remove('is-target'); }, 3500);
+    }
+    if (document.querySelector('[data-dashboard-panel]')) { window.addEventListener('hashchange', go); go(); }
+})();

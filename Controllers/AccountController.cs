@@ -169,11 +169,11 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             ChipK = h.Prioritet == Statuser.HendelsePrioritet.Hoy ? "c-red" : h.Prioritet == Statuser.HendelsePrioritet.Medium ? "c-amber" : "c-gray",
             Knapp = knapp, Url = url, Ikon = h.Navn
         };
-        async Task<List<OvRad>> BehovRader(IQueryable<Behov> q, string knapp, int n = 3) =>
+        async Task<List<OvRad>> BehovRader(IQueryable<Behov> q, string knapp, int n = 3, string anker = "#behov-") =>
             (await q.Include(b => b.Behovstype).OrderByDescending(b => b.Registrert).Take(n).ToListAsync()).Select(b =>
             {
                 var (pc, pk) = P(b.Prioritet); var (sc, sk) = B(b.Status);
-                return new OvRad { Tittel = $"{b.Behovstype?.Navn}: {Kort(b.Beskrivelse, 46)}", Under = b.Stedsnavn, Chip = pc, ChipK = pk, Chip2 = sc, Chip2K = sk, Tid = b.Registrert, Knapp = knapp, Url = U("Home", "Dashboard"), Ikon = b.Behovstype?.Navn ?? "" };
+                return new OvRad { Tittel = $"{b.Behovstype?.Navn}: {Kort(b.Beskrivelse, 46)}", Under = b.Stedsnavn, Chip = pc, ChipK = pk, Chip2 = sc, Chip2K = sk, Tid = b.Registrert, Knapp = knapp, Url = U("Home", "Dashboard") + (anker.EndsWith("-") ? anker + b.BehovID : anker), Ikon = b.Behovstype?.Navn ?? "" };
             }).ToList();
 
         if (kl)
@@ -209,11 +209,11 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
                 .OrderByDescending(f => f.Svart).Take(3).ToListAsync()).Select(f => new OvRad
                 {
                     Tittel = f.Ressurs?.Eier?.Organisasjon ?? f.Ressurs?.Navn ?? "Leverandør", Under = $"Svar på forespørsel #F-{f.ForespørselID}: {(f.Svar == Statuser.Svar.Godtatt ? "godtatt" : "avslått")}",
-                    Tid = f.Svart, Knapp = "Vurder", Url = U("Home", "Dashboard"), Ikon = f.Ressurs?.Navn ?? ""
+                    Tid = f.Svart, Knapp = "Vurder", Url = U("Home", "Dashboard") + "#foresporsel-" + f.ForespørselID, Ikon = f.Ressurs?.Navn ?? ""
                 }));
             ov.C.AddRange((await venterVerif.Include(r => r.Eier).Include(r => r.Ressurstype).OrderBy(r => r.Registrert).Take(3).ToListAsync()).Select(r => new OvRad
             {
-                Tittel = $"{r.Navn}{(r.Antall > 1 ? $" ({r.Antall:0.##})" : "")}", Under = r.Eier?.Organisasjon ?? "", Tid = r.Registrert, Knapp = "Verifiser", Url = U("Home", "Dashboard"), Ikon = r.Ressurstype?.Navn ?? ""
+                Tittel = $"{r.Navn}{(r.Antall > 1 ? $" ({r.Antall:0.##})" : "")}", Under = r.Eier?.Organisasjon ?? "", Tid = r.Registrert, Knapp = "Verifiser", Url = U("Home", "Dashboard") + "#verifisering-" + r.RessursID, Ikon = r.Ressurstype?.Navn ?? ""
             }));
             foreach (var h in aktiveH.Take(3)) ov.Hendelser.Add(HRad(h, "Arbeidsrom", U("Hendelse", "Arbeidsrom", new { id = h.HendelseID })));
             var mine = await db.Forespørsler.CountAsync(f => f.SendtAvID == uid);
@@ -235,9 +235,9 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             ov.Stats.Add(new("Aktive leveranser", await mineTild.CountAsync(), "layers"));
             ov.Stats.Add(new("Venter på verifisering", await mine.CountAsync(r => r.Status == Statuser.Ressurs.VenterPåVerifisering), "shield"));
             ov.A.AddRange((await mine.Include(r => r.Ressurstype).Where(r => r.Status == Statuser.Ressurs.VenterPåVerifisering).Take(3).ToListAsync()).Select(r => new OvRad
-            { Tittel = r.Navn, Under = $"Venter på verifisering · Registrert {r.Registrert.ToLocalTime():dd.MM HH:mm}", Knapp = "Se ressurs", Url = U("Home", "Resources"), Ikon = r.Ressurstype?.Navn ?? "" }));
+            { Tittel = r.Navn, Under = $"Venter på verifisering · Registrert {r.Registrert.ToLocalTime():dd.MM HH:mm}", Knapp = "Se ressurs", Url = U("Home", "Resources") + "#ressurs-" + r.RessursID, Ikon = r.Ressurstype?.Navn ?? "" }));
             ov.A.AddRange((await venter.Include(f => f.Ressurs).Include(f => f.Behov).Take(3).ToListAsync()).Select(f => new OvRad
-            { Tittel = $"Forespørsel: {f.Ressurs?.Navn}", Under = $"Venter på svar · {f.Behov?.Stedsnavn}", Knapp = "Svar", Url = U("Home", "Dashboard"), Ikon = "doc" }));
+            { Tittel = $"Forespørsel: {f.Ressurs?.Navn}", Under = $"Venter på svar · {f.Behov?.Stedsnavn}", Knapp = "Svar", Url = U("Home", "Dashboard") + "#innkommende-" + f.ForespørselID, Ikon = "doc" }));
             ov.AntA = ov.A.Count;
             foreach (var g in (await mine.Include(r => r.Ressurstype).ToListAsync()).GroupBy(r => r.Ressurstype?.Navn ?? "Annet"))
                 ov.Typer.Add((g.Key, g.Count(), g.Count(r => r.Status == Statuser.Ressurs.Tilgjengelig)));
@@ -248,7 +248,7 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
                     Tittel = t.Forespørsel!.Ressurs!.Navn, Under = t.Forespørsel.Behov?.Stedsnavn ?? "", Tekst = $"{t.Forespørsel.Antall:0.##} {t.Forespørsel.Ressurs.Enhet}",
                     Chip = Statuser.Visning(t.Fremdrift), ChipK = t.Fremdrift == Statuser.Fremdrift.PåVei ? "c-blue" : "c-green",
                     Knapp = t.Fremdrift == Statuser.Fremdrift.Bekreftet ? "Planlegg rute" : t.Fremdrift == Statuser.Fremdrift.PåVei ? "Oppdater status" : "Bekreft levering",
-                    Url = U("Home", "Dashboard"), Ikon = t.Forespørsel.Ressurs.Ressurstype?.Navn ?? ""
+                    Url = U("Home", "Resources") + "#ressurs-" + t.Forespørsel.Ressurs.RessursID, Ikon = t.Forespørsel.Ressurs.Ressurstype?.Navn ?? ""
                 }));
             ov.Aktivitet.AddRange((await logQuery.Where(l => l.UtførtAvID == uid).Take(3).ToListAsync()).Select(l => Logg(l.Handling, l.Begrunnelse, l.Tidspunkt)));
         }
@@ -260,7 +260,7 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             ov.Stats.Add(new("Akutte behov", await mine.CountAsync(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Status != Statuser.Behov.Løst), "warning"));
             ov.Stats.Add(new("Aktive hendelser", aktiveH.Count, "signal"));
             ov.Stats.Add(new("Meldinger", ulest, "mail"));
-            ov.A.AddRange(await BehovRader(mine, "", 4));
+            ov.A.AddRange(await BehovRader(mine, "Åpne", 4, "#mine-behov"));
             foreach (var h in aktiveH.Take(2)) ov.Hendelser.Add(HRad(h, "Åpne hendelse", U("Home", "Map")));
             var ids = await mine.Select(b => b.BehovID).ToListAsync();
             ov.Aktivitet.AddRange((await logQuery.Where(l => l.BehovID != null && ids.Contains(l.BehovID.Value)).Take(3).ToListAsync()).Select(l => Logg(l.Handling, l.Begrunnelse, l.Tidspunkt)));

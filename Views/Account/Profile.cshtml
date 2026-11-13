@@ -202,7 +202,7 @@
                 @if (ov.Hoved is { } h)
                 {
                     <div class="ov-hoved">
-                        <div class="ov-hoved-img" aria-hidden="true"></div>
+                        @{ var hk = (h.Tittel + " " + h.Tekst).ToLower(); var himg = hk.Contains("brann") || hk.Contains("fire") ? "hendelse-brann.jpg" : (hk.Contains("flom") || hk.Contains("flood") || hk.Contains("vann") ? "hendelse-flom.jpg" : "hendelser-mountains.svg"); }<div class="ov-hoved-img" aria-hidden="true" style="background-image:url('@Url.Content("~/images/" + himg)')"></div>
                         <div>
                             <div class="ov-chips"><span class="ov-pill c-green">Pågår</span><span class="ov-pill @h.ChipK">@h.Chip</span></div>
                             <h4>@h.Tittel</h4>
@@ -307,14 +307,7 @@
                 </section>
             </div>
         </article>
-        <div class="ov-row ov-row-3">
-            <article class="ov-card">
-                <h3>Dine oppgaver som dispatch-team</h3>
-                <ul class="pp-tasks">@foreach (var o in ov.Oppgaver) { <li class="@(o.Ferdig ? "is-done" : "")"><i aria-hidden="true">@(o.Ferdig ? "✓" : "")</i>@o.Tekst</li> }</ul>
-                @{ var ferdig = ov.Oppgaver.Count(o => o.Ferdig); }
-                <div class="ov-util"><span>@ferdig av @ov.Oppgaver.Count oppgaver fullført</span></div>
-                <div class="ov-bar"><i style="width:@(ov.Oppgaver.Count == 0 ? 0 : ferdig * 100 / ov.Oppgaver.Count)%"></i></div>
-            </article>
+        <div class="ov-row ov-row-2">
             <article class="ov-card">
                 <h3>Hendelser du følger</h3>
                 @if (ov.Hendelser.Count == 0) { <p class="ph-empty">Ingen pågående hendelser.</p> }

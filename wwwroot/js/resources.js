@@ -92,3 +92,17 @@
         }
     });
 })();
+
+/* Round 21: #ressurs-ID opens that resource card */
+(function () {
+    var m = /^#ressurs-(\d+)$/.exec(location.hash);
+    if (!m) return;
+    window.addEventListener('load', function () {
+        var el = document.getElementById('ressurs-' + m[1]);
+        if (!el) return;
+        el.classList.add('is-target');
+        if (el.hasAttribute('data-rc') && el.getAttribute('aria-expanded') !== 'true') el.click();
+        setTimeout(function () { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 150);
+        setTimeout(function () { el.classList.remove('is-target'); }, 3500);
+    });
+})();
