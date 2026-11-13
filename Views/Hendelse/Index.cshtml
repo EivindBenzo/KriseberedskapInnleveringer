@@ -1,28 +1,116 @@
 @model HeimevernetInnlevering1.Controllers.HendelseSkjemaViewModel
 @using HeimevernetInnlevering1.Models
+@using HeimevernetInnlevering1.ViewModels
 @{
     ViewData["Title"] = "Hendelser";
     var hendelser = (ViewBag.Hendelser as List<Hendelse>) ?? new();
+    var kort = (ViewBag.Kort as Dictionary<int, HendelseKort>) ?? new();
+    var siste = (ViewBag.Siste as List<HendelseLoggRad>) ?? new();
+    var kriseledelse = User.IsInRole(AppRoles.Kriseledelse);
+    var featured = hendelser.FirstOrDefault(h => h.Status == Statuser.Hendelse.Aktiv);
+    var andre = hendelser.Where(h => h != featured).ToList();
+    string Stamp(DateTime v) => v.ToString("dd.MM.yyyy HH:mm") + " UTC";
+    string StatusKlasse(string s) => s == Statuser.Hendelse.Aktiv ? "is-orange" : s == Statuser.Hendelse.Planlagt ? "is-blue" : "is-grey";
+    string PrioKlasse(string p) => p == Statuser.HendelsePrioritet.Hoy ? "is-red" : p == Statuser.HendelsePrioritet.Medium ? "is-yellow" : "is-green";
+    string PrioTekst(string p) => p == Statuser.HendelsePrioritet.Hoy ? "Høy prioritet" : p == Statuser.HendelsePrioritet.Medium ? "Medium prioritet" : "Lav prioritet";
+    string PrioIkon(string p) => p == Statuser.HendelsePrioritet.Hoy ? "↑" : p == Statuser.HendelsePrioritet.Medium ? "=" : "↓";
 }
-<section class="operations-workspace" aria-labelledby="incident-heading">
-    <div class="page-heading">
-        <div><span class="eyebrow">Kriseledelse</span><h1 id="incident-heading">Hendelser</h1></div>
-        <a asp-controller="Home" asp-action="Dashboard" class="btn-secondary">Tilbake til oversikten</a>
-    </div>
-    <p>En hendelse er en krise, for eksempel en flom eller et langvarig strømbrudd. Offentlige aktører kan knytte behov til en aktiv hendelse.</p>
-    @if (TempData["WorkflowError"] is string error)
+<link rel="stylesheet" href="~/lib/leaflet/leaflet.css" />
+<section class="hx" aria-labelledby="incident-heading">
+    <header class="hx-head">
+        <div>
+            <span class="iw-eyebrow">HENDELSER</span>
+            <h1 id="incident-heading">Hendelser</h1>
+            <p>Følg opp og koordiner pågående hendelser.</p>
+        </div>
+        @if (kriseledelse)
+        {
+            <a class="hx-new" href="#ny-hendelse">+ Ny hendelse</a>
+        }
+    </header>
+
+    @if (TempData["WorkflowError"] is string error) { <p class="workspace-alert" role="alert">@error</p> }
+    @if (TempData["WorkflowSuccess"] is string success) { <p class="notice" role="status">@success</p> }
+
+    @if (featured is not null)
     {
-        <p class="workspace-alert" role="alert">@error</p>
-    }
-    @if (TempData["WorkflowSuccess"] is string success)
-    {
-        <p class="notice" role="status">@success</p>
+        var k = kort.GetValueOrDefault(featured.HendelseID) ?? new HendelseKort(0, 0, 0, 0, 0, 0);
+        <article class="hx-feature @PrioKlasse(featured.Prioritet)">
+            <div class="hx-feature-main">
+                <div class="hx-title">
+                    <i class="hx-tile"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 8c2.5 0 2.5-2 5-2s2.5 2 5 2 2.500-2 5-2 2.5 2 5 2M2 14c2.5 0 2.5-2 5-2s2.5 2 5 2 2.500-2 5-2 2.500 2 5 2M2 20c2.500 0 2.500-2 5-2s2.500 2 5 2 2.500-2 5-2 2.500 2 5 2"/></svg></i>
+                    <div>
+                        <h2>@featured.Navn</h2>
+                        <div class="hx-chips"><span class="hx-chip is-orange">Pågår</span><span class="hx-chip @PrioKlasse(featured.Prioritet)">@PrioTekst(featured.Prioritet)</span></div>
+                        <p class="hx-meta">@featured.Område · Opprettet @Stamp(featured.Starttidspunkt)</p>
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(featured.Beskrivelse)) { <p class="hx-desc">@featured.Beskrivelse</p> }
+                <div class="hx-progress"><div><span>Fremdrift i håndtering</span><b>@k.Prosent%</b></div><meter min="0" max="100" value="@k.Prosent"></meter></div>
+                <div class="hx-stats">
+                    <div><span>Ressurser i bruk</span><strong>@k.Ressurser</strong></div>
+                    <div><span>Tiltak</span><strong>@k.TiltakFerdig / @k.Tiltak</strong></div>
+                    <div><span>Involverte aktører</span><strong>@k.Aktører</strong></div>
+                </div>
+                <div class="hx-actions">
+                    <a class="btn-secondary" asp-action="Arbeidsrom" asp-route-id="@featured.HendelseID">Åpne arbeidsrom</a>
+                    @if (kriseledelse) { @await Html.PartialAsync("_HendelseKontroll", featured) }
+                </div>
+            </div>
+            <div class="hx-feature-side">
+                <h3>Siste aktivitet</h3>
+                @if (siste.Count == 0) { <p class="iw-muted">Ingen aktivitet ennå.</p> }
+                <ul class="hx-timeline">
+                    @foreach (var a in siste)
+                    {
+                        <li><time>@a.Tidspunkt.ToString("HH:mm")</time><span>@(string.IsNullOrWhiteSpace(a.Tekst) ? a.Handling : a.Tekst)</span></li>
+                    }
+                </ul>
+                @if (featured.Breddegrad is not null && featured.Lengdegrad is not null)
+                {
+                    <div class="hx-minimap" id="hxMap" data-lat="@featured.Breddegrad.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-lng="@featured.Lengdegrad.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"></div>
+                    <a class="hx-openmap" asp-controller="Home" asp-action="Map" asp-route-sted="@featured.Område">Åpne i kart</a>
+                }
+            </div>
+        </article>
     }
 
-    @if (User.IsInRole(AppRoles.Kriseledelse))
+    <section class="hx-others">
+        <div class="hx-others-head">
+            <h2>Andre hendelser (<span id="hxCount">@andre.Count</span>)</h2>
+            <div class="hx-filters" role="group" aria-label="Filter">
+                <button type="button" class="is-active" data-f="alle">Alle</button>
+                <button type="button" data-f="aktiv">Pågår (@andre.Count(h => h.Status == Statuser.Hendelse.Aktiv))</button>
+                <button type="button" data-f="planlagt">Planlagt (@andre.Count(h => h.Status == Statuser.Hendelse.Planlagt))</button>
+                <button type="button" data-f="avsluttet">Avsluttet (@andre.Count(h => h.Status == Statuser.Hendelse.Avsluttet))</button>
+            </div>
+            <label class="hx-sort">Sorter <select id="hxSort"><option value="new">Nyest først</option><option value="old">Eldst først</option></select></label>
+        </div>
+        @if (andre.Count == 0) { <p class="empty-state">Ingen andre hendelser.</p> }
+        <div id="hxList">
+        @foreach (var h in andre)
+        {
+            var k = kort.GetValueOrDefault(h.HendelseID) ?? new HendelseKort(0, 0, 0, 0, 0, 0);
+            <article class="hx-row @StatusKlasse(h.Status)" data-status="@h.Status" data-time="@h.Starttidspunkt.Ticks">
+                <i class="hx-tile"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></svg></i>
+                <div class="hx-row-name"><strong>@h.Navn</strong><span>@h.Område · Opprettet @Stamp(h.Starttidspunkt)</span></div>
+                <span class="hx-chip @StatusKlasse(h.Status)">@Statuser.Hendelse.Etikett(h.Status)</span>
+                <span class="hx-chip @PrioKlasse(h.Prioritet)">@PrioIkon(h.Prioritet) @PrioTekst(h.Prioritet)</span>
+                <div class="hx-num"><span>Tiltak</span><b>@k.TiltakFerdig / @k.Tiltak</b></div>
+                <div class="hx-num"><span>Ressurser</span><b>@k.Ressurser</b></div>
+                <div class="hx-row-actions">
+                    <a class="btn-secondary" asp-action="Arbeidsrom" asp-route-id="@h.HendelseID">Se detaljer →</a>
+                    @if (kriseledelse) { @await Html.PartialAsync("_HendelseKontroll", h) }
+                </div>
+            </article>
+        }
+        </div>
+    </section>
+
+    @if (kriseledelse)
     {
-    <details class="workflow-section" open="@(hendelser.Count == 0 || !ViewData.ModelState.IsValid)">
-        <summary>+ Opprett hendelse</summary>
+    <details class="hx-create" id="ny-hendelse" open="@(hendelser.Count == 0 || !ViewData.ModelState.IsValid)">
+        <summary>+ Ny hendelse</summary>
         <form asp-action="Index" method="post" class="form-container">
             <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
             <div class="form-group">
@@ -32,8 +120,20 @@
             </div>
             <div class="form-group">
                 <label asp-for="Område">Område <span class="required">*</span></label>
-                <input asp-for="Område" class="form-control" maxlength="150" placeholder="f.eks. Innlandet" required />
+                <input asp-for="Område" class="form-control" maxlength="150" placeholder="f.eks. Hamar" required />
                 <span asp-validation-for="Område" class="text-danger"></span>
+            </div>
+            <div class="hx-create-row">
+                <div class="form-group">
+                    <label asp-for="Prioritet">Prioritet</label>
+                    <select asp-for="Prioritet" class="form-control">
+                        <option value="lav">Lav prioritet</option><option value="medium">Medium prioritet</option><option value="høy">Høy prioritet</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label asp-for="Status">Status</label>
+                    <select asp-for="Status" class="form-control"><option value="aktiv">Pågår</option><option value="planlagt">Planlagt</option></select>
+                </div>
             </div>
             <div class="form-group">
                 <label asp-for="Starttidspunkt">Starttidspunkt <span class="required">*</span></label>
@@ -48,31 +148,32 @@
         </form>
     </details>
     }
-
-    <h2>Alle hendelser <span class="count-badge">@hendelser.Count</span></h2>
-    @if (hendelser.Count == 0)
-    {
-        <p class="empty-state">Ingen hendelser er registrert.</p>
-    }
-    @foreach (var h in hendelser)
-    {
-        <article class="workflow-item">
-            <div class="results-heading">
-                <h3>@h.Navn</h3>
-                <span class="status-badge @(h.Status == Statuser.Hendelse.Aktiv ? "status-warning" : "")">@Statuser.Visning(h.Status)</span>
-            </div>
-            <p class="resource-meta">@h.Område · startet @h.Starttidspunkt.ToString("dd.MM.yyyy HH:mm") UTC · @h.Behov.Count behov</p>
-            @if (!string.IsNullOrWhiteSpace(h.Beskrivelse))
-            {
-                <p>@h.Beskrivelse</p>
-            }
-            <a asp-action="Arbeidsrom" asp-route-id="@h.HendelseID" class="btn-secondary">Åpne arbeidsrom</a>
-            @if (h.Status == Statuser.Hendelse.Aktiv && User.IsInRole(AppRoles.Kriseledelse))
-            {
-                <form asp-action="Avslutt" asp-route-id="@h.HendelseID" method="post" class="inline-form">
-                    <button type="submit" class="btn-secondary">Avslutt hendelsen</button>
-                </form>
-            }
-        </article>
-    }
 </section>
+<script src="~/lib/leaflet/leaflet.js"></script>
+<script>
+(function () {
+    var m = document.getElementById('hxMap');
+    if (m && window.L) {
+        var lat = parseFloat(m.dataset.lat), lng = parseFloat(m.dataset.lng);
+        var map = L.map(m, { zoomControl: false, attributionControl: false, scrollWheelZoom: false }).setView([lat, lng], 9);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+        L.marker([lat, lng], { icon: L.divIcon({ className: 'hx-pin-wrap', html: '<span class="hx-pin">!</span>', iconSize: [34, 34], iconAnchor: [17, 30] }) }).addTo(map);
+    }
+    var list = document.getElementById('hxList'); if (!list) return;
+    var filter = 'alle';
+    function apply() {
+        var rows = Array.prototype.slice.call(list.children), n = 0, dir = document.getElementById('hxSort').value === 'old' ? 1 : -1;
+        rows.sort(function (a, b) { return dir * (Number(a.dataset.time) - Number(b.dataset.time)); }).forEach(function (r) {
+            var show = filter === 'alle' || r.dataset.status === filter; r.hidden = !show; if (show) n++; list.appendChild(r);
+        });
+        document.getElementById('hxCount').textContent = n;
+    }
+    document.querySelectorAll('.hx-filters button').forEach(function (b) {
+        b.addEventListener('click', function () {
+            document.querySelectorAll('.hx-filters button').forEach(function (x) { x.classList.remove('is-active'); });
+            b.classList.add('is-active'); filter = b.dataset.f; apply();
+        });
+    });
+    document.getElementById('hxSort').addEventListener('change', apply);
+})();
+</script>

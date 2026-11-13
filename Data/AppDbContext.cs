@@ -124,6 +124,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             e.Property(h => h.Beskrivelse).HasColumnType("text");
             e.Property(h => h.Område).HasMaxLength(150).IsRequired();
             e.Property(h => h.Status).HasMaxLength(15).IsRequired();
+            e.Property(h => h.Prioritet).HasMaxLength(10).IsRequired().HasDefaultValue(Statuser.HendelsePrioritet.Medium);
+            e.Property(h => h.Breddegrad).HasPrecision(9, 6);
+            e.Property(h => h.Lengdegrad).HasPrecision(9, 6);
             // Bruker 1 – 0..* Hendelse. Restrict: en bruker med data kan ikke slettes ved et uhell.
             e.HasOne(h => h.OpprettetAv).WithMany()
                 .HasForeignKey(h => h.OpprettetAvID).OnDelete(DeleteBehavior.Restrict);

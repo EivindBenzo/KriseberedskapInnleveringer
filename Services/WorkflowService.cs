@@ -327,7 +327,10 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             {
                 OpprettetAvID = aktør, Navn = values.Navn.Trim(), Område = values.Område.Trim(),
                 Beskrivelse = string.IsNullOrWhiteSpace(values.Beskrivelse) ? null : values.Beskrivelse.Trim(),
-                Starttidspunkt = values.Starttidspunkt.Value.ToUniversalTime(), Status = Statuser.Hendelse.Aktiv
+                Starttidspunkt = values.Starttidspunkt.Value.ToUniversalTime(),
+                Status = values.Status == Statuser.Hendelse.Planlagt ? Statuser.Hendelse.Planlagt : Statuser.Hendelse.Aktiv,
+                Prioritet = Statuser.HendelsePrioritet.Alle.Contains(values.Prioritet) ? values.Prioritet : Statuser.HendelsePrioritet.Medium,
+                Breddegrad = values.Breddegrad, Lengdegrad = values.Lengdegrad
             };
             db.Hendelser.Add(hendelse);
             await db.SaveChangesAsync();
@@ -336,6 +339,28 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
         });
         return id;
     }
+
+    public Task SetIncidentPriorityAsync(int hendelseId, string prioritet, ClaimsPrincipal actor) => Mutate(async () =>
+    {
+        var aktør = Require(actor, AppRoles.Kriseledelse);
+        if (!Statuser.HendelsePrioritet.Alle.Contains(prioritet)) throw new WorkflowException("Ugyldig prioritet.");
+        var hendelse = await db.Hendelser.SingleOrDefaultAsync(h => h.HendelseID == hendelseId)
+            ?? throw new WorkflowException("Hendelsen finnes ikke.");
+        if (hendelse.Prioritet == prioritet) return;
+        hendelse.Prioritet = prioritet;
+        Logg(aktør, "HendelsePrioritet", $"{hendelse.Navn}: prioritet satt til {prioritet}", hendelseId: hendelseId);
+    });
+
+    public Task SetIncidentStatusAsync(int hendelseId, string status, ClaimsPrincipal actor) => Mutate(async () =>
+    {
+        var aktør = Require(actor, AppRoles.Kriseledelse);
+        if (!Statuser.Hendelse.Alle.Contains(status)) throw new WorkflowException("Ugyldig status.");
+        var hendelse = await db.Hendelser.SingleOrDefaultAsync(h => h.HendelseID == hendelseId)
+            ?? throw new WorkflowException("Hendelsen finnes ikke.");
+        if (hendelse.Status == status) return;
+        hendelse.Status = status;
+        Logg(aktør, "HendelseStatus", $"{hendelse.Navn}: status satt til {Statuser.Hendelse.Etikett(status)}", hendelseId: hendelseId);
+    });
 
     public Task CloseIncidentAsync(int hendelseId, ClaimsPrincipal actor) => Mutate(async () =>
     {

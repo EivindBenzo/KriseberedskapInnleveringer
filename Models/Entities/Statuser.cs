@@ -10,7 +10,19 @@ public static class Statuser
     {
         public const string Aktiv = "aktiv";
         public const string Avsluttet = "avsluttet";
-        public static readonly string[] Alle = [Aktiv, Avsluttet];
+        public const string Planlagt = "planlagt";
+        public static readonly string[] Alle = [Planlagt, Aktiv, Avsluttet];
+
+        /// <summary>«Pågår» i grensesnittet.</summary>
+        public static string Etikett(string? status) => status == Aktiv ? "Pågår" : Visning(status);
+    }
+
+    public static class HendelsePrioritet
+    {
+        public const string Lav = "lav";
+        public const string Medium = "medium";
+        public const string Hoy = "høy";
+        public static readonly string[] Alle = [Lav, Medium, Hoy];
     }
 
     public static class Behov

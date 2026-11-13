@@ -364,6 +364,14 @@ namespace HeimevernetInnlevering1.Migrations
                     b.Property<string>("Beskrivelse")
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("Breddegrad")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal?>("Lengdegrad")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
                     b.Property<string>("Navn")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -377,6 +385,13 @@ namespace HeimevernetInnlevering1.Migrations
                     b.Property<int>("OpprettetAvID")
                         .HasColumnType("int")
                         .HasColumnName("OpprettetAv");
+
+                    b.Property<string>("Prioritet")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)")
+                        .HasDefaultValue("medium");
 
                     b.Property<DateTime>("Starttidspunkt")
                         .HasColumnType("datetime(6)");

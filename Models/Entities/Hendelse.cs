@@ -10,6 +10,9 @@ public class Hendelse
     public string Område { get; set; } = string.Empty;
     public DateTime Starttidspunkt { get; set; } = DateTime.UtcNow;
     public string Status { get; set; } = Statuser.Hendelse.Aktiv;
+    public string Prioritet { get; set; } = Statuser.HendelsePrioritet.Medium;
+    public decimal? Breddegrad { get; set; }
+    public decimal? Lengdegrad { get; set; }
 
     public Bruker? OpprettetAv { get; set; }
     public ICollection<Behov> Behov { get; set; } = new List<Behov>();

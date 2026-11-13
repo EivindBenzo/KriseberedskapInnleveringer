@@ -361,6 +361,30 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
             }
         }
 
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            var hendelser = await db.Hendelser.AsNoTracking()
+                .Where(h => h.Status != Statuser.Hendelse.Avsluttet && h.Breddegrad != null && h.Lengdegrad != null).ToListAsync();
+            foreach (var h in hendelser)
+            {
+                var prio = h.Prioritet == Statuser.HendelsePrioritet.Hoy ? "Høy prioritet" : h.Prioritet == Statuser.HendelsePrioritet.Medium ? "Medium prioritet" : "Lav prioritet";
+                var etikett = Statuser.Hendelse.Etikett(h.Status);
+                var lenke = User.IsInRole(AppRoles.DispatchTeam) || User.IsInRole(AppRoles.Kriseledelse)
+                    ? Url?.Action("Arbeidsrom", "Hendelse", new { id = h.HendelseID }) : Url?.Action("Index", "Behov");
+                var popup = PanelHtml(html, "Hendelse", h.Navn, BildeUrl("~/images/hendelse-varsel.svg"), true,
+                    h.Område, null, null,
+                    [(etikett, "urgent"), (prio, "info")],
+                    [("Status", etikett), ("Prioritet", prio), ("Startet", h.Starttidspunkt.ToString("dd.MM.yyyy HH:mm") + " UTC")],
+                    h.Beskrivelse,
+                    [("Status", etikett), ("Prioritet", prio)],
+                    (double)h.Breddegrad!.Value, (double)h.Lengdegrad!.Value, lenke ?? "#", "Åpne hendelsen", null,
+                    "Hendelse – følg opp i arbeidsrommet.");
+                markører.Add(new KartMarkor((double)h.Breddegrad!.Value, (double)h.Lengdegrad!.Value,
+                    BildeUrl("~/images/hendelse-varsel.svg"), $"Hendelse: {h.Navn}", popup, false, false,
+                    null, null, false, true));
+            }
+        }
+
         var registrerer = User.IsInRole(AppRoles.Ressursleverandor) && (redigerer is not null || !ModelState.IsValid
             || HttpContext?.Request.Query["register"].ToString() == "true");
         ViewBag.Focus = focus;

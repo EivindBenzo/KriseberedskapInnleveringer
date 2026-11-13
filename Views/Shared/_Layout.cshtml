@@ -68,16 +68,16 @@
                         <li><a asp-controller="Home" asp-action="Resources" class="nav-link" aria-current="@Aktiv("Home", "Resources", "Mine", "Edit", "Delete")"><svg class="nl-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.700 3.600 3 8 3s8-1.300 8-3V5M4 12c0 1.700 3.600 3 8 3s8-1.300 8-3"/></svg><span>Ressurser</span></a></li>
                         @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.OffentligAktor))
                         {
-                            <li><a asp-controller="Behov" asp-action="Registrer" class="nav-link" aria-current="@Aktiv("Behov", "Registrer")">Meld behov</a></li>
+                            <li><a asp-controller="Behov" asp-action="Registrer" class="nav-link" aria-current="@Aktiv("Behov", "Registrer")"><svg class="nl-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span>Meld behov</span></a></li>
                         }
                         @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse)
                             || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.DispatchTeam))
                         {
-                            <li><a asp-controller="Hendelse" asp-action="Index" class="nav-link" aria-current="@Aktiv("Hendelse", "Index")">Hendelser</a></li>
+                            <li><a asp-controller="Hendelse" asp-action="Index" class="nav-link" aria-current="@Aktiv("Hendelse", "Index")"><svg class="nl-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></svg><span>Hendelser</span></a></li>
                         }
                         @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse))
                         {
-                            <li><a asp-controller="Admin" asp-action="Index" class="nav-link" aria-current="@Aktiv("Admin", "Index")">Brukere</a></li>
+                            <li><a asp-controller="Admin" asp-action="Index" class="nav-link" aria-current="@Aktiv("Admin", "Index")"><svg class="nl-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><span>Brukere</span></a></li>
                         }
                         @if (canUseOperations)
                         {
@@ -86,8 +86,8 @@
                     }
                     else
                     {
-                        <li><a asp-controller="Account" asp-action="Login" class="nav-link" aria-current="@Aktiv("Account", "Login")">Logg inn</a></li>
-                        <li><a asp-controller="Account" asp-action="Register" class="nav-link" aria-current="@Aktiv("Account", "Register")">Registrer bruker</a></li>
+                        <li><a asp-controller="Account" asp-action="Login" class="nav-link" aria-current="@Aktiv("Account", "Login")"><svg class="nl-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4M10 8l4 4-4 4M14 12H3"/></svg><span>Logg inn</span></a></li>
+                        <li><a asp-controller="Account" asp-action="Register" class="nav-link" aria-current="@Aktiv("Account", "Register")"><svg class="nl-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="4"/><path d="M2 21c0-4 3.6-7 8-7M18 14v6M15 17h6"/></svg><span>Registrer bruker</span></a></li>
                     }
                 </ul>
             </div>

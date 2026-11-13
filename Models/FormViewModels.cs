@@ -124,4 +124,11 @@ public class HendelseSkjemaViewModel
     [Required(ErrorMessage = "Oppgi starttidspunkt")]
     [DataType(DataType.DateTime)]
     public DateTime? Starttidspunkt { get; set; } = DateTime.Now;
+
+    public string Prioritet { get; set; } = Statuser.HendelsePrioritet.Medium;
+
+    public string Status { get; set; } = Statuser.Hendelse.Aktiv;
+
+    public decimal? Breddegrad { get; set; }
+    public decimal? Lengdegrad { get; set; }
 }

@@ -9,6 +9,35 @@ public static class DemoDataSeeder
 {
     public const string Marker = "DemodataOpprettet";
 
+    /// <summary>Gir hendelsene prioritet og kartposisjon, og legger til to eksempler (planlagt og avsluttet). Kan kjøres flere ganger.</summary>
+    private static async Task EnsureIncidentExamplesAsync(AppDbContext db, int leader)
+    {
+        var now = DateTime.UtcNow;
+        var flom = await db.Hendelser.FirstOrDefaultAsync(h => h.Navn == "Flom i Glomma");
+        if (flom is not null && flom.Breddegrad is null)
+        {
+            flom.Område = "Innlandet"; flom.Breddegrad = 60.7945m; flom.Lengdegrad = 11.0680m;
+            flom.Prioritet = Statuser.HendelsePrioritet.Hoy;
+        }
+        if (!await db.Hendelser.AnyAsync(h => h.Navn == "Kraftig nedbør – Hamarområdet"))
+            db.Hendelser.Add(new Hendelse
+            {
+                OpprettetAvID = leader, Navn = "Kraftig nedbør – Hamarområdet", Område = "Hamar",
+                Beskrivelse = "Varsel om kraftig nedbør. Beredskapen forberedes.", Starttidspunkt = now.AddDays(1),
+                Status = Statuser.Hendelse.Planlagt, Prioritet = Statuser.HendelsePrioritet.Medium,
+                Breddegrad = 60.7945m, Lengdegrad = 11.0680m
+            });
+        if (!await db.Hendelser.AnyAsync(h => h.Navn == "Flom i Glomma (avsluttet)"))
+            db.Hendelser.Add(new Hendelse
+            {
+                OpprettetAvID = leader, Navn = "Flom i Glomma (avsluttet)", Område = "Elverum",
+                Beskrivelse = "Tidligere flom. Hendelsen er avsluttet.", Starttidspunkt = now.AddDays(-20),
+                Status = Statuser.Hendelse.Avsluttet, Prioritet = Statuser.HendelsePrioritet.Lav,
+                Breddegrad = 60.8819m, Lengdegrad = 11.5622m
+            });
+        await db.SaveChangesAsync();
+    }
+
     public static async Task SeedAsync(IServiceProvider services)
     {
         var db = services.GetRequiredService<AppDbContext>();
@@ -20,6 +49,7 @@ public static class DemoDataSeeder
         var provider = await Id(AppRoles.Ressursleverandor);
         var dispatch = await Id(AppRoles.DispatchTeam);
         var leader = await Id(AppRoles.Kriseledelse);
+        await EnsureIncidentExamplesAsync(db, leader);
         if (await db.Hendelseslogg.AnyAsync(a => a.Handling == Marker))
         {
             await RemoveLegacyUrgentExamplesAsync(db, publicActor);
@@ -57,7 +87,8 @@ public static class DemoDataSeeder
         {
             OpprettetAvID = leader, Navn = "Flom i Glomma", Område = "Innlandet",
             Beskrivelse = "Høy vannstand langs Glomma etter kraftig regn.", Starttidspunkt = now.AddHours(-30),
-            Status = Statuser.Hendelse.Aktiv
+            Status = Statuser.Hendelse.Aktiv, Prioritet = Statuser.HendelsePrioritet.Hoy,
+            Breddegrad = 60.7945m, Lengdegrad = 11.0680m
         };
         db.Hendelser.Add(flom);
         await db.SaveChangesAsync();

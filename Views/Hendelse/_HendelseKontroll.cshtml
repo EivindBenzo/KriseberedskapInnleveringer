@@ -1,0 +1,25 @@
+@model HeimevernetInnlevering1.Models.Hendelse
+@using HeimevernetInnlevering1.Models
+<details class="hx-ctrl">
+    <summary>Kriseledelse</summary>
+    <div class="hx-ctrl-body">
+        <form asp-action="Prioritet" asp-route-id="@Model.HendelseID" method="post">
+            <label>Prioritet
+                <select name="prioritet" onchange="this.form.submit()">
+                    <option value="lav" selected="@(Model.Prioritet == "lav")">Lav prioritet</option>
+                    <option value="medium" selected="@(Model.Prioritet == "medium")">Medium prioritet</option>
+                    <option value="høy" selected="@(Model.Prioritet == "høy")">Høy prioritet</option>
+                </select>
+            </label>
+        </form>
+        <form asp-action="Status" asp-route-id="@Model.HendelseID" method="post">
+            <label>Status
+                <select name="status" onchange="this.form.submit()">
+                    <option value="planlagt" selected="@(Model.Status == Statuser.Hendelse.Planlagt)">Planlagt</option>
+                    <option value="aktiv" selected="@(Model.Status == Statuser.Hendelse.Aktiv)">Pågår</option>
+                    <option value="avsluttet" selected="@(Model.Status == Statuser.Hendelse.Avsluttet)">Avsluttet</option>
+                </select>
+            </label>
+        </form>
+    </div>
+</details>

@@ -215,12 +215,16 @@
             (m.leveranseStatus ? ' delivery-' + m.leveranseStatus.toLowerCase().replace(' ', '-') : '') +
             (!m.akutt && !m.kanForespørres ? ' is-unavailable' : '');
         const merke = m.akutt ? '!' : (m.leveranseStatus || (m.kanForespørres ? '✓' : '−'));
-        const symbol = L.divIcon({
+        const symbol = m.hendelse ? L.divIcon({
+            className: 'map-pin-wrapper',
+            html: '<span class="map-incident" title="Hendelse"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12 2.5 22.5 20.5h-21z" fill="#d92d20" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 9v5.5M12 17.2v.1" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></span>',
+            iconSize: [40, 40], iconAnchor: [20, 20], popupAnchor: [0, -20]
+        }) : L.divIcon({
             className: 'map-pin-wrapper',
             html: '<span class="' + klasser + '"><i style="--pin-icon:url(\'' + m.ikon + '\')"></i><b>' + merke + '</b></span>',
             iconSize: [48, 48], iconAnchor: [24, 24], popupAnchor: [0, -22]
         });
-        const markor = L.marker([m.lat, m.lng], { icon: symbol, title: m.tittel, alt: m.tittel, akutt: !!m.akutt, zIndexOffset: m.akutt ? 1000 : 0 });
+        const markor = L.marker([m.lat, m.lng], { icon: symbol, title: m.tittel, alt: m.tittel, akutt: !!m.akutt, zIndexOffset: m.hendelse ? 1500 : (m.akutt ? 1000 : 0) });
         markor.kartdata = m;
         if (panel) markor.on('click', function () { visPanel(m, markor); });
         else markor.bindPopup(m.popup, { className: 'map-popup', minWidth: 250, maxWidth: 290 });

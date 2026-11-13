@@ -3,20 +3,29 @@
 @{
     ViewData["Title"] = Model.Incident.Navn;
     string Stamp(DateTime value) => value.ToString("dd.MM.yyyy HH:mm") + " UTC";
-}
-<section class="operations-workspace incident-workspace" aria-labelledby="incident-workspace-heading">
-    <div class="page-heading">
-        <div>
-            <span class="eyebrow">HENDELSESARBEIDSROM</span>
-            <h1 id="incident-workspace-heading">@Model.Incident.Navn</h1>
-            <p>@Model.Incident.Område · startet @Stamp(Model.Incident.Starttidspunkt)</p>
-        </div>
-        <a asp-action="Index" class="btn-secondary">Alle hendelser</a>
-    </div>
-    @if (!string.IsNullOrWhiteSpace(Model.Incident.Beskrivelse))
+    string Tittel(string handling) => handling switch
     {
-        <p class="incident-description">@Model.Incident.Beskrivelse</p>
-    }
+        "OperativBeslutning" => "Beslutning",
+        "HendelseStatus" => "Status endret",
+        "HendelsePrioritet" => "Prioritet endret",
+        _ => HeimevernetInnlevering1.Services.ShellService.Menneskelig(handling)
+    };
+    var akutte = Model.OpenNeeds.Count(b => b.Prioritet == Statuser.Prioritet.Akutt);
+}
+<section class="iw" aria-labelledby="incident-workspace-heading">
+    <div class="iw-banner">
+        <div class="iw-banner-text">
+            <span class="iw-eyebrow">HENDELSESARBEIDSROM</span>
+            <h1 id="incident-workspace-heading">@Model.Incident.Navn</h1>
+            <p>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                @Model.Incident.Område · Startet @Stamp(Model.Incident.Starttidspunkt)
+            </p>
+            <a asp-action="Index" class="iw-back">← Alle hendelser</a>
+        </div>
+        <div class="iw-banner-img" aria-hidden="true"></div>
+    </div>
+
     @if (TempData["WorkflowError"] is string error)
     {
         <p class="workspace-alert" role="alert">@error</p>
@@ -26,55 +35,89 @@
         <p class="notice" role="status">@success</p>
     }
 
-    <section class="incident-summary" aria-label="Hendelsessammendrag">
-        <div class="incident-metric incident-metric-urgent"><strong>@Model.OpenNeeds.Count(b => b.Prioritet == Statuser.Prioritet.Akutt)</strong><span>Akutte behov</span></div>
-        <div class="incident-metric"><strong>@Model.OpenNeeds.Count</strong><span>Åpne behov</span></div>
-        <div class="incident-metric incident-metric-active"><strong>@Model.ActiveAssignments.Count</strong><span>Aktive tildelinger</span></div>
+    @if (!string.IsNullOrWhiteSpace(Model.Incident.Beskrivelse))
+    {
+        <p class="iw-info"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 11v5M12 8h.01"/></svg>@Model.Incident.Beskrivelse</p>
+    }
+
+    <nav class="iw-tabs" aria-label="Hendelsesarbeidsrom">
+        <a class="is-active" aria-current="page" asp-action="Arbeidsrom" asp-route-id="@Model.Incident.HendelseID">Arbeidsrom</a>
+        <a asp-controller="Home" asp-action="Resources">Ressurser</a>
+        <a asp-controller="Operations" asp-action="Index">Tildelinger</a>
+        <a asp-controller="Home" asp-action="Map">Kart</a>
+        <a href="#operativ-logg">Dokumenter</a>
+    </nav>
+
+    <section class="iw-metrics" aria-label="Hendelsessammendrag">
+        <div class="iw-metric is-red"><i><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></svg></i><span>Akutte behov</span><strong>@akutte</strong></div>
+        <div class="iw-metric is-blue"><i><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></i><span>Åpne behov</span><strong>@Model.OpenNeeds.Count</strong></div>
+        <div class="iw-metric is-green"><i><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg></i><span>Aktive tildelinger</span><strong>@Model.ActiveAssignments.Count</strong></div>
     </section>
 
-    <div class="incident-grid">
-        <section class="dashboard-panel">
-            <h2>Åpne behov</h2>
-            @if (Model.OpenNeeds.Count == 0) { <p class="empty-state">Ingen åpne behov er knyttet til hendelsen.</p> }
-            @foreach (var need in Model.OpenNeeds)
-            {
-                <article class="workflow-item">
-                    <div class="results-heading"><h3>@need.Behovstype!.Navn · @need.Stedsnavn</h3><span class="status-badge @(need.Prioritet == Statuser.Prioritet.Akutt ? "status-critical" : "status-warning")">@Statuser.Visning(need.Prioritet)</span></div>
-                    <p>@need.Beskrivelse</p>
-                    <span class="resource-meta">@Statuser.Visning(need.Status)@(need.Frist is DateTime deadline ? " · frist " + Stamp(deadline) : "")</span>
-                </article>
-            }
-        </section>
-        <section class="dashboard-panel">
-            <h2>Aktive tildelinger</h2>
-            @if (Model.ActiveAssignments.Count == 0) { <p class="empty-state">Ingen aktive tildelinger i denne hendelsen.</p> }
-            @foreach (var assignment in Model.ActiveAssignments)
-            {
-                <article class="workflow-item">
-                    <div class="results-heading"><h3>@assignment.Forespørsel!.Ressurs!.Navn</h3><span class="status-badge status-positive">@Statuser.Visning(assignment.Fremdrift)</span></div>
-                    <p>@assignment.Forespørsel.Behov!.Behovstype!.Navn · @assignment.Forespørsel.Behov.Stedsnavn</p>
-                    <span class="resource-meta">Sist oppdatert @Stamp(assignment.SistOppdatert)</span>
-                </article>
-            }
-        </section>
+    <div class="iw-grid">
+        <div class="iw-col">
+            <section class="iw-card">
+                <header><h2>Åpne behov</h2><a asp-controller="Behov" asp-action="Registrer">+ Registrer behov</a></header>
+                @if (Model.OpenNeeds.Count == 0)
+                {
+                    <div class="iw-empty"><i>✓</i><strong>Ingen åpne behov</strong><span>Det er ikke registrert behov i denne hendelsen.</span></div>
+                }
+                @foreach (var need in Model.OpenNeeds)
+                {
+                    <article class="iw-row">
+                        <div><strong>@need.Behovstype!.Navn · @need.Stedsnavn</strong><p>@need.Beskrivelse</p>
+                            <span>@Statuser.Visning(need.Status)@(need.Frist is DateTime deadline ? " · frist " + Stamp(deadline) : "")</span></div>
+                        <em class="@(need.Prioritet == Statuser.Prioritet.Akutt ? "is-red" : "is-blue")">@Statuser.Visning(need.Prioritet)</em>
+                    </article>
+                }
+            </section>
+            <section class="iw-card">
+                <header><h2>Aktive tildelinger</h2><a asp-controller="Operations" asp-action="Index">Se alle tildelinger →</a></header>
+                @if (Model.ActiveAssignments.Count == 0)
+                {
+                    <div class="iw-empty"><i>◔</i><strong>Ingen aktive tildelinger</strong><span>Det er ingen aktive tildelinger i denne hendelsen.</span></div>
+                }
+                @foreach (var assignment in Model.ActiveAssignments)
+                {
+                    <article class="iw-row">
+                        <div><strong>@assignment.Forespørsel!.Ressurs!.Navn</strong>
+                            <p>@assignment.Forespørsel.Behov!.Behovstype!.Navn · @assignment.Forespørsel.Behov.Stedsnavn</p>
+                            <span>Sist oppdatert @Stamp(assignment.SistOppdatert)</span></div>
+                        <em class="is-green">@Statuser.Visning(assignment.Fremdrift)</em>
+                    </article>
+                }
+            </section>
+        </div>
+
+        <aside class="iw-col">
+            <section class="iw-card" id="operativ-logg">
+                <header><h2>Operativ logg</h2><select class="iw-select" aria-label="Filter"><option>Alle hendelser</option></select></header>
+                @if (Model.Activity.Count == 0)
+                {
+                    <p class="iw-muted">Ingen hendelsesbeslutninger er loggført ennå.</p>
+                }
+                else
+                {
+                    <ol class="iw-log">
+                    @foreach (var entry in Model.Activity.Select((e, i) => (e, i)))
+                    {
+                        <li class="@(entry.i == 0 ? "is-first" : "")">
+                            <div><strong>@Tittel(entry.e.Handling)</strong><time>@Stamp(entry.e.Tidspunkt)</time></div>
+                            @if (!string.IsNullOrWhiteSpace(entry.e.Tekst)) { <p>@entry.e.Tekst</p> }
+                            <span>@entry.e.Aktør</span>
+                        </li>
+                    }
+                    </ol>
+                }
+                <form asp-action="Beslutning" asp-route-id="@Model.Incident.HendelseID" method="post" class="iw-form">
+                    <label for="decisionNote">Ny beslutning eller status</label>
+                    <div>
+                        <input id="decisionNote" name="note" maxlength="1000" required placeholder="Hva ble besluttet, av hvem og hvorfor?" />
+                        <button type="submit" aria-label="Legg til i loggen" title="Legg til i loggen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4zM22 2 11 13"/></svg></button>
+                    </div>
+                    <small>Legg til i loggen</small>
+                </form>
+            </section>
+        </aside>
     </div>
-
-    <section class="dashboard-panel">
-        <h2>Operativ logg</h2>
-        <form asp-action="Beslutning" asp-route-id="@Model.Incident.HendelseID" method="post" class="inline-form">
-            <label for="decisionNote">Ny beslutning eller status</label>
-            <input id="decisionNote" name="note" maxlength="1000" required placeholder="Hva ble besluttet, av hvem og hvorfor?" />
-            <button type="submit" class="btn-submit">Legg til i loggen</button>
-        </form>
-        @if (Model.Activity.Count == 0) { <p class="empty-state">Ingen hendelsesbeslutninger er loggført ennå.</p> }
-        else
-        {
-            <ol class="incident-log">
-            @foreach (var entry in Model.Activity)
-            {
-                <li><strong>@entry.Handling</strong><span>@entry.Begrunnelse · @Stamp(entry.Tidspunkt)</span></li>
-            }
-            </ol>
-        }
-    </section>
 </section>

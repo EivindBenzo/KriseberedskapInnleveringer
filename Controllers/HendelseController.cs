@@ -10,14 +10,62 @@ namespace HeimevernetInnlevering1.Controllers;
 
 /// <summary>Kriseledelsen oppretter og avslutter hendelser (f.eks. «Flom i Glomma») som behov kan knyttes til.</summary>
 [Authorize(Roles = AppRoles.DispatchTeam + "," + AppRoles.Kriseledelse)]
-public class HendelseController(AppDbContext db, WorkflowService workflow) : Controller
+public class HendelseController(AppDbContext db, WorkflowService workflow, Stedssok stedssok) : Controller
 {
+    private async Task FyllHendelserAsync()
+    {
+        var hendelser = await db.Hendelser.AsNoTracking().Include(h => h.Behov)
+            .OrderBy(h => h.Status == Statuser.Hendelse.Aktiv ? 0 : h.Status == Statuser.Hendelse.Planlagt ? 1 : 2)
+            .ThenByDescending(h => h.Starttidspunkt).ToListAsync();
+        var tildelinger = await db.Tildelinger.AsNoTracking()
+            .Where(t => t.Forespørsel!.Behov!.HendelseID != null)
+            .Select(t => new { Id = t.Forespørsel!.Behov!.HendelseID!.Value, t.Forespørsel.RessursID, Ferdig = t.Fullført != null })
+            .ToListAsync();
+        var aktører = await db.Hendelseslogg.AsNoTracking().Where(l => l.HendelseID != null)
+            .Select(l => new { Id = l.HendelseID!.Value, l.UtførtAvID }).Distinct().ToListAsync();
+        ViewBag.Hendelser = hendelser;
+        ViewBag.Kort = hendelser.ToDictionary(h => h.HendelseID, h =>
+        {
+            var t = tildelinger.Where(x => x.Id == h.HendelseID).ToList();
+            var ferdig = t.Count(x => x.Ferdig);
+            var prosent = h.Status == Statuser.Hendelse.Avsluttet ? 100
+                : t.Count > 0 ? (int)Math.Round(100.0 * ferdig / t.Count) : 0;
+            return new HendelseKort(t.Count, ferdig, t.Select(x => x.RessursID).Distinct().Count(),
+                aktører.Count(a => a.Id == h.HendelseID), prosent, h.Behov.Count);
+        });
+        var featured = hendelser.FirstOrDefault(h => h.Status == Statuser.Hendelse.Aktiv);
+        if (featured is not null)
+            ViewBag.Siste = await (from l in db.Hendelseslogg.AsNoTracking()
+                                   join b in db.Users.AsNoTracking() on l.UtførtAvID equals b.Id
+                                   where l.HendelseID == featured.HendelseID
+                                   orderby l.Tidspunkt descending
+                                   select new HendelseLoggRad(l.Tidspunkt, l.Handling, l.Begrunnelse, b.Fornavn + " " + b.Etternavn))
+                .Take(4).ToListAsync();
+    }
+
     [HttpGet]
     public async Task<IActionResult> Index()
     {
-        ViewBag.Hendelser = await db.Hendelser.AsNoTracking().Include(h => h.Behov)
-            .OrderBy(h => h.Status).ThenByDescending(h => h.Starttidspunkt).ToListAsync();
+        await FyllHendelserAsync();
         return View(new HendelseSkjemaViewModel());
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [Authorize(Roles = AppRoles.Kriseledelse)]
+    public async Task<IActionResult> Status(int id, string status)
+    {
+        try { await workflow.SetIncidentStatusAsync(id, status, User); }
+        catch (WorkflowException exception) { TempData["WorkflowError"] = exception.Message; }
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    [Authorize(Roles = AppRoles.Kriseledelse)]
+    public async Task<IActionResult> Prioritet(int id, string prioritet)
+    {
+        try { await workflow.SetIncidentPriorityAsync(id, prioritet, User); }
+        catch (WorkflowException exception) { TempData["WorkflowError"] = exception.Message; }
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -28,6 +76,11 @@ public class HendelseController(AppDbContext db, WorkflowService workflow) : Con
         {
             try
             {
+                if (model.Breddegrad is null || model.Lengdegrad is null)
+                {
+                    var treff = await stedssok.SøkAsync(model.Område, HttpContext.RequestAborted);
+                    if (treff.Count > 0) { model.Breddegrad = (decimal)treff[0].Lat; model.Lengdegrad = (decimal)treff[0].Lng; }
+                }
                 await workflow.CreateIncidentAsync(model, User);
                 TempData["WorkflowSuccess"] = $"Hendelsen «{model.Navn}» er opprettet.";
                 return RedirectToAction(nameof(Index));
@@ -37,8 +90,7 @@ public class HendelseController(AppDbContext db, WorkflowService workflow) : Con
                 ModelState.AddModelError("", exception.Message);
             }
         }
-        ViewBag.Hendelser = await db.Hendelser.AsNoTracking().Include(h => h.Behov)
-            .OrderBy(h => h.Status).ThenByDescending(h => h.Starttidspunkt).ToListAsync();
+        await FyllHendelserAsync();
         return View(model);
     }
 
@@ -77,11 +129,12 @@ public class HendelseController(AppDbContext db, WorkflowService workflow) : Con
             .Where(t => t.Forespørsel!.Behov!.HendelseID == id && t.Fremdrift != Statuser.Fremdrift.Fullført)
             .OrderByDescending(t => t.SistOppdatert)
             .ToListAsync();
-        var activity = await db.Hendelseslogg.AsNoTracking()
-            .Where(l => l.HendelseID == id)
-            .OrderByDescending(l => l.Tidspunkt)
-            .Take(20)
-            .ToListAsync();
+        var activity = await (from l in db.Hendelseslogg.AsNoTracking()
+                              join b in db.Users.AsNoTracking() on l.UtførtAvID equals b.Id
+                              where l.HendelseID == id
+                              orderby l.Tidspunkt descending
+                              select new HendelseLoggRad(l.Tidspunkt, l.Handling, l.Begrunnelse, b.Fornavn + " " + b.Etternavn))
+            .Take(20).ToListAsync();
 
         return View(new IncidentWorkspaceViewModel
         {
