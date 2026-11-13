@@ -18,21 +18,22 @@
         }
     }
 
+    function showAll() {
+        sessionStorage.removeItem(activePanelKey);
+        buttons.forEach(function (item) { item.setAttribute('aria-expanded', 'false'); });
+        panels.forEach(function (panel) { panel.hidden = false; });
+    }
+
     const savedPanel = sessionStorage.getItem(activePanelKey);
     if (savedPanel && panels.some(function (panel) { return panel.dataset.dashboardPanel === savedPanel; })) {
         showPanel(savedPanel, false);
-    }
+    } else { showAll(); }
 
     buttons.forEach(function (button) {
         button.addEventListener('click', function () {
             const target = button.dataset.dashboardTarget;
             const isOpen = button.getAttribute('aria-expanded') === 'true';
-            if (isOpen) {
-                sessionStorage.removeItem(activePanelKey);
-                buttons.forEach(function (item) { item.setAttribute('aria-expanded', 'false'); });
-                panels.forEach(function (panel) { panel.hidden = true; });
-                return;
-            }
+            if (isOpen) { showAll(); return; }
             showPanel(target, true);
         });
     });

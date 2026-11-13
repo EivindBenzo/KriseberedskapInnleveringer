@@ -377,7 +377,8 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
                     [("Status", etikett), ("Prioritet", prio), ("Startet", h.Starttidspunkt.ToString("dd.MM.yyyy HH:mm") + " UTC")],
                     h.Beskrivelse,
                     [("Status", etikett), ("Prioritet", prio)],
-                    (double)h.Breddegrad!.Value, (double)h.Lengdegrad!.Value, lenke ?? "#", "Åpne hendelsen", null,
+                    (double)h.Breddegrad!.Value, (double)h.Lengdegrad!.Value, lenke ?? "#",
+                    User.IsInRole(AppRoles.DispatchTeam) || User.IsInRole(AppRoles.Kriseledelse) ? "Åpne hendelsen" : "", null,
                     "Hendelse – følg opp i arbeidsrommet.");
                 markører.Add(new KartMarkor((double)h.Breddegrad!.Value, (double)h.Lengdegrad!.Value,
                     BildeUrl("~/images/hendelse-varsel.svg"), $"Hendelse: {h.Navn}", popup, false, false,
@@ -420,7 +421,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
         var handlinger = Handling(rute, "<path d=\"M5 20v-6a4 4 0 0 1 4-4h10\"/><path d=\"m15 5 4 5-4 5\"/>", "Veibeskrivelse", "target=\"_blank\" rel=\"noopener noreferrer\" data-primary")
             + (tel.Length > 0 ? Handling("tel:" + tel, "<path d=\"M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z\"/>", akutt ? "Ring kontakt" : "Ring eier")
                                  + Handling("sms:" + tel, "<path d=\"M4 5h16v11H9l-5 4z\"/>", "Send melding") : "")
-            + Handling(lenke, "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 11v5M12 8h.01\"/>", lenkeTekst)
+            + (string.IsNullOrEmpty(lenkeTekst) ? "" : Handling(lenke, "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 11v5M12 8h.01\"/>", lenkeTekst))
             + (foresporselLenke is null ? "" : Handling(foresporselLenke, "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"2\"/><path d=\"M12 8v8M8 12h8\"/>", "Opprett forespørsel"))
             + Handling(lenke, "<circle cx=\"6\" cy=\"12\" r=\"2.5\"/><circle cx=\"18\" cy=\"6\" r=\"2.5\"/><circle cx=\"18\" cy=\"18\" r=\"2.5\"/><path d=\"m8.3 10.9 7.4-3.8M8.3 13.1l7.4 3.8\"/>", "Del lenke", "data-share");
         return $"<div class=\"mp-head{(akutt ? " is-urgent" : "")}\"><span class=\"mp-icon\"><img src=\"{E(ikon)}\" alt=\"\" width=\"30\" height=\"30\" /></span>" +

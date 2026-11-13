@@ -7,7 +7,11 @@
     var kort = (ViewBag.Kort as Dictionary<int, HendelseKort>) ?? new();
     var siste = (ViewBag.Siste as List<HendelseLoggRad>) ?? new();
     var kriseledelse = User.IsInRole(AppRoles.Kriseledelse);
-    var featured = hendelser.FirstOrDefault(h => h.Status == Statuser.Hendelse.Aktiv);
+    var hovedId = ViewBag.HovedId as int?;
+    var featured = hendelser.FirstOrDefault(h => h.HendelseID == hovedId);
+    var antallAktiv = hendelser.Count(h => h.Status == Statuser.Hendelse.Aktiv);
+    var antallPlan = hendelser.Count(h => h.Status == Statuser.Hendelse.Planlagt);
+    var antallFerdig = hendelser.Count(h => h.Status == Statuser.Hendelse.Avsluttet);
     var andre = hendelser.Where(h => h != featured).ToList();
     string Stamp(DateTime v) => v.ToString("dd.MM.yyyy HH:mm") + " UTC";
     string StatusKlasse(string s) => s == Statuser.Hendelse.Aktiv ? "is-orange" : s == Statuser.Hendelse.Planlagt ? "is-blue" : "is-grey";
@@ -17,16 +21,21 @@
 }
 <link rel="stylesheet" href="~/lib/leaflet/leaflet.css" />
 <section class="hx" aria-labelledby="incident-heading">
-    <header class="hx-head">
-        <div>
+    <header class="hx-head hx-banner">
+        <div class="hx-banner-text">
             <span class="iw-eyebrow">HENDELSER</span>
             <h1 id="incident-heading">Hendelser</h1>
             <p>Følg opp og koordiner pågående hendelser.</p>
+            @if (kriseledelse)
+            {
+                <a class="hx-new" href="#ny-hendelse">+ Ny hendelse</a>
+            }
         </div>
-        @if (kriseledelse)
-        {
-            <a class="hx-new" href="#ny-hendelse">+ Ny hendelse</a>
-        }
+        <div class="hx-tiles">
+            <div class="hx-tilebox is-orange"><i>⚠</i><strong>@antallAktiv</strong><span>Pågående</span></div>
+            <div class="hx-tilebox is-blue"><i>▦</i><strong>@antallPlan</strong><span>Planlagt</span></div>
+            <div class="hx-tilebox is-green"><i>✓</i><strong>@antallFerdig</strong><span>Avsluttede</span></div>
+        </div>
     </header>
 
     @if (TempData["WorkflowError"] is string error) { <p class="workspace-alert" role="alert">@error</p> }
@@ -54,6 +63,8 @@
                 </div>
                 <div class="hx-actions">
                     <a class="btn-secondary" asp-action="Arbeidsrom" asp-route-id="@featured.HendelseID">Åpne arbeidsrom</a>
+                    <a class="btn-secondary" asp-controller="Home" asp-action="Map" asp-route-sted="@featured.Område">Se på kart</a>
+                    <span class="hx-main-badge">★ Hovedhendelse</span>
                     @if (kriseledelse) { @await Html.PartialAsync("_HendelseKontroll", featured) }
                 </div>
             </div>
@@ -99,6 +110,10 @@
                 <div class="hx-num"><span>Tiltak</span><b>@k.TiltakFerdig / @k.Tiltak</b></div>
                 <div class="hx-num"><span>Ressurser</span><b>@k.Ressurser</b></div>
                 <div class="hx-row-actions">
+                    @if (h.Status == Statuser.Hendelse.Aktiv)
+                    {
+                        <form asp-action="Hovedhendelse" asp-route-id="@h.HendelseID" method="post"><button type="submit" class="hx-main-btn" title="Vis denne øverst">☆ Gjør til hovedhendelse</button></form>
+                    }
                     <a class="btn-secondary" asp-action="Arbeidsrom" asp-route-id="@h.HendelseID">Se detaljer →</a>
                     @if (kriseledelse) { @await Html.PartialAsync("_HendelseKontroll", h) }
                 </div>

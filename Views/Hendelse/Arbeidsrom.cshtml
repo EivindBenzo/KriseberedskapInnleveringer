@@ -67,7 +67,7 @@
     <div class="iw-grid">
         <div class="iw-col">
             <section class="iw-card">
-                <header><h2>Åpne behov</h2><a asp-controller="Behov" asp-action="Registrer">+ Registrer behov</a></header>
+                <header><h2>Åpne behov</h2></header>
                 @if (Model.OpenNeeds.Count == 0)
                 {
                     <div class="iw-empty"><i>✓</i><strong>Ingen åpne behov</strong><span>Det er ikke registrert behov i denne hendelsen.</span></div>
@@ -119,11 +119,18 @@
                     }
                     </ol>
                 }
+                @if (closed)
+                {
+                    <p class="iw-muted">Hendelsen er avsluttet. Loggen er lukket for nye oppføringer.</p>
+                }
+                else
+                {
                 <form asp-action="Beslutning" asp-route-id="@Model.Incident.HendelseID" method="post" class="iw-form">
                     <label for="decisionNote">Ny beslutning eller status</label>
                     <textarea id="decisionNote" name="note" rows="3" maxlength="1000" required placeholder="Hva ble besluttet, av hvem og hvorfor?"></textarea>
                     <button type="submit" class="iw-submit">Legg til i loggen</button>
                 </form>
+                }
             </section>
         </aside>
     </div>

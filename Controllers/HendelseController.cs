@@ -3,6 +3,7 @@ using HeimevernetInnlevering1.Models;
 using HeimevernetInnlevering1.Services;
 using HeimevernetInnlevering1.ViewModels;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,7 +11,7 @@ namespace HeimevernetInnlevering1.Controllers;
 
 /// <summary>Kriseledelsen oppretter og avslutter hendelser (f.eks. «Flom i Glomma») som behov kan knyttes til.</summary>
 [Authorize(Roles = AppRoles.DispatchTeam + "," + AppRoles.Kriseledelse)]
-public class HendelseController(AppDbContext db, WorkflowService workflow, Stedssok stedssok) : Controller
+public class HendelseController(AppDbContext db, WorkflowService workflow, Stedssok stedssok, UserManager<Bruker> users) : Controller
 {
     private async Task FyllHendelserAsync()
     {

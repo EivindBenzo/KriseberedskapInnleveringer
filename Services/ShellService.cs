@@ -109,9 +109,15 @@ public class ShellService(AppDbContext db, UserManager<Bruker> users)
         }
 
         var meldinger = await db.Meldinger.AsNoTracking().CountAsync(m => m.MottakerID == id && m.Lest == null);
-        if (meldinger > 0 && valg["meldinger"])
-            varsler.Add(new("meldinger", meldinger == 1 ? "1 ulest melding" : $"{meldinger} uleste meldinger", "Åpne innboksen", "Messages", "Inbox", DateTime.UtcNow));
-
+        if (valg["meldinger"])
+        {
+            var nyeMeldinger = await db.Meldinger.AsNoTracking()
+                .Where(m => m.MottakerID == id && m.Sendt >= siden)
+                .OrderByDescending(m => m.Sendt).Take(5)
+                .Select(m => new { Navn = m.SendtAv!.FulltNavn, m.Emne, m.Sendt }).ToListAsync();
+            varsler.AddRange(nyeMeldinger.Select(m => new VarselElement("meldinger", "Ny melding fra " + m.Navn,
+                Forkort(m.Emne) + " · " + m.Sendt.ToString("dd.MM HH:mm"), "Messages", "Inbox", m.Sendt)));
+        }
         var sett = (await users.GetAuthenticationTokenAsync(user, Provider, SettToken) ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
         var bilde = await users.GetAuthenticationTokenAsync(user, Provider, "Profilbilde");
         var hendelser = driftsrolle ? await db.Hendelser.AsNoTracking().CountAsync(h => h.Status == Statuser.Hendelse.Aktiv) : 0;
