@@ -442,6 +442,7 @@ else
         var passendeTyper = need.Behovstype?.PassendeRessurstyper.Select(k => k.RessurstypeID).ToHashSet() ?? [];
         var passende = Model.MatchingResources.Where(r => passendeTyper.Contains(r.RessurstypeID)).ToList();
         var mangler = need.Mangler;
+        var enhet = passende.Select(r => r.Enhet).FirstOrDefault(e => !string.IsNullOrWhiteSpace(e)) ?? ((need.Behovstype?.Navn ?? "").ToLowerInvariant().Contains("vann") ? "L" : "stk");
         <article id="behov-@need.BehovID" class="dc-card is-red dc-urgent">
             <div class="dc-top">
                 <i class="dc-ico dc-ico-alert" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)<b class="dc-bang">!</b></i>
