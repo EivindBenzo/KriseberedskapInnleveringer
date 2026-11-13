@@ -60,6 +60,7 @@ public static class DemoDataSeeder
         var leader = await Id(AppRoles.Kriseledelse);
         await EnsureIncidentExamplesAsync(db, leader);
         await DemoDataExtras.EnsureAsync(db, users, dispatch);
+        await DemoDataRound22.EnsureAsync(db, users, dispatch, leader);
         if (await db.Hendelseslogg.AnyAsync(a => a.Handling == Marker))
         {
             await RemoveLegacyUrgentExamplesAsync(db, publicActor);

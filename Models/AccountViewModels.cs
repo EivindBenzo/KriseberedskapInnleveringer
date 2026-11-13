@@ -55,7 +55,7 @@ public record AdminUserViewModel(int Id, string Navn, string Email, string? Orga
 
 public record ProfilKontakt(int Id, string Navn, string Rolle, string? Organisasjon, string Epost, string? Telefon);
 
-public record OvStat(string Label, int Value, string Ikon, string? Merke = null);
+public record OvStat(string Label, int Value, string Ikon, string? Merke = null, string? Url = null);
 
 public class OvRad
 {

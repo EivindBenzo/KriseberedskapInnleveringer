@@ -311,3 +311,17 @@ body.shell-body { min-height: 100vh; background: var(--page); }
 @keyframes isTarget{50%{box-shadow:0 0 0 8px rgba(10,122,140,.25)}}
 html[data-theme="dark"] .ov-item,body.dark .ov-item{background:#16242b;border-color:#2a3d46}
 html[data-theme="dark"] .ov-cols-3>div,body.dark .ov-cols-3>div{background:rgba(255,255,255,.04)}
+
+/* Round 22: bjelle i lys topplinje (profilvisning) */
+.shell-top .um-bell > summary:hover,.shell-top .um-bell[open] > summary{background:var(--hover)!important;border-color:var(--border)!important;box-shadow:0 0 0 3px rgba(11,100,117,.15)}
+.shell-top .um-bell > summary svg,.shell-top .um-bell > summary:hover svg{color:var(--heading)}
+.shell-top .um-account > summary:hover,.shell-top .um-account[open] > summary{background:var(--hover)!important;border-color:var(--border)!important}
+.shell-top .um-account > summary,.shell-top .um-account > summary .um-chevron{color:var(--heading)}
+.shell-top{position:relative;z-index:20}
+
+/* Round 22: interaktive lister */
+a.ov-stat{text-decoration:none;color:inherit;transition:transform .15s,box-shadow .15s}
+a.ov-stat[href]{cursor:pointer}
+a.ov-stat[href]:hover,a.ov-stat[href]:focus-visible{transform:translateY(-2px);box-shadow:0 8px 20px rgba(10,66,80,.18)}
+.ov-item{cursor:pointer;transition:background .15s,transform .15s,box-shadow .15s}
+.ov-item:hover{background:rgba(17,163,179,.08);transform:translateX(3px);box-shadow:inset 3px 0 0 #11a3b3}

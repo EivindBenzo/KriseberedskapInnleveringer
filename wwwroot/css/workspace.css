@@ -1652,3 +1652,12 @@ header .um-bell>summary:hover,header .um-bell[open]>summary{background:rgba(17,1
 :root[data-theme="dark"] .toast-body span{color:#a9c3c6}
 @media (max-width:600px){.toast-stack{top:.5rem;right:.5rem;left:.5rem;width:auto}}
 @media (prefers-reduced-motion:reduce){.toast{animation:none}.toast-bar{animation:none;display:none}}
+
+/* Round 22 */
+.kl-hero { padding: .9rem 1.6rem; }
+.kl-hero h1 { font-size: 1.8rem; margin: .1rem 0 .2rem; }
+.kl-art { max-height: 96px; }
+.bu-sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-transform: inherit; letter-spacing: inherit; }
+.bu-sort:hover { text-decoration: underline; }
+.bu-sort[data-dir]::after { content: " ▲"; font-size: .7em; }
+.bu-sort[data-dir="desc"]::after { content: " ▼"; }

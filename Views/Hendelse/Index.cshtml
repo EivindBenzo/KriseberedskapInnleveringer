@@ -128,6 +128,7 @@
                     {
                         <form asp-action="Hovedhendelse" asp-route-id="@h.HendelseID" method="post"><button type="submit" class="hx-main-btn" title="Vis denne øverst">☆ Gjør til hovedhendelse</button></form>
                     }
+                    @if (h.Status == Statuser.Hendelse.Aktiv) { <form asp-action="Fest" asp-route-id="@h.HendelseID" method="post"><button type="submit" class="hx-main-btn" title="Fest/løsne hendelse">&#128204; Fest</button></form> }
                     @if (kriseledelse) { @await Html.PartialAsync("_HendelseKontroll", h) }
                     <a class="hx-detail-btn" asp-action="Arbeidsrom" asp-route-id="@h.HendelseID" aria-label="Se detaljer for @h.Navn">Se detaljer <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
                 </div>

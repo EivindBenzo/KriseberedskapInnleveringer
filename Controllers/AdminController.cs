@@ -18,9 +18,14 @@ public class AdminController(UserManager<Bruker> users, HeimevernetInnlevering1.
         foreach (var user in accounts)
         {
             var assigned = await users.GetRolesAsync(user);
+            var rolle = AppRoles.All.FirstOrDefault(assigned.Contains);
+            DateTime? sist = DateTime.TryParse(await users.GetAuthenticationTokenAsync(user, "Profil", "SistAktiv"), null, System.Globalization.DateTimeStyles.RoundtripKind, out var s) ? s.ToUniversalTime() : null;
+            var harVakt = rolle is AppRoles.Kriseledelse or AppRoles.DispatchTeam;
+            var paVakt = harVakt && (await users.GetAuthenticationTokenAsync(user, "Profil", "Vaktstatus") ?? "pa") == "pa";
+            var nettsideApen = sist is { } x && (DateTime.UtcNow - x).TotalMinutes < 5;
+            var ikkeLast = !(user.LockoutEnd is { } slutt && slutt > DateTimeOffset.UtcNow);
             model.Add(new AdminUserViewModel(user.Id, user.FulltNavn, user.Email ?? user.UserName ?? "Ukjent bruker",
-                user.Organisasjon, AppRoles.All.FirstOrDefault(assigned.Contains),
-                !(user.LockoutEnd is { } slutt && slutt > DateTimeOffset.UtcNow), siste.TryGetValue(user.Id, out var t) ? t : null));
+                user.Organisasjon, rolle, ikkeLast && (paVakt || nettsideApen), sist));
         }
         return View(model);
     }

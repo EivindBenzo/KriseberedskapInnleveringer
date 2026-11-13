@@ -68,3 +68,9 @@
     });
     render();
 })();
+
+// Round 22: hele raden i Oversikt er klikkbar.
+document.addEventListener('click', function (e) {
+    var row = e.target.closest('.ov-item'); if (!row || e.target.closest('a,button')) return;
+    var a = row.querySelector('a.ov-btn[href], a[href]'); if (a) a.click();
+});

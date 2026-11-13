@@ -121,3 +121,10 @@
         });
     }
 })();
+
+// Round 22: popovers (details) lukkes ved klikk utenfor.
+document.addEventListener('click', function (e) {
+    document.querySelectorAll('details.hx-ctrl[open], details.bu-edit[open]').forEach(function (d) {
+        if (!d.contains(e.target)) d.removeAttribute('open');
+    });
+});

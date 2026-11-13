@@ -604,7 +604,7 @@ else
     <div class="dc-grid">
     @foreach (var hendelse in Model.ActiveIncidents)
     {
-        <article class="dc-card dc-assign">
+        <article id="hendelse-@hendelse.HendelseID" class="dc-card dc-assign">
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">@TypeIkon(hendelse.Navn)</i>
                 <div class="dc-title"><strong>@hendelse.Navn</strong><span>📍 @hendelse.Område</span></div>
@@ -627,7 +627,7 @@ else
     <div class="dc-grid">
     @foreach (var need in Model.UrgentNeeds)
     {
-        <article class="dc-card dc-assign is-red">
+        <article id="behov-@need.BehovID" class="dc-card dc-assign is-red">
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
                 <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
@@ -661,7 +661,7 @@ else
     <div class="mb-list">
     @foreach (var need in Model.Needs)
     {
-        <article class="mb-row">
+        <article id="behov-@need.BehovID" class="mb-row">
             <i class="dc-ico mb-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
             <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
             <span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span>
@@ -681,7 +681,7 @@ else
     <div class="dc-grid">
     @foreach (var need in Model.Needs.Where(n => n.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes))
     {
-        <article class="dc-card dc-assign is-orange">
+        <article id="behandling-@need.BehovID" class="dc-card dc-assign is-orange">
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
                 <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
@@ -704,7 +704,7 @@ else
     <div class="dc-grid">
     @foreach (var need in Model.UrgentNeeds)
     {
-        <article class="dc-card dc-assign is-red">
+        <article id="mine-akutt-@need.BehovID" class="dc-card dc-assign is-red">
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
                 <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>

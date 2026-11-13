@@ -190,7 +190,7 @@
     <div class="ov-stats ov-stats-@ov.Stats.Count">
         @foreach (var s in ov.Stats)
         {
-            <div class="ov-stat"><span class="ov-stat-ic">@Svg(s.Ikon, 22)</span><div><strong>@s.Value</strong><span>@s.Label</span></div>@if (s.Merke is not null) { <em class="ov-pill c-red">@s.Merke</em> }</div>
+            <a class="ov-stat" href="@s.Url"><span class="ov-stat-ic">@Svg(s.Ikon, 22)</span><div><strong>@s.Value</strong><span>@s.Label</span></div>@if (s.Merke is not null) { <em class="ov-pill c-red">@s.Merke</em> }</a>
         }
     </div>
 

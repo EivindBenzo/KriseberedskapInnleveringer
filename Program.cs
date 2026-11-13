@@ -119,6 +119,21 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(async (ctx, next) =>
+{
+    if (ctx.User.Identity?.IsAuthenticated == true && !HttpMethods.IsHead(ctx.Request.Method))
+    {
+        var um = ctx.RequestServices.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<HeimevernetInnlevering1.Models.Bruker>>();
+        var u = await um.GetUserAsync(ctx.User);
+        if (u != null)
+        {
+            var sist = await um.GetAuthenticationTokenAsync(u, "Profil", "SistAktiv");
+            if (!DateTime.TryParse(sist, null, System.Globalization.DateTimeStyles.RoundtripKind, out var s) || (DateTime.UtcNow - s).TotalSeconds > 60)
+                await um.SetAuthenticationTokenAsync(u, "Profil", "SistAktiv", DateTime.UtcNow.ToString("o"));
+        }
+    }
+    await next();
+});
 
 app.MapControllerRoute(
     name: "default",

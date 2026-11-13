@@ -67,6 +67,23 @@ public class HendelseController(AppDbContext db, WorkflowService workflow, Steds
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Fest(int id)
+    {
+        var hendelse = await db.Hendelser.AsNoTracking().SingleOrDefaultAsync(h => h.HendelseID == id);
+        var bruker = await users.GetUserAsync(User);
+        if (hendelse is null || bruker is null || hendelse.Status != Statuser.Hendelse.Aktiv) return RedirectToAction(nameof(Index));
+        var rå = await users.GetAuthenticationTokenAsync(bruker, "Profil", "FestetHendelser") ?? "";
+        var liste = rå.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToList();
+        if (!liste.Remove(id))
+        {
+            if (liste.Count >= 5) TempData["WorkflowError"] = "Du kan feste maks 5 hendelser.";
+            else liste.Add(id);
+        }
+        await users.SetAuthenticationTokenAsync(bruker, "Profil", "FestetHendelser", string.Join(",", liste));
+        return RedirectToAction(nameof(Index));
+    }
+
     [HttpGet]
     public async Task<IActionResult> Index()
     {
