@@ -88,7 +88,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             .SingleOrDefaultAsync(r => r.RessursID == id) ?? throw new WorkflowException("Ressursen finnes ikke.");
 
     private async Task<Behov> HentBehov(int id) =>
-        await db.Behov.Include(b => b.Behovstype!).ThenInclude(type => type.PassendeRessurstyper).Include(b => b.Forespørsler)
+        await db.Behov.Include(b => b.Behovstype!).ThenInclude(type => type.PassendeRessurstyper).Include(b => b.Forespørsler).ThenInclude(f => f.Tildeling)
             .SingleOrDefaultAsync(b => b.BehovID == id) ?? throw new WorkflowException("Behovet finnes ikke.");
 
     private static void Aktivt(Behov behov)

@@ -1516,3 +1516,60 @@ header .um-account>summary:hover,header .um-account[open]>summary{background:rgb
 header .um-bell>summary:hover,header .um-bell[open]>summary{background:rgba(17,163,179,.35);color:#fff}
 .ph-card.ph-flash{animation:phflash 2.2s ease-out}
 @keyframes phflash{0%,60%{box-shadow:0 0 0 3px #11a3b3}100%{box-shadow:0 0 0 0 transparent}}
+
+/* Round 16: aktive tildelinger redesign, dialogs, dark mode */
+.dc-act .dc-top{grid-template-columns:auto minmax(0,1fr) auto}
+.dc-ico-svg{display:grid;place-items:center;color:#0f5f5a}
+.dc-stat{padding:.25rem .65rem;border-radius:999px;font-size:.78rem;font-weight:700;background:#e6eef0;color:#34505a;white-space:nowrap}
+.dc-stat-1{background:#dbeafe;color:#1d4ed8}.dc-stat-2{background:#fef3c7;color:#92400e}.dc-stat-3{background:#dcfce7;color:#166534}
+.dc-act .dc-steps{margin:.7rem 0 .5rem}
+.dc-facts{margin-top:.2rem;gap:.6rem}
+.dc-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.7rem}
+.dc-actions .dc-primary{background:#0f5f5a;color:#fff;border:1px solid #0f5f5a;border-radius:8px;padding:.45rem .9rem;font-weight:700;cursor:pointer}
+.dc-actions .dc-ghost{background:#fff;color:#0f5f5a;border:1px solid #0f5f5a;border-radius:8px;padding:.45rem .9rem;font-weight:700;cursor:pointer}
+.dc-qty{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin:.2rem 0 .6rem}
+.dc-qty div{background:#f1f4f3;border-radius:10px;padding:.45rem .6rem}
+.dc-qty dt{font-size:.72rem;color:#6b7a78}.dc-qty dd{margin:0;font-weight:700}
+.dc-dialog{border:1px solid #d9e2e0;border-radius:16px;padding:0;width:min(440px,92vw);background:#fff;color:#16302d}
+.dc-dialog::backdrop{background:rgba(7,25,30,.55)}
+.dc-dialog-form{display:grid;gap:.8rem;padding:1.2rem}
+.dc-dialog-form label{display:grid;gap:.25rem;font-weight:600;font-size:.85rem}
+.dc-dialog-btns{display:flex;justify-content:flex-end;gap:.5rem}
+.dc-dialog-btns .dc-primary{background:#0f5f5a;color:#fff;border:1px solid #0f5f5a;border-radius:8px;padding:.45rem .9rem;font-weight:700;cursor:pointer}
+.dc-dialog-btns .dc-ghost{background:#fff;color:#0f5f5a;border:1px solid #0f5f5a;border-radius:8px;padding:.45rem .9rem;font-weight:700;cursor:pointer}
+.dc-card.dc-assign.dc-act{padding:.8rem}
+
+:root[data-theme="dark"] .dc-card.dc-assign{background:#10242c;border-color:#24424d;color:#dce9ec}
+:root[data-theme="dark"] .dc-card.dc-assign.is-orange{border-left-color:#f59e0b}
+:root[data-theme="dark"] .dc-card.dc-assign.is-red{border-left-color:#ef4444}
+:root[data-theme="dark"] .dc-card.dc-assign.is-green{border-left-color:#22c55e}
+:root[data-theme="dark"] .dc-card.dc-assign.dc-done{background:#102a22}
+:root[data-theme="dark"] .dc-card.dc-assign.dc-done.is-red{background:#2c1719}
+:root[data-theme="dark"] .dc-assign .dc-title strong,:root[data-theme="dark"] .dc-assign .dc-desc{color:#f1f7f8}
+:root[data-theme="dark"] .dc-assign .dc-title span,:root[data-theme="dark"] .dc-assign .dc-steps li{color:#9db5bc}
+:root[data-theme="dark"] .dc-assign .dc-steps li.is-now{color:#5eead4}
+:root[data-theme="dark"] .dc-assign .dc-steps li b{background:#2b4955}
+:root[data-theme="dark"] .dc-assign .dc-steps li::before{background:#2b4955}
+:root[data-theme="dark"] .dc-assign .dc-steps li.is-done b,:root[data-theme="dark"] .dc-assign .dc-steps li.is-done::before,:root[data-theme="dark"] .dc-assign .dc-steps li.is-now::before{background:#22a559}
+:root[data-theme="dark"] .dc-assign .dc-steps li.is-now b{background:#10242c;border-color:#5eead4}
+:root[data-theme="dark"] .dc-card.dc-assign .dc-ico{background:#16343d;color:#7ff3ee}
+:root[data-theme="dark"] .dc-card.dc-assign.dc-done .dc-ico{background:#14452f;color:#86efac}
+:root[data-theme="dark"] .dc-card.dc-assign.dc-done.is-red .dc-ico{background:#4a1d1f;color:#fca5a5}
+:root[data-theme="dark"] .dc-foot,:root[data-theme="dark"] .dc-qty div{background:#16303a;color:#cfe3e8}
+:root[data-theme="dark"] .dc-foot span+span{border-left-color:#2b4955}
+:root[data-theme="dark"] .dc-qty dt{color:#9db5bc}
+:root[data-theme="dark"] .dc-ico-svg{color:#7ff3ee}
+:root[data-theme="dark"] .dc-assign .dc-btns .dc-primary,:root[data-theme="dark"] .dc-actions .dc-primary,:root[data-theme="dark"] .dc-dialog-btns .dc-primary{background:#14b8a6;border-color:#14b8a6;color:#04201d}
+:root[data-theme="dark"] .dc-assign .dc-ghost,:root[data-theme="dark"] .dc-actions .dc-ghost,:root[data-theme="dark"] .dc-dialog-btns .dc-ghost,:root[data-theme="dark"] .dc-assign .dc-btns .dc-ghost,:root[data-theme="dark"] .dc-assign .dc-btns .dc-link-btn.dc-ghost{background:transparent;color:#7ff3ee;border-color:#2f8f8a}
+:root[data-theme="dark"] .dc-assign .dc-ghost:hover{background:#16343d}
+:root[data-theme="dark"] .dc-assign .dc-reason,:root[data-theme="dark"] .dc-dialog input{background:#0b1b21;color:#e6f4f6;border:1px solid #2b4955;border-radius:8px;padding:.4rem .6rem}
+:root[data-theme="dark"] .dc-dialog{background:#10242c;border-color:#24424d;color:#e6f4f6}
+:root[data-theme="dark"] .dc-stat{background:#1b3640;color:#bfe3ea}
+:root[data-theme="dark"] .dc-stat-1{background:#15284a;color:#bfdbfe}.dc-stat-2{}
+:root[data-theme="dark"] .dc-stat-2{background:#3d2a12;color:#fed7aa}
+:root[data-theme="dark"] .dc-stat-3{background:#143629;color:#bbf7d0}
+:root[data-theme="dark"] .dc-assign .dc-more,:root[data-theme="dark"] .dc-assign .dc-more *{color:inherit}
+:root[data-theme="dark"] .hx-detail-btn{background:transparent;color:#7ff3ee;border-color:#2f8f8a}
+:root[data-theme="dark"] .hx-detail-btn:hover{background:#14b8a6;color:#04201d}
+:root[data-theme="dark"] .dc-head h2{color:#f1f7f8}
+:root[data-theme="dark"] .count-badge{background:#1b3640;color:#bfe3ea}

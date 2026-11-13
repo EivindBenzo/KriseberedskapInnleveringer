@@ -33,7 +33,7 @@ public class DashboardService(AppDbContext db)
             .Include(f => f.Tildeling);
         IQueryable<Behov> BehovMedDetaljer() => db.Behov.AsNoTracking()
             .Include(b => b.Behovstype!).ThenInclude(t => t.PassendeRessurstyper)
-            .Include(b => b.Hendelse).Include(b => b.Forespørsler);
+            .Include(b => b.Hendelse).Include(b => b.Forespørsler).ThenInclude(f => f.Tildeling);
 
         if (provider)
         {

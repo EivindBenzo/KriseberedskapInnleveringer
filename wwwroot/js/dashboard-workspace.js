@@ -49,3 +49,21 @@ document.addEventListener('click', function (e) {
     var more = b.closest('.dc-card').querySelector('.dc-more');
     if (more) { more.hidden = !more.hidden; b.setAttribute('aria-expanded', String(!more.hidden)); }
 });
+
+document.addEventListener('click', function (e) {
+    var o = e.target.closest('[data-dc-dialog]');
+    if (o) { var d = document.getElementById(o.dataset.dcDialog); if (d && d.showModal) d.showModal(); return; }
+    var c = e.target.closest('[data-dc-close]');
+    if (c) { var dd = c.closest('dialog'); if (dd) dd.close(); return; }
+    if (e.target.tagName === 'DIALOG' && e.target.classList.contains('dc-dialog')) e.target.close();
+});
+document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-dc-toggle]');
+    if (!b) return;
+    var card = b.closest('.dc-card');
+    var more = card && card.querySelector('.dc-more');
+    if (more && !more.hidden) {
+        var det = more.querySelector('details');
+        if (det) det.open = true;
+    }
+});
