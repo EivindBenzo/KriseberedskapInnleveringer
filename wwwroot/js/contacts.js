@@ -19,6 +19,8 @@
         $('klEmpty').hidden = true;
         $('klCard').hidden = false;
         $('dAvatar').textContent = c.initials;
+        $('dAvatar').className = 'kl-avatar is-lg is-' + c.key;
+        $('dRole').className = 'kl-role is-' + c.key;
         $('dName').textContent = c.name;
         $('dRole').textContent = c.role;
         $('dOrg').textContent = c.org || 'Ikke oppgitt';
@@ -34,16 +36,18 @@
         var m = document.createElement('a'); m.href = 'mailto:' + c.email; m.textContent = c.email; mail.appendChild(m);
         var msg = $('dMsg');
         msg.hidden = c.self;
+        call.classList.toggle('is-wide', msg.hidden);
         msg.dataset.recipientId = c.id;
         msg.dataset.contactName = c.name;
         $('dResCount').textContent = c.resources.length;
         var res = $('dRes'); res.textContent = '';
         if (!c.resources.length) { var e = document.createElement('span'); e.className = 'kl-none'; e.textContent = 'Ingen registrerte ressurser'; res.appendChild(e); }
         c.resources.forEach(function (n) { var s = document.createElement('span'); s.className = 'kl-chip'; s.textContent = n; res.appendChild(s); });
+        var tones = ['ok', 'ok', 'warn'];
         var act = $('dAct'); act.textContent = '';
         if (!c.activity.length) { var li0 = document.createElement('li'); li0.className = 'kl-none'; li0.textContent = 'Ingen aktivitet registrert'; act.appendChild(li0); }
         c.activity.forEach(function (x, i) {
-            var li = document.createElement('li'); li.className = 'tone-' + (i % 3);
+            var li = document.createElement('li'); li.className = 'tone-' + tones[i % 3];
             var s = document.createElement('span'); s.textContent = x.text;
             var t = document.createElement('time'); t.textContent = x.when;
             li.appendChild(s); li.appendChild(t); act.appendChild(li);

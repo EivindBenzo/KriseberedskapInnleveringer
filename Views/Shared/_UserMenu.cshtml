@@ -10,7 +10,7 @@
     <details class="um-pop um-bell">
         <summary aria-label="Varsler@(shell.AntallUlest > 0 ? $" ({shell.AntallUlest} nye)" : "")" title="Varsler">
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-            @if (shell.AntallUlest > 0) { <span class="um-dot" aria-hidden="true"></span> }
+            @if (shell.AntallUlest > 0) { <span class="um-dot" aria-hidden="true">@(shell.AntallUlest > 9 ? "9+" : shell.AntallUlest.ToString())</span> }
         </summary>
         <div class="um-panel um-notifications">
             <div class="um-panel-head"><strong>Varsler</strong><a asp-controller="Account" asp-action="Profile" asp-fragment="varsler">Innstillinger</a></div>

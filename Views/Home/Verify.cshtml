@@ -59,7 +59,10 @@
         <p class="workspace-alert" role="alert">@error</p>
     }
     <nav class="section-nav" aria-label="Ressursutvalg">
-        <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" aria-current="@(!mine && !history ? "page" : null)">Alle ressurser</a>
+        @if (mine)
+        {
+            <a asp-action="Resources" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible">Tilbake til alle</a>
+        }
         @if (User.IsInRole(AppRoles.Ressursleverandor))
         {
             <a asp-action="Resources" asp-route-mine="true" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-eligible="@ViewBag.Eligible" aria-current="@(mine ? "page" : null)">Mine ressurser</a>

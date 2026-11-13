@@ -68,14 +68,14 @@
     }
 
     liste.addEventListener('click', function (e) {
-        var knapp = e.target.closest('[data-rc-toggle]');
-        if (!knapp) return;
-        var kort = knapp.closest('[data-rc]');
+        if (e.target.closest('a, button, input, select, label, .rc-detail')) return;
+        var kort = e.target.closest('[data-rc]');
+        if (!kort) return;
         var detalj = kort.querySelector('.rc-detail');
         var åpen = detalj.hidden;
         detalj.hidden = !åpen;
         kort.classList.toggle('is-open', åpen);
-        kort.querySelectorAll('[data-rc-toggle]').forEach(function (k) { k.setAttribute('aria-expanded', String(åpen)); });
+        kort.setAttribute('aria-expanded', String(åpen));
         if (åpen) {
             var kartEl = detalj.querySelector('.rc-map');
             if (kartEl) lagKart(kartEl);

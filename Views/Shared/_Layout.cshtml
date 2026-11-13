@@ -60,12 +60,12 @@
                 </div>
 
                 <ul class="nav-menu" id="navMenu">
-                    <li><a asp-controller="Home" asp-action="Index" class="nav-link" aria-current="@Aktiv("Home", "Index")">Hjem</a></li>
+                    <li><a asp-controller="Home" asp-action="Index" class="nav-link" aria-current="@Aktiv("Home", "Index")"><svg class="nl-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 3l9 8M5 10v10h5v-6h4v6h5V10"/></svg><span>Hjem</span></a></li>
                     @if (User.Identity?.IsAuthenticated == true)
                     {
-                        <li><a asp-controller="Home" asp-action="Dashboard" class="nav-link" aria-current="@Aktiv("Home", "Dashboard")">Oversikt</a></li>
-                        <li><a asp-controller="Home" asp-action="Map" class="nav-link" aria-current="@Aktiv("Home", "Map")">Kart</a></li>
-                        <li><a asp-controller="Home" asp-action="Resources" class="nav-link" aria-current="@Aktiv("Home", "Resources", "Mine", "Edit", "Delete")">Ressurser</a></li>
+                        <li><a asp-controller="Home" asp-action="Dashboard" class="nav-link" aria-current="@Aktiv("Home", "Dashboard")"><svg class="nl-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5M3 17.500l9 5 9-5"/></svg><span>Oversikt</span></a></li>
+                        <li><a asp-controller="Home" asp-action="Map" class="nav-link" aria-current="@Aktiv("Home", "Map")"><svg class="nl-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg><span>Kart</span></a></li>
+                        <li><a asp-controller="Home" asp-action="Resources" class="nav-link" aria-current="@Aktiv("Home", "Resources", "Mine", "Edit", "Delete")"><svg class="nl-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.700 3.600 3 8 3s8-1.300 8-3V5M4 12c0 1.700 3.600 3 8 3s8-1.300 8-3"/></svg><span>Ressurser</span></a></li>
                         @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.OffentligAktor))
                         {
                             <li><a asp-controller="Behov" asp-action="Registrer" class="nav-link" aria-current="@Aktiv("Behov", "Registrer")">Meld behov</a></li>
@@ -81,7 +81,7 @@
                         }
                         @if (canUseOperations)
                         {
-                            <li><a asp-controller="Home" asp-action="Contacts" class="nav-link" aria-current="@Aktiv("Home", "Contacts")">Kontaktliste</a></li>
+                            <li><a asp-controller="Home" asp-action="Contacts" class="nav-link" aria-current="@Aktiv("Home", "Contacts")"><svg class="nl-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.500"/><path d="M2 20c0-3.500 3-6 7-6s7 2.500 7 6M16 4.500a3.500 3.500 0 0 1 0 7M18 14c2.500.7 4 2.700 4 6"/></svg><span>Kontaktliste</span></a></li>
                         }
                     }
                     else

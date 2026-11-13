@@ -30,8 +30,13 @@ public static class ResourceQueries
         else if (!string.IsNullOrWhiteSpace(filter.Type)) resources = resources.Where(r => r.Ressurstype!.Navn == filter.Type);
         if (!string.IsNullOrWhiteSpace(filter.Query))
         {
-            var query = filter.Query.Trim();
-            resources = resources.Where(r => r.Navn.Contains(query) || r.Stedsnavn.Contains(query));
+            // Hvert ord må treffe navn, sted, type eller eier, så «rita ressurs» finner Ritas ressurser.
+            foreach (var ord in filter.Query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Take(6))
+            {
+                var w = ord;
+                resources = resources.Where(r => r.Navn.Contains(w) || r.Stedsnavn.Contains(w) || r.Ressurstype!.Navn.Contains(w)
+                    || r.Eier!.Fornavn.Contains(w) || r.Eier!.Etternavn.Contains(w));
+            }
         }
         if (filter.Eligible) resources = resources.Where(WorkflowEligibility.EligibleExpression(nowUtc));
         return resources;

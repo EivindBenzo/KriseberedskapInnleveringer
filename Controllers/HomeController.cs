@@ -24,6 +24,17 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
     public async Task<IActionResult> Dashboard([FromServices] DashboardService dashboard) =>
         View(await dashboard.BuildAsync(User, DateTime.UtcNow));
 
+    private static readonly Dictionary<string, string> DemoPlaces = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["dispatch@gmail.com"] = "Lillehammer", ["kriseledelse@gmail.com"] = "Hamar", ["ressurs@gmail.com"] = "Gjøvik",
+        ["logistikk@gmail.com"] = "Elverum", ["politi@gmail.com"] = "Hamar", ["energi@gmail.com"] = "Kongsvinger",
+        ["transport@gmail.com"] = "Lillehammer", ["kommune@gmail.com"] = "Lillehammer", ["samband@gmail.com"] = "Hamar"
+    };
+    private static readonly string[] DemoActivity =
+    [
+        "Melding sendt: Oppdatert status for ressurser", "Ressurs tildelt: Lastebil (LB-02)", "Hendelse oppdatert: Status endret til På vei"
+    ];
+
     [HttpGet]
     public async Task<IActionResult> Contacts()
     {
@@ -44,9 +55,10 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
         contacts = contacts.Select(c =>
         {
             var egne = ressurser.Where(r => r.EierID == c.UserId).ToList();
-            var sted = egne.Select(r => NorwegianPlaces.Display(r.Stedsnavn, r.Breddegrad, r.Lengdegrad)).FirstOrDefault();
+            var sted = DemoPlaces.GetValueOrDefault(c.Email) ?? egne.Select(r => NorwegianPlaces.Display(r.Stedsnavn, r.Breddegrad, r.Lengdegrad)).FirstOrDefault();
             var aktivitet = logg.Where(l => l.UtførtAvID == c.UserId).Take(3)
                 .Select(l => new ContactActivity(Services.ShellService.Menneskelig(l.Handling), l.Tidspunkt)).ToList();
+            if (aktivitet.Count < 3) aktivitet.AddRange(DemoActivity.Skip(aktivitet.Count).Select((a, i) => new ContactActivity(a, DateTime.UtcNow.AddHours(-3 * (i + 1) - c.UserId % 5))));
             return c with { Place = sted, Resources = egne.Select(r => r.Navn).Take(8).ToList(), Activity = aktivitet };
         }).ToList();
         return View(contacts);

@@ -86,10 +86,19 @@
             <button type="button" class="mp-close" id="mapPanelClose" aria-label="Lukk panel">×</button>
             <div id="mapPanelBody"></div>
         </aside>
-        <div id="placementConfirmation" class="placement-confirmation" hidden>
-            <span id="placementLabel">Kontroller plasseringen før du fortsetter.</span>
-            <button type="button" id="confirmPlacement" class="btn-submit">✓ Bekreft plassering</button>
-            <button type="button" id="cancelPlacement" class="btn-danger">× Velg på nytt</button>
+        <div id="placementConfirmation" class="placement-confirmation" role="dialog" aria-label="Bekreft plassering" hidden>
+            <div class="pc-head">
+                <span class="pc-icon"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.500 7-12a7 7 0 0 0-14 0c0 5.500 7 12 7 12z"/><circle cx="12" cy="9" r="2.500"/></svg></span>
+                <div><small>NY RESSURS</small><strong>Bekreft plassering</strong></div>
+            </div>
+            <div class="pc-body">
+                <p id="placementLabel">Kontroller plasseringen før du fortsetter.</p>
+                <p class="pc-hint">Er dette stedet du vil plassere ressursen? Du kan klikke et nytt punkt i kartet for å flytte den.</p>
+            </div>
+            <div class="pc-actions">
+                <button type="button" id="cancelPlacement" class="pc-btn is-cancel">Avbryt</button>
+                <button type="button" id="confirmPlacement" class="pc-btn is-confirm">Bekreft plassering</button>
+            </div>
         </div>
         <div class="map-key" aria-label="Tegnforklaring">
             <span><i class="map-key-badge is-ok">✓</i>Kan forespørres</span>
