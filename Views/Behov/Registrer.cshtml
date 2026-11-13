@@ -11,45 +11,74 @@
     var annenType = Model.BehovstypeID == BehovSkjemaViewModel.AnnenType;
 }
 <link rel="stylesheet" href="~/lib/leaflet/leaflet.css" />
-<section class="need-form-page" aria-labelledby="need-heading">
-    <div class="page-heading">
-        <div><span class="eyebrow">Offentlig aktør</span><h1 id="need-heading">Meld behov</h1></div>
-        <a asp-controller="Home" asp-action="Dashboard" class="btn-secondary">Tilbake til oversikten</a>
-    </div>
-    <p>Beskriv hva dere trenger, og klikk i kartet der behovet er. Felt merket <span class="required">*</span> er påkrevd.</p>
+<form asp-action="Registrer" method="post" class="nb" id="needForm" novalidate aria-labelledby="need-heading">
+    <header class="nb-head">
+        <div class="nb-head-text">
+            <span class="iw-eyebrow">Offentlig aktør</span>
+            <h1 id="need-heading">Meld behov</h1>
+            <p>Registrer et behov for ressurser, materiell eller bistand i forbindelse med en hendelse eller beredskapssituasjon.</p>
+        </div>
+        <svg class="nb-mountains" viewBox="0 0 600 140" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">
+            <defs>
+                <linearGradient id="nbFade" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".55" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff"/></linearGradient>
+                <mask id="nbMask"><rect width="600" height="140" fill="url(#nbFade)"/></mask>
+            </defs>
+            <g mask="url(#nbMask)">
+                <path d="M0 140 90 60 140 95 230 20 330 110 400 50 480 100 560 35 600 70V140z" fill="#b9dfe3"/>
+                <path d="M120 140 220 75 290 115 370 55 450 120 530 70 600 105V140z" fill="#8cc5cc"/>
+                <path d="M300 140 400 95 470 125 540 90 600 118V140z" fill="#5fa8b2"/>
+                <path d="M230 20 250 42 238 38 230 50 222 38 210 42z" fill="#fff"/>
+                <path d="M560 35 575 55 565 52 560 62 553 52 545 55z" fill="#fff"/>
+            </g>
+        </svg>
+        <a asp-controller="Home" asp-action="Dashboard" class="nb-back">← Tilbake til oversikten</a>
+    </header>
 
-    <div class="need-form-grid">
-        <form asp-action="Registrer" method="post" class="form-container need-form" novalidate>
+    <ol class="nb-steps" aria-label="Fremdrift">
+        <li class="is-current"><b>1</b>Beskriv behov</li>
+        <li><b>2</b>Velg plassering</li>
+        <li><b>3</b>Send inn</li>
+    </ol>
+
+    <div class="nb-grid">
+        <div class="nb-left">
             <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
 
-            <fieldset class="registration-section">
-                <legend>Hva trengs?</legend>
-                <div class="form-group">
-                    <label asp-for="BehovstypeID">Behovstype <span class="required">*</span></label>
-                    <select asp-for="BehovstypeID" class="form-control" required>
-                        <option value="0">Velg behovstype</option>
-                        @foreach (var type in behovstyper)
-                        {
-                            <option value="@type.BehovstypeID" selected="@(Model.BehovstypeID == type.BehovstypeID)">@type.Navn</option>
-                        }
-                        <option value="@BehovSkjemaViewModel.AnnenType" selected="@annenType">Annen type …</option>
-                    </select>
-                    <span asp-validation-for="BehovstypeID" class="text-danger"></span>
+            <details class="nb-acc" open data-acc>
+                <summary><span class="nb-acc-ico">1</span><strong>Behov</strong><em></em></summary>
+                <div class="nb-acc-body">
+                    <div class="form-group">
+                        <label asp-for="BehovstypeID">Behovstype <span class="required">*</span></label>
+                        <select asp-for="BehovstypeID" class="form-control" required>
+                            <option value="0">Velg behovstype</option>
+                            @foreach (var type in behovstyper)
+                            {
+                                <option value="@type.BehovstypeID" selected="@(Model.BehovstypeID == type.BehovstypeID)">@type.Navn</option>
+                            }
+                            <option value="@BehovSkjemaViewModel.AnnenType" selected="@annenType">Annen type …</option>
+                        </select>
+                        <span asp-validation-for="BehovstypeID" class="text-danger"></span>
+                    </div>
+                    @* Vises bare når «Annen type …» er valgt. Det styres av CSS (:has i workspace.css), ikke JavaScript. *@
+                    <div class="form-group annen-type" id="nyBehovstypeGroup">
+                        <label for="nyBehovstype">Skriv inn behovstype <span class="required">*</span></label>
+                        <input type="text" id="nyBehovstype" name="NyBehovstype" class="form-control" maxlength="100"
+                               value="@(annenType ? Model.NyBehovstype : "")" placeholder="f.eks. Vannforsyning" autocomplete="off" />
+                        <span asp-validation-for="NyBehovstype" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label asp-for="Beskrivelse">Beskrivelse <span class="required">*</span></label>
+                        <textarea asp-for="Beskrivelse" class="form-control" rows="3" maxlength="1000" required
+                                  placeholder="Beskriv behovet, f.eks. strøm til midlertidig mottak i idrettshallen"></textarea>
+                        <small class="nb-count"><span id="nbCount">0</span> / 1000</small>
+                        <span asp-validation-for="Beskrivelse" class="text-danger"></span>
+                    </div>
                 </div>
-                @* Vises bare når «Annen type …» er valgt. Det styres av CSS (:has i workspace.css), ikke JavaScript. *@
-                <div class="form-group annen-type" id="nyBehovstypeGroup">
-                    <label for="nyBehovstype">Skriv inn behovstype <span class="required">*</span></label>
-                    <input type="text" id="nyBehovstype" name="NyBehovstype" class="form-control" maxlength="100"
-                           value="@(annenType ? Model.NyBehovstype : "")" placeholder="f.eks. Vannforsyning" autocomplete="off" />
-                    <span asp-validation-for="NyBehovstype" class="text-danger"></span>
-                </div>
-                <div class="form-group">
-                    <label asp-for="Beskrivelse">Beskrivelse <span class="required">*</span></label>
-                    <textarea asp-for="Beskrivelse" class="form-control" rows="4" maxlength="2000" required
-                              placeholder="f.eks. Strøm til midlertidig mottak i idrettshallen"></textarea>
-                    <span asp-validation-for="Beskrivelse" class="text-danger"></span>
-                </div>
-                <div class="form-row-compact">
+            </details>
+
+            <details class="nb-acc" data-acc>
+                <summary><span class="nb-acc-ico">2</span><strong>Prioritet og antall</strong><em id="nbPrioSum">Prioritet: – · Antall: –</em></summary>
+                <div class="nb-acc-body nb-two">
                     <div class="form-group">
                         <label asp-for="Prioritet">Prioritet <span class="required">*</span></label>
                         <select asp-for="Prioritet" class="form-control">
@@ -65,46 +94,84 @@
                         <span asp-validation-for="Antall" class="text-danger"></span>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label asp-for="Frist">Frist (valgfritt)</label>
-                    <input asp-for="Frist" type="datetime-local" class="form-control" />
-                    <span asp-validation-for="Frist" class="text-danger"></span>
-                </div>
-                <div class="form-group">
-                    <label asp-for="HendelseID">Hendelse (valgfritt)</label>
-                    <select asp-for="HendelseID" asp-items="ViewBag.Hendelser" class="form-control">
-                        <option value="">Ikke knyttet til en hendelse</option>
-                    </select>
-                </div>
-            </fieldset>
+            </details>
 
-            <fieldset class="registration-section">
-                <legend>Registrert av</legend>
-                <p class="registration-owner"><strong>@Model.Kontaktperson</strong><span>@User.Identity?.Name · Kontaktopplysningene hentes fra kontoen din.</span></p>
-                <input type="hidden" asp-for="Kontaktperson" />
-                <input type="hidden" asp-for="Kontakttelefon" />
-            </fieldset>
+            <details class="nb-acc" data-acc>
+                <summary><span class="nb-acc-ico">3</span><strong>Tid og hendelse</strong><em>Frist og hendelse (valgfritt)</em></summary>
+                <div class="nb-acc-body nb-two">
+                    <div class="form-group">
+                        <label asp-for="Frist">Frist (valgfritt)</label>
+                        <input asp-for="Frist" type="datetime-local" class="form-control" />
+                        <span asp-validation-for="Frist" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <label asp-for="HendelseID">Hendelse (valgfritt)</label>
+                        <select asp-for="HendelseID" asp-items="ViewBag.Hendelser" class="form-control">
+                            <option value="">Ikke knyttet</option>
+                        </select>
+                    </div>
+                </div>
+            </details>
 
-            <fieldset class="registration-section">
-                <legend>Plassering <span class="required">*</span></legend>
-                <div class="workspace-location"><strong>Valgt plassering</strong>
+            <details class="nb-acc" data-acc>
+                <summary><span class="nb-acc-ico">4</span><strong>Registrert av</strong><em>@Model.Kontaktperson</em></summary>
+                <div class="nb-acc-body">
+                    <p class="registration-owner"><strong>@Model.Kontaktperson</strong><span>@User.Identity?.Name · Kontaktopplysningene hentes fra kontoen din.</span></p>
+                    <input type="hidden" asp-for="Kontaktperson" />
+                    <input type="hidden" asp-for="Kontakttelefon" />
+                </div>
+            </details>
+
+            <section class="nb-summary" aria-label="Oppsummering">
+                <h2>Oppsummering (så langt)</h2>
+                <dl>
+                    <div><dt>Behovstype</dt><dd id="sumType">–</dd></div>
+                    <div><dt>Prioritet</dt><dd id="sumPrio">–</dd></div>
+                    <div><dt>Antall</dt><dd id="sumAntall">–</dd></div>
+                    <div><dt>Frist</dt><dd id="sumFrist">–</dd></div>
+                </dl>
+            </section>
+        </div>
+
+        <div class="nb-right">
+            <div class="nb-mapwrap">
+                <div class="nb-search">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.500-3.500"/></svg>
+                    <input type="search" id="nbSearch" placeholder="Søk etter sted, adresse eller kommune" autocomplete="off" aria-label="Søk etter sted" />
+                    <button type="button" id="nbLocate" title="Min posisjon" aria-label="Min posisjon">⌖</button>
+                    <button type="button" id="nbFull" title="Fullskjerm" aria-label="Fullskjerm">⛶</button>
+                    <ul id="nbResults" class="nb-results" hidden></ul>
+                </div>
+                <div id="map" class="need-map" aria-label="Kart: klikk for å velge hvor behovet er"></div>
+            </div>
+            <section class="nb-place">
+                <div>
+                    <strong>Valgt plassering</strong>
                     <p id="needPlace" role="status">@(harPunkt && !string.IsNullOrEmpty(Model.Stedsnavn) ? Model.Stedsnavn : "Klikk i kartet for å velge hvor behovet er.")</p>
+                    <dl>
+                        <div><dt>Koordinater (WGS84)</dt><dd id="nbCoords">@(harPunkt ? lat + ", " + lng : "–")</dd></div>
+                    </dl>
                 </div>
+                <button type="button" id="nbChange" class="btn-secondary">Endre plassering</button>
                 <input type="hidden" id="needLat" name="Breddegrad" value="@(harPunkt ? lat : "")" />
                 <input type="hidden" id="needLng" name="Lengdegrad" value="@(harPunkt ? lng : "")" />
                 <span asp-validation-for="Breddegrad" class="text-danger"></span>
-            </fieldset>
-
-            <button type="submit" class="btn-submit">Meld behov</button>
-        </form>
-
-        <div class="need-map-panel">
-            <div id="map" class="need-map" aria-label="Kart: klikk for å velge hvor behovet er"></div>
-            <p class="workspace-muted">Klikk i kartet for å plassere behovet. Du kan klikke på nytt for å flytte punktet.</p>
+            </section>
         </div>
     </div>
-</section>
+
+    <footer class="nb-bar">
+        <ul class="nb-checks">
+            <li id="ckDesc"><i></i>Beskrivelse fylt ut</li>
+            <li id="ckPlace"><i></i>Plassering valgt</li>
+            <li id="ckPrio"><i></i>Prioritet satt</li>
+        </ul>
+        <button type="button" id="nbDraft" class="btn-secondary">Lagre som utkast</button>
+        <button type="submit" class="btn-submit nb-submit">Meld behov</button>
+    </footer>
+</form>
 
 <script src="~/lib/leaflet/leaflet.js"></script>
 <script type="application/json" id="kartdata">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(kart, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)))</script>
 <script src="~/js/kart.js" asp-append-version="true"></script>
+<script src="~/js/behov.js" asp-append-version="true"></script>

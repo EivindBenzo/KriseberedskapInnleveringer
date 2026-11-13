@@ -6,6 +6,7 @@
     // Kartet kan flyttes fritt. Kartverkets topografiske kart er svært detaljert i Norge, og et vanlig gatekart
     // ligger under, slik at man også ser noe når man zoomer ut eller flytter seg utenfor Kartverkets dekning.
     const kart = L.map('map', { minZoom: 3, worldCopyJump: true, zoomSnap: 0.5 }).setView([data.lat, data.lng], data.zoom);
+    window.kartInstans = kart;
     const tomRute = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
     const gatekart = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -255,13 +256,16 @@
     if (!form) {
         let needMarker = p.lat != null ? L.marker([p.lat, p.lng]).addTo(kart) : null;
         kart.getContainer().classList.add('placement-active');
-        kart.on('click', function (e) {
-            if (needMarker) needMarker.setLatLng(e.latlng);
-            else needMarker = L.marker(e.latlng).addTo(kart);
-            latFelt.value = e.latlng.lat.toFixed(6);
-            lngFelt.value = e.latlng.lng.toFixed(6);
-            if (needPlace) needPlace.textContent = 'Valgt punkt: ' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5);
-        });
+        const settPunkt = function (latlng) {
+            if (needMarker) needMarker.setLatLng(latlng);
+            else needMarker = L.marker(latlng).addTo(kart);
+            latFelt.value = latlng.lat.toFixed(6);
+            lngFelt.value = latlng.lng.toFixed(6);
+            if (needPlace) needPlace.textContent = 'Valgt punkt: ' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5);
+            document.dispatchEvent(new CustomEvent('kart:plassering', { detail: { lat: latlng.lat, lng: latlng.lng } }));
+        };
+        window.kartSettPunkt = settPunkt;
+        kart.on('click', function (e) { settPunkt(e.latlng); });
         return;
     }
 

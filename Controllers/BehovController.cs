@@ -11,7 +11,7 @@ namespace HeimevernetInnlevering1.Controllers;
 
 /// <summary>Offentlige aktører melder behov. Skjemaet har et kart der brukeren klikker inn hvor behovet er.</summary>
 [Authorize(Roles = AppRoles.OffentligAktor)]
-public class BehovController(AppDbContext db, WorkflowService workflow, IPlaceGeocoder geocoder) : Controller
+public class BehovController(AppDbContext db, WorkflowService workflow, IPlaceGeocoder geocoder, Stedssok stedssok) : Controller
 {
     [HttpGet]
     public async Task<IActionResult> Registrer()
@@ -77,6 +77,13 @@ public class BehovController(AppDbContext db, WorkflowService workflow, IPlaceGe
             Plassering = new KartPlassering("needLat", "needLng", "needPlace",
                 harPunkt ? model.Breddegrad : null, harPunkt ? model.Lengdegrad : null)
         };
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Sok(string? q)
+    {
+        var treff = await stedssok.SøkAsync(q, HttpContext.RequestAborted);
+        return Json(treff.Select(t => new { t.Lat, t.Lng, t.Label }));
     }
 
     private async Task FyllValgAsync()
