@@ -9,6 +9,7 @@
     var kriseledelse = User.IsInRole(AppRoles.Kriseledelse);
     var hovedId = ViewBag.HovedId as int?;
     var featured = hendelser.FirstOrDefault(h => h.HendelseID == hovedId);
+    var festet = (ViewBag.Festet as HashSet<int>) ?? new();
     var antallAktiv = hendelser.Count(h => h.Status == Statuser.Hendelse.Aktiv);
     var antallPlan = hendelser.Count(h => h.Status == Statuser.Hendelse.Planlagt);
     var antallFerdig = hendelser.Count(h => h.Status == Statuser.Hendelse.Avsluttet);
@@ -106,6 +107,7 @@
                 <button type="button" data-f="planlagt">Planlagt (@andre.Count(h => h.Status == Statuser.Hendelse.Planlagt))</button>
                 <button type="button" data-f="avsluttet">Avsluttet (@andre.Count(h => h.Status == Statuser.Hendelse.Avsluttet))</button>
             </div>
+            <span class="hx-pincount" title="Festede hendelser">&#128204; Festet <b>@festet.Count</b>/5</span>
             <label class="hx-sort">Sorter <select id="hxSort"><option value="new">Nyest først</option><option value="old">Eldst først</option></select></label>
         </div>
         @if (andre.Count == 0) { <p class="empty-state">Ingen andre hendelser.</p> }
@@ -113,7 +115,7 @@
         @foreach (var h in andre)
         {
             var k = kort.GetValueOrDefault(h.HendelseID) ?? new HendelseKort(0, 0, 0, 0, 0, 0);
-            <article class="hx-row @StatusKlasse(h.Status)" data-status="@h.Status" data-time="@h.Starttidspunkt.Ticks">
+            <article class="hx-row @StatusKlasse(h.Status)@(festet.Contains(h.HendelseID) ? " is-pinned" : "")" data-status="@h.Status" data-pin="@(festet.Contains(h.HendelseID) ? 1 : 0)" data-time="@h.Starttidspunkt.Ticks">
                 <i class="hx-tile"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@Html.Raw(TypeIkon(h))</svg></i>
                 <div class="hx-row-name"><strong>@h.Navn</strong><span>@h.Område &nbsp;|&nbsp; @Stamp(h.Starttidspunkt)</span></div>
                 <div class="hx-row-chips"><span class="hx-chip @StatusKlasse(h.Status)">@Statuser.Hendelse.Etikett(h.Status)</span><span class="hx-chip @PrioKlasse(h.Prioritet)">@PrioIkon(h.Prioritet) @PrioTekst(h.Prioritet)</span></div>
@@ -124,11 +126,11 @@
                     }
                 </div>
                 <div class="hx-row-actions">
-                    @if (h.Status == Statuser.Hendelse.Aktiv && antallAktiv >= 2)
+                    @if (festet.Contains(h.HendelseID))
                     {
                         <form asp-action="Hovedhendelse" asp-route-id="@h.HendelseID" method="post"><button type="submit" class="hx-main-btn" title="Vis denne øverst">☆ Gjør til hovedhendelse</button></form>
                     }
-                    @if (h.Status == Statuser.Hendelse.Aktiv) { <form asp-action="Fest" asp-route-id="@h.HendelseID" method="post"><button type="submit" class="hx-main-btn" title="Fest/løsne hendelse">&#128204; Fest</button></form> }
+                    @if (h.Status == Statuser.Hendelse.Aktiv) { <form asp-action="Fest" asp-route-id="@h.HendelseID" method="post"><button type="submit" class="hx-pin@(festet.Contains(h.HendelseID) ? " is-on" : "")" title="@(festet.Contains(h.HendelseID) ? "Løsne hendelse" : "Fest øverst")" aria-label="Fest hendelse" aria-pressed="@(festet.Contains(h.HendelseID) ? "true" : "false")"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16 3a1 1 0 0 1 .7 1.7L15.4 6l1.8 5.3 1.5 1.5a1 1 0 0 1-.7 1.7H13v6l-1 1-1-1v-6H6a1 1 0 0 1-.7-1.7l1.5-1.5L8.6 6 7.3 4.7A1 1 0 0 1 8 3z"/></svg></button></form> }
                     @if (kriseledelse) { @await Html.PartialAsync("_HendelseKontroll", h) }
                     <a class="hx-detail-btn" asp-action="Arbeidsrom" asp-route-id="@h.HendelseID" aria-label="Se detaljer for @h.Navn">Se detaljer <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
                 </div>
@@ -185,7 +187,7 @@
     var filter = 'alle';
     function apply() {
         var rows = Array.prototype.slice.call(list.children), n = 0, dir = document.getElementById('hxSort').value === 'old' ? 1 : -1;
-        rows.sort(function (a, b) { return dir * (Number(a.dataset.time) - Number(b.dataset.time)); }).forEach(function (r) {
+        rows.sort(function (a, b) { var pd = Number(b.dataset.pin) - Number(a.dataset.pin); if (pd) return pd; return dir * (Number(a.dataset.time) - Number(b.dataset.time)); }).forEach(function (r) {
             var show = filter === 'alle' || r.dataset.status === filter; r.hidden = !show; if (show) n++; list.appendChild(r);
         });
         document.getElementById('hxCount').textContent = n;

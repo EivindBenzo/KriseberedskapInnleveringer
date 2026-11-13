@@ -11,22 +11,13 @@
     var steder = lista.Select(c => c.Place).Where(o => !string.IsNullOrWhiteSpace(o)).Distinct().OrderBy(x => x).ToList();
 }
 <section class="operations-workspace contacts-page kl" aria-labelledby="contacts-heading">
-    <div class="kl-hero">
+    <div class="kl-hero ov-hero-like">
         <div>
             <span class="eyebrow">SAMARBEID OG ANSVAR</span>
             <h1 id="contacts-heading">Kontaktliste</h1>
             <p>Finn riktig kontakt på tvers av roller før du registrerer, verifiserer eller koordinerer en ressurs.</p>
         </div>
-        <svg class="kl-art" viewBox="0 0 420 180" aria-hidden="true" focusable="false">
-            <circle cx="300" cy="86" r="74" fill="none" stroke="#f9d9b4" stroke-width="2" opacity=".6"/>
-            <circle cx="300" cy="86" r="52" fill="none" stroke="#f7c993" stroke-width="2" opacity=".8"/>
-            <circle cx="300" cy="86" r="30" fill="#fbe3c6" opacity=".9"/>
-            <path d="M0 180V132l62-62 44 40 52-72 70 94 54-46 74 60 64-36v70z" fill="#cfe7e6"/>
-            <path d="M0 180v-30l70-50 50 42 60-62 80 76 60-40 100 64z" fill="#b6d9da"/>
-            <g fill="#8fc3c4"><path d="M40 180l14-44 14 44z"/><path d="M70 180l12-36 12 36z"/><path d="M350 180l14-46 14 46z"/><path d="M380 180l10-30 10 30z"/><path d="M118 180l12-34 12 34z"/></g>
-            <path d="M300 128c-20-26-28-40-28-54a28 28 0 1 1 56 0c0 14-8 28-28 54z" fill="#f08a1c"/>
-            <circle cx="300" cy="74" r="11" fill="#fff"/>
-        </svg>
+        <partial name="_HeroScene" />
     </div>
     <form class="kl-filters" onsubmit="return false" role="search">
         <label class="kl-search">

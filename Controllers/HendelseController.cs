@@ -24,6 +24,12 @@ public class HendelseController(AppDbContext db, WorkflowService workflow, Steds
             .ToListAsync();
         var aktører = await db.Hendelseslogg.AsNoTracking().Where(l => l.HendelseID != null)
             .Select(l => new { Id = l.HendelseID!.Value, l.UtførtAvID }).Distinct().ToListAsync();
+        var festBruker = await users.GetUserAsync(User);
+        var festRå = festBruker is null ? "" : await users.GetAuthenticationTokenAsync(festBruker, "Profil", "FestetHendelser") ?? "";
+        var festet = festRå.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse)
+            .Where(i => hendelser.Any(h => h.HendelseID == i && h.Status == Statuser.Hendelse.Aktiv)).Take(5).ToHashSet();
+        ViewBag.Festet = festet;
+        hendelser = hendelser.OrderBy(h => festet.Contains(h.HendelseID) ? 0 : 1).ToList();
         ViewBag.Hendelser = hendelser;
         ViewBag.Kort = hendelser.ToDictionary(h => h.HendelseID, h =>
         {

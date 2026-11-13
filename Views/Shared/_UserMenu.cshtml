@@ -37,6 +37,7 @@
         <div class="um-panel um-dropdown">
             <div class="um-who"><strong>@shell.Navn</strong></div>
             <a asp-controller="Account" asp-action="Profile" class="um-item">Min profil</a>
+            <a asp-controller="Account" asp-action="Profile" asp-fragment="oversikt" class="um-item">Profil oversikt</a>
             <form asp-controller="Tema" asp-action="Bytt" method="post">
                 <input type="hidden" name="returnUrl" value="@tilbake" />
                 <button type="submit" class="um-item"><span>@(mørk ? "Lys modus" : "Mørk modus")</span><span aria-hidden="true">@(mørk ? "☀" : "☾")</span></button>

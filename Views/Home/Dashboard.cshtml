@@ -89,7 +89,7 @@ else if (leader)
         <span class="dashboard-action-icon" aria-hidden="true">✓</span><span><strong>Aktive tildelinger</strong><small>Oppdrag under gjennomføring</small></span><span class="dashboard-action-count">@Model.Assignments.Count</span>
     </button>
     <button type="button" class="dashboard-action dashboard-action-requests" data-dashboard-target="requests" aria-expanded="false">
-        <span class="dashboard-action-icon" aria-hidden="true">≡</span><span><strong>Situasjonsbilde</strong><small>Åpne behov og hendelser</small></span><span class="dashboard-action-count">@Model.Needs.Count</span>
+        <span class="dashboard-action-icon" aria-hidden="true">≡</span><span><strong>Situasjonsbilde</strong><small>Åpne behov og hendelser</small></span><span class="dashboard-action-count">@(Model.OpenNeeds.Count + Model.UrgentNeeds.Count)</span>
     </button>
     <button type="button" class="dashboard-action dashboard-action-urgent" data-dashboard-target="urgent" aria-expanded="false">
         <span class="dashboard-action-icon" aria-hidden="true">!</span><span><strong>Akutte behov</strong><small>Krever lederbeslutning</small></span><span class="dashboard-action-count">@Model.UrgentNeeds.Count</span>
@@ -566,32 +566,11 @@ else
 @if (leader)
 {
     <section class="dashboard-panel dc-panel" data-dashboard-panel="requests" hidden>
-    <div class="dc-head"><h2 id="dispatch-koe">Dispatch-kø <span class="count-badge">@Model.DispatchQueue.Count</span></h2>
-        <a asp-controller="Home" asp-action="Dashboard" class="dc-ghost dc-link-btn">Åpne operasjoner</a></div>
-    @if (Model.DispatchQueue.Count == 0)
-    {
-        <p class="empty-state">Ingen oppgaver krever handling akkurat nå.</p>
-    }
-    <div class="dc-grid">
-    @foreach (var item in Model.DispatchQueue)
-    {
-        <a href="@item.Target" class="dc-card dc-assign @(item.Priority == 1 ? "is-red" : "is-orange") dc-linkcard">
-            <div class="dc-top">
-                <i class="dc-ico" aria-hidden="true">@(item.Priority == 1 ? "🚨" : "📋")</i>
-                <div class="dc-title"><strong>@item.Title</strong><span>@item.Category</span></div>
-            </div>
-            <p class="dc-desc">@item.Details</p>
-        </a>
-    }
-    </div>
-    </section>
-
-    <section class="dashboard-panel dc-panel" data-dashboard-panel="confirmed" hidden>
     <div class="dc-head"><h2 id="situasjonsbilde">Situasjonsbilde</h2>
         <a asp-controller="Home" asp-action="Dashboard" class="dc-ghost dc-link-btn">Åpne styring</a></div>
     <div class="dashboard-stats">
         <div><strong>@Model.ActiveIncidents.Count</strong><span>aktive hendelser</span></div>
-        <div><strong>@Model.OpenNeeds.Count</strong><span>ordinære behov</span></div>
+        <div><strong>@(Model.OpenNeeds.Count + Model.UrgentNeeds.Count)</strong><span>åpne behov</span></div>
         <div><strong>@Model.Requests.Count(f => f.Svar == Statuser.Svar.Venter)</strong><span>venter på svar</span></div>
         <div><strong>@Model.Assignments.Count</strong><span>aktive tildelinger</span></div>
     </div>
@@ -615,7 +594,26 @@ else
         </article>
     }
     </div>
-    </section>
+        <div class="dc-head"><h2 id="apne-behov">Åpne behov <span class="count-badge">@Model.OpenNeeds.Count</span></h2>
+        <a asp-controller="Home" asp-action="Dashboard" class="dc-ghost dc-link-btn">Akutte behov: @Model.UrgentNeeds.Count</a></div>
+    @if (Model.OpenNeeds.Count == 0)
+    {
+        <p class="empty-state">Ingen åpne behov som mangler ressurser.</p>
+    }
+    <div class="dc-grid">
+    @foreach (var need in Model.OpenNeeds)
+    {
+        <article id="behov-@need.BehovID" class="dc-card dc-assign">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
+                <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
+            </div>
+            <div class="dc-chips"><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
+            <p class="dc-desc">@need.Beskrivelse</p>
+            <div class="dc-foot"><span><strong>Mangler: @need.Mangler av @need.Antall</strong></span><span>Registrert @Stamp(need.Registrert)@(need.Hendelse is Hendelse h ? " · " + h.Navn : "")</span></div>
+        </article>
+    }
+    </div>    </section>
 
     <section class="dashboard-panel dc-panel" data-dashboard-panel="urgent" hidden>
     <div class="dc-head"><h2 id="behov-prioritet">Akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2>

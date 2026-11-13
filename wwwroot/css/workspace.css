@@ -1661,3 +1661,22 @@ header .um-bell>summary:hover,header .um-bell[open]>summary{background:rgba(17,1
 .bu-sort:hover { text-decoration: underline; }
 .bu-sort[data-dir]::after { content: " ▲"; font-size: .7em; }
 .bu-sort[data-dir="desc"]::after { content: " ▼"; }
+
+/* Round 23: kontaktliste-hero lik Oversikt-hero (bildet tones ut mot teksten) */
+.kl-hero.ov-hero-like{position:relative;min-height:112px;padding:1.1rem 1.6rem;background:#0a4250;border:0;border-radius:1.1rem;color:#fff;box-shadow:0 8px 24px rgba(10,66,80,.25)}
+.kl-hero.ov-hero-like::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#0a4250 0%,#0a4250 40%,rgba(10,66,80,.85) 62%,rgba(10,66,80,.15) 100%)}
+.kl-hero.ov-hero-like>div{position:relative;z-index:2}
+.kl-hero.ov-hero-like .ov-scene{position:absolute;right:0;top:0;height:100%;width:62%;z-index:0}
+.kl-hero.ov-hero-like h1,.kl-hero.ov-hero-like p,.kl-hero.ov-hero-like .eyebrow{color:#fff}
+.kl-hero.ov-hero-like .eyebrow{opacity:.85}
+.kl-hero.ov-hero-like p{max-width:34rem;opacity:.92;font-size:.95rem}
+
+/* Round 23: pins */
+.hx-pin{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;color:#64748b;cursor:pointer;transition:.15s}
+.hx-pin:hover{color:#16a34a;border-color:#16a34a}
+.hx-pin.is-on{background:#16a34a;border-color:#16a34a;color:#fff}
+.hx-row.is-pinned{border-color:#16a34a;background:#f0fdf4;box-shadow:inset 4px 0 0 #16a34a}
+.hx-pincount{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:#e8f5ec;color:#166534;font-weight:600;font-size:.85rem;margin-left:auto;margin-right:10px}
+body.dark .hx-pin,[data-theme=dark] .hx-pin{background:#1e293b;border-color:#334155;color:#94a3b8}
+body.dark .hx-row.is-pinned,[data-theme=dark] .hx-row.is-pinned{background:#10301f;border-color:#22c55e}
+body.dark .hx-pincount,[data-theme=dark] .hx-pincount{background:#14532d;color:#bbf7d0}

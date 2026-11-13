@@ -155,17 +155,19 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
 
         var ulest = await db.Meldinger.AsNoTracking().CountAsync(m => m.MottakerID == uid && m.Lest == null);
         var aktiveH = await db.Hendelser.AsNoTracking().Where(h => h.Status == Statuser.Hendelse.Aktiv).OrderBy(h => h.Starttidspunkt).ToListAsync();
-        var aktiveTild = db.Tildelinger.AsNoTracking().Where(t => t.Fullført == null);
+        var aktiveTild = db.Tildelinger.AsNoTracking().Where(t => t.Fremdrift != Statuser.Fremdrift.Fullført);
         var åpne = db.Behov.AsNoTracking().Where(b => b.Status != Statuser.Behov.Løst);
-        var udekkedeAkutte = (await db.Behov.AsNoTracking().Include(b => b.Forespørsler).ThenInclude(f => f.Tildeling)
-            .Where(b => b.Status != Statuser.Behov.Løst && b.Prioritet == Statuser.Prioritet.Akutt).ToListAsync())
-            .Where(b => b.Mangler > 0).Select(b => b.BehovID).ToList();
+        var udekkede = (await db.Behov.AsNoTracking().Include(b => b.Forespørsler).ThenInclude(f => f.Tildeling)
+            .Where(b => b.Status != Statuser.Behov.Løst).ToListAsync())
+            .Where(b => b.Mangler > 0).Select(b => new { b.BehovID, b.Prioritet, b.RegistrertAvID }).ToList();
+        var udekkedeAkutte = udekkede.Where(b => b.Prioritet == Statuser.Prioritet.Akutt).Select(b => b.BehovID).ToList();
+        var udekkedeOrd = udekkede.Where(b => b.Prioritet != Statuser.Prioritet.Akutt).Select(b => b.BehovID).ToList();
         var akutte = åpne.Where(b => udekkedeAkutte.Contains(b.BehovID));
         var hovedToken = await db.UserTokens.AsNoTracking().Where(x => x.UserId == uid && x.LoginProvider == "Profil" && x.Name == "Hovedhendelse").Select(x => x.Value).FirstOrDefaultAsync();
         var festToken = await db.UserTokens.AsNoTracking().Where(x => x.UserId == uid && x.LoginProvider == "Profil" && x.Name == "FestetHendelser").Select(x => x.Value).FirstOrDefaultAsync();
         var festet = (festToken ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(x => int.TryParse(x, out var i) ? i : -1).ToList();
         Hendelse? hovedH = aktiveH.Count == 1 ? aktiveH[0] : aktiveH.FirstOrDefault(x => x.HendelseID.ToString() == hovedToken) ?? aktiveH.FirstOrDefault();
-        var venterVerif = db.Ressurser.AsNoTracking().Where(r => r.Status == Statuser.Ressurs.VenterPåVerifisering);
+        var venterVerif = db.Ressurser.AsNoTracking().Where(WorkflowEligibility.TrengerVerifisering(DateTime.UtcNow));
         var logQuery = db.Hendelseslogg.AsNoTracking().OrderByDescending(l => l.Tidspunkt);
 
         OvRad Logg(string h, string d, DateTime t) => new() { Tittel = ShellService.Menneskelig(h), Under = d, Tid = t };
@@ -187,7 +189,7 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
         {
             ov.Stats.Add(new("Aktive hendelser", aktiveH.Count, "alarm"));
             ov.Stats.Add(new("Akutte behov", await akutte.CountAsync(), "layers"));
-            ov.Stats.Add(new("Beslutninger venter", await åpne.CountAsync(b => b.Status == Statuser.Behov.Ny || b.Status == Statuser.Behov.Vurderes), "hammer"));
+            ov.Stats.Add(new("Åpne behov", udekkede.Count, "hammer"));
             ov.Stats.Add(new("Meldinger", ulest, "chat", ulest > 0 ? $"{ulest} ulest" : null));
             var h = hovedH;
             if (h is not null)
@@ -195,7 +197,8 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
                 ov.Hoved = HRad(h, "Åpne arbeidsrom", U("Hendelse", "Arbeidsrom", new { id = h.HendelseID }));
                 ov.HovedBehov = await db.Behov.CountAsync(b => b.HendelseID == h.HendelseID);
             }
-            ov.A.AddRange(await BehovRader(åpne.Where(b => b.Status == Statuser.Behov.Ny || b.Status == Statuser.Behov.Vurderes).OrderByDescending(b => b.Prioritet == Statuser.Prioritet.Akutt), "Se sak"));
+            foreach (var fh in aktiveH.Where(x => festet.Contains(x.HendelseID)).OrderBy(x => x.HendelseID == hovedH?.HendelseID ? 0 : 1).ThenBy(x => x.Starttidspunkt).Take(5)) ov.Hendelser.Add(HRad(fh, "Arbeidsrom", U("Hendelse", "Arbeidsrom", new { id = fh.HendelseID })));
+            ov.A.AddRange(await BehovRader(åpne.Where(b => udekkedeOrd.Contains(b.BehovID) || udekkedeAkutte.Contains(b.BehovID)).OrderByDescending(b => b.Prioritet == Statuser.Prioritet.Akutt), "Se sak"));
             ov.ResTilgjengelig = await db.Ressurser.CountAsync(r => r.Status == Statuser.Ressurs.Tilgjengelig);
             ov.ResAktive = await aktiveTild.CountAsync();
             ov.ResVenter = await db.Forespørsler.CountAsync(f => f.Svar == Statuser.Svar.Venter);
@@ -206,9 +209,9 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
         else if (dp)
         {
             ov.AntA = await akutte.CountAsync(); ov.AntB = await db.Forespørsler.CountAsync(f => f.Svar == Statuser.Svar.Godtatt && f.Tildeling == null); ov.AntC = await venterVerif.CountAsync();
-            ov.Stats.Add(new("Åpne behov", await åpne.CountAsync(), "clipboard"));
+            ov.Stats.Add(new("Åpne behov", udekkedeOrd.Count, "clipboard"));
             ov.Stats.Add(new("Akutte behov", ov.AntA, "warning"));
-            ov.Stats.Add(new("Forespørsler", await db.Forespørsler.CountAsync(f => f.Svar == Statuser.Svar.Venter), "mail"));
+            ov.Stats.Add(new("Forespørsler", await db.Forespørsler.CountAsync(f => f.Svar == Statuser.Svar.Venter || (f.Svar == Statuser.Svar.Godtatt && f.Tildeling == null)), "mail"));
             ov.Stats.Add(new("Aktive tildelinger", await aktiveTild.CountAsync(), "layers"));
             ov.Stats.Add(new("Venter på verifisering", ov.AntC, "shield"));
             ov.A.AddRange(await BehovRader(akutte, "Håndter"));
@@ -222,7 +225,7 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             {
                 Tittel = $"{r.Navn}{(r.Antall > 1 ? $" ({r.Antall:0.##})" : "")}", Under = r.Eier?.Organisasjon ?? "", Tid = r.Registrert, Knapp = "Verifiser", Url = U("Home", "Dashboard") + "#verifisering-" + r.RessursID, Ikon = r.Ressurstype?.Navn ?? ""
             }));
-            foreach (var h in aktiveH.OrderBy(x => x.HendelseID == hovedH?.HendelseID ? 0 : festet.Contains(x.HendelseID) ? 1 : 2).ThenBy(x => x.Starttidspunkt).Take(5)) ov.Hendelser.Add(HRad(h, "Arbeidsrom", U("Hendelse", "Arbeidsrom", new { id = h.HendelseID })));
+            foreach (var h in aktiveH.Where(x => festet.Contains(x.HendelseID)).OrderBy(x => x.HendelseID == hovedH?.HendelseID ? 0 : 1).ThenBy(x => x.Starttidspunkt).Take(5)) ov.Hendelser.Add(HRad(h, "Arbeidsrom", U("Hendelse", "Arbeidsrom", new { id = h.HendelseID })));
             var mine = await db.Forespørsler.CountAsync(f => f.SendtAvID == uid);
             ov.Oppgaver.Add(("Verifisere nye ressurser", ov.AntC == 0));
             ov.Oppgaver.Add(("Sende forespørsler og opprette tildelinger", mine > 0));
@@ -263,8 +266,8 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
         {
             var mine = db.Behov.AsNoTracking().Where(b => b.RegistrertAvID == uid);
             ov.Stats.Add(new("Mine behov", await mine.CountAsync(), "clipboard"));
-            ov.Stats.Add(new("Behov under behandling", await mine.CountAsync(b => b.Status == Statuser.Behov.Vurderes || b.Status == Statuser.Behov.Tildelt), "refresh"));
-            ov.Stats.Add(new("Akutte behov", await mine.CountAsync(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Status != Statuser.Behov.Løst), "warning"));
+            ov.Stats.Add(new("Behov under behandling", await mine.CountAsync(b => b.Status == Statuser.Behov.Ny || b.Status == Statuser.Behov.Vurderes), "refresh"));
+            ov.Stats.Add(new("Akutte behov", udekkede.Count(b => b.Prioritet == Statuser.Prioritet.Akutt && b.RegistrertAvID == uid), "warning"));
             ov.Stats.Add(new("Aktive hendelser", aktiveH.Count, "signal"));
             ov.Stats.Add(new("Meldinger", ulest, "mail"));
             ov.A.AddRange(await BehovRader(mine, "Åpne", 4, "#mine-behov"));
@@ -280,7 +283,7 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             ["Akutte behov"] = kl ? D("behov-prioritet") : dp ? D("akutte-behov") : D("mine-akutte-behov"),
             ["Beslutninger venter"] = D("behov-prioritet"),
             ["Meldinger"] = U("Messages", "Inbox"),
-            ["Åpne behov"] = D("apne-behov"),
+            ["Åpne behov"] = kl ? D("situasjonsbilde") : D("apne-behov"),
             ["Forespørsler"] = D("foresporsler"),
             ["Aktive tildelinger"] = D("tildelinger"),
             ["Venter på verifisering"] = dp ? D("verifiseringskoe") : U("Home", "Resources"),
