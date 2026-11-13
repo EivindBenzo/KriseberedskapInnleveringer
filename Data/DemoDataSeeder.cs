@@ -61,6 +61,7 @@ public static class DemoDataSeeder
         await EnsureIncidentExamplesAsync(db, leader);
         await DemoDataExtras.EnsureAsync(db, users, dispatch);
         await DemoDataRound22.EnsureAsync(db, users, dispatch, leader);
+        await DemoDataRound28.EnsureAsync(db, users, dispatch);
         if (await db.Hendelseslogg.AnyAsync(a => a.Handling == Marker))
         {
             await RemoveLegacyUrgentExamplesAsync(db, publicActor);

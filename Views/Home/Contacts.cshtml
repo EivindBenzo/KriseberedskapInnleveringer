@@ -11,14 +11,7 @@
     var steder = lista.Select(c => c.Place).Where(o => !string.IsNullOrWhiteSpace(o)).Distinct().OrderBy(x => x).ToList();
 }
 <section class="operations-workspace contacts-page kl" aria-labelledby="contacts-heading">
-    <div class="kl-hero ov-hero-like">
-        <div>
-            <span class="eyebrow">SAMARBEID OG ANSVAR</span>
-            <h1 id="contacts-heading">Kontaktliste</h1>
-            <p>Finn riktig kontakt på tvers av roller før du registrerer, verifiserer eller koordinerer en ressurs.</p>
-        </div>
-        <partial name="_HeroScene" />
-    </div>
+    <header class="kl-title"><h1 id="contacts-heading">Kontaktliste</h1><p>Finn riktig kontakt på tvers av roller før du registrerer, verifiserer eller koordinerer en ressurs.</p></header>
     <form class="kl-filters" onsubmit="return false" role="search">
         <label class="kl-search">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.500-3.500"/></svg>
