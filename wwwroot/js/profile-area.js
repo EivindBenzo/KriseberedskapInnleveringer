@@ -35,3 +35,33 @@
         });
     });
 })();
+
+(function () {
+    var KEY = 'bp-fav-contacts', favs;
+    try { favs = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { favs = []; }
+    var all = document.querySelector('[data-pk-all]'), box = document.querySelector('[data-pk-favs]');
+    var sec = document.querySelector('[data-pk-favsec]'), head = document.querySelector('[data-pk-allh]');
+    if (!all || !box) return;
+    var cards = Array.prototype.slice.call(all.querySelectorAll('[data-pk-card]'));
+    cards.forEach(function (c, i) { c.dataset.idx = i; });
+    function render() {
+        cards.forEach(function (c) {
+            var on = favs.indexOf(c.dataset.id) >= 0;
+            var s = c.querySelector('[data-pk-star]');
+            s.textContent = on ? '★' : '☆'; s.setAttribute('aria-pressed', on); s.classList.toggle('is-fav', on);
+            s.setAttribute('aria-label', on ? 'Fjern fra favoritter' : 'Legg til som favoritt');
+        });
+        cards.slice().sort(function (a, b) { return a.dataset.idx - b.dataset.idx; }).forEach(function (c) {
+            (favs.indexOf(c.dataset.id) >= 0 ? box : all).appendChild(c);
+        });
+        sec.hidden = box.children.length === 0; head.hidden = sec.hidden;
+    }
+    document.addEventListener('click', function (e) {
+        var s = e.target.closest('[data-pk-star]'); if (!s) return;
+        var id = s.closest('[data-pk-card]').dataset.id, i = favs.indexOf(id);
+        if (i >= 0) favs.splice(i, 1); else favs.push(id);
+        try { localStorage.setItem(KEY, JSON.stringify(favs)); } catch (er) { }
+        render();
+    });
+    render();
+})();

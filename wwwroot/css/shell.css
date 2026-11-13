@@ -192,3 +192,13 @@ body.shell-body { min-height: 100vh; background: var(--page); }
 :root[data-theme="dark"] .pk-call{color:#7ff3ee;border-color:#2f8f8a}
 :root[data-theme="dark"] .pk-role{color:#7ff3ee;background:rgba(127,243,238,.12)}
 @media (max-width:760px){.ph-grid{grid-template-columns:1fr}}
+
+/* Round 19: favoritter */
+.pk-card{position:relative}
+.pk-star{position:absolute;top:.5rem;left:.6rem;z-index:1;width:30px;height:30px;display:grid;place-items:center;padding:0;background:none;border:0;border-radius:50%;font-size:1.35rem;line-height:1;color:#9aa6b2;cursor:pointer}
+.pk-star:hover{background:rgba(224,138,0,.15);color:#e08a00}
+.pk-star.is-fav{color:#f5a300}
+.pk-card .pk-top{padding-top:1.1rem}
+.pk-fav{margin-bottom:1rem}
+.pk-fav .pp-h,[data-pk-allh]{margin:.6rem 0 .8rem}
+.pk-fav[hidden],[data-pk-allh][hidden]{display:none}
