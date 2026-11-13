@@ -51,7 +51,7 @@ public class RegisterViewModel
     public string ConfirmPassword { get; set; } = string.Empty;
 }
 
-public record AdminUserViewModel(int Id, string Navn, string Email, string? Organisasjon, string? Role);
+public record AdminUserViewModel(int Id, string Navn, string Email, string? Organisasjon, string? Role, bool Active = true, DateTime? LastActive = null);
 
 public class ProfileViewModel
 {

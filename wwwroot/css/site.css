@@ -52,7 +52,7 @@ body {
     min-height: 100vh;
 }
 
-header {
+body > header {
     background: linear-gradient(135deg, #0b2f3a 0%, #075265 55%, #006a7a 100%);
     position: relative;
     overflow: visible;
@@ -60,7 +60,7 @@ header {
     box-shadow: 0 10px 30px rgba(30, 64, 175, 0.3);
 }
 
-header::after {
+body > header::after {
     content: '';
     position: absolute;
     bottom: -1px;
@@ -692,7 +692,7 @@ body:has(.home-page) {
 }
 
 @media (max-width: 480px) {
-    header::after {
+    body > header::after {
         height: 40px;
         mask-size: 400px 40px;
     }

@@ -7,18 +7,20 @@ using Microsoft.EntityFrameworkCore;
 namespace HeimevernetInnlevering1.Controllers;
 
 [Authorize(Roles = AppRoles.Kriseledelse)]
-public class AdminController(UserManager<Bruker> users) : Controller
+public class AdminController(UserManager<Bruker> users, HeimevernetInnlevering1.Data.AppDbContext db) : Controller
 {
     [HttpGet]
     public async Task<IActionResult> Index()
     {
         var accounts = await users.Users.OrderBy(user => user.Email).ToListAsync();
+        var siste = await db.Hendelseslogg.GroupBy(l => l.UtførtAvID).Select(g => new { g.Key, T = g.Max(l => l.Tidspunkt) }).ToDictionaryAsync(x => x.Key, x => x.T);
         var model = new List<AdminUserViewModel>();
         foreach (var user in accounts)
         {
             var assigned = await users.GetRolesAsync(user);
             model.Add(new AdminUserViewModel(user.Id, user.FulltNavn, user.Email ?? user.UserName ?? "Ukjent bruker",
-                user.Organisasjon, AppRoles.All.FirstOrDefault(assigned.Contains)));
+                user.Organisasjon, AppRoles.All.FirstOrDefault(assigned.Contains),
+                !(user.LockoutEnd is { } slutt && slutt > DateTimeOffset.UtcNow), siste.TryGetValue(user.Id, out var t) ? t : null));
         }
         return View(model);
     }

@@ -134,8 +134,8 @@ body.shell-body { min-height: 100vh; background: var(--page); }
 }
 
 .ph-select.vakt-pa { color: #14532d; background: #dcfce7; border-color: #22c55e; }
-.ph-select.vakt-beredskap { color: #7c2d12; background: #ffedd5; border-color: #f59e0b; }
-.ph-select.vakt-av { color: #374151; background: #e5e7eb; border-color: #9ca3af; }
+.ph-select.vakt-beredskap { color: #374151; background: #e5e7eb; border-color: #9ca3af; }
+.ph-select.vakt-av { color: #7f1d1d; background: #fee2e2; border-color: #dc2626; }
 :root[data-theme="dark"] .ph-select.vakt-pa { color: #bbf7d0; background: #143629; border-color: #22c55e; }
-:root[data-theme="dark"] .ph-select.vakt-beredskap { color: #fed7aa; background: #3d2a12; border-color: #f59e0b; }
-:root[data-theme="dark"] .ph-select.vakt-av { color: #d1d5db; background: #2b3038; border-color: #6b7280; }
+:root[data-theme="dark"] .ph-select.vakt-beredskap { color: #d1d5db; background: #2b3038; border-color: #6b7280; }
+:root[data-theme="dark"] .ph-select.vakt-av { color: #fecaca; background: #451a1a; border-color: #ef4444; }

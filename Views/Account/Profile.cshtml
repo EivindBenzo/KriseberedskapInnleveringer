@@ -58,6 +58,8 @@
                     <div><dt>Telefon</dt><dd>@(string.IsNullOrWhiteSpace(Model.Phone) ? "Ikke oppgitt" : Model.Phone)</dd></div>
                     <div><dt>E-post</dt><dd>@Model.Email</dd></div>
                     <div><dt>Ansvarsområde</dt><dd>@Model.Ansvar</dd></div>
+                    @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse) || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.DispatchTeam))
+                    {
                     <div><dt><label for="vakt">Vaktstatus</label></dt><dd>
                         <select id="vakt" name="vakt" class="ph-select vakt-@Model.Vakt" data-vakt>
                             @foreach (var (verdi, tekst) in ShellService.Vaktstatuser)
@@ -65,6 +67,7 @@
                                 <option value="@verdi" selected="@(Model.Vakt == verdi)">@tekst</option>
                             }
                         </select></dd></div>
+                    }
                 </dl>
             </article>
 

@@ -42,10 +42,6 @@
 
     <nav class="iw-tabs" aria-label="Hendelsesarbeidsrom">
         <a class="is-active" aria-current="page" asp-action="Arbeidsrom" asp-route-id="@Model.Incident.HendelseID">Arbeidsrom</a>
-        <a asp-controller="Home" asp-action="Resources">Ressurser</a>
-        <a asp-controller="Operations" asp-action="Index">Tildelinger</a>
-        <a asp-controller="Home" asp-action="Map">Kart</a>
-        <a href="#operativ-logg">Dokumenter</a>
     </nav>
 
     <section class="iw-metrics" aria-label="Hendelsessammendrag">
@@ -111,11 +107,8 @@
                 }
                 <form asp-action="Beslutning" asp-route-id="@Model.Incident.HendelseID" method="post" class="iw-form">
                     <label for="decisionNote">Ny beslutning eller status</label>
-                    <div>
-                        <input id="decisionNote" name="note" maxlength="1000" required placeholder="Hva ble besluttet, av hvem og hvorfor?" />
-                        <button type="submit" aria-label="Legg til i loggen" title="Legg til i loggen"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4zM22 2 11 13"/></svg></button>
-                    </div>
-                    <small>Legg til i loggen</small>
+                    <textarea id="decisionNote" name="note" rows="3" maxlength="1000" required placeholder="Hva ble besluttet, av hvem og hvorfor?"></textarea>
+                    <button type="submit" class="iw-submit">Legg til i loggen</button>
                 </form>
             </section>
         </aside>

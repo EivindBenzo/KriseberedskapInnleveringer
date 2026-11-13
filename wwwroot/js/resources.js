@@ -73,6 +73,15 @@
         if (!kort) return;
         var detalj = kort.querySelector('.rc-detail');
         var åpen = detalj.hidden;
+        if (åpen) {
+            liste.querySelectorAll('[data-rc].is-open').forEach(function (annen) {
+                if (annen === kort) return;
+                var d = annen.querySelector('.rc-detail');
+                if (d) d.hidden = true;
+                annen.classList.remove('is-open');
+                annen.setAttribute('aria-expanded', 'false');
+            });
+        }
         detalj.hidden = !åpen;
         kort.classList.toggle('is-open', åpen);
         kort.setAttribute('aria-expanded', String(åpen));
