@@ -1,42 +1,97 @@
 @model HeimevernetInnlevering1.ViewModels.InboxViewModel
 @{
     ViewData["Title"] = "Meldinger";
+    string Tid(DateTime d) => d.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
 }
-<section class="operations-workspace contacts-page" aria-labelledby="messages-heading">
+<section class="operations-workspace contacts-page mt" aria-labelledby="messages-heading">
     <div class="page-heading">
         <div><span class="eyebrow">SAMARBEID OG ANSVAR</span><h1 id="messages-heading">Meldinger</h1></div>
         <a asp-controller="Home" asp-action="Contacts" class="btn-submit">Åpne kontaktliste</a>
     </div>
-    @if (Model.Messages.Count == 0)
+    @if (TempData["MessageSuccess"] is string ok) { <p class="notice" role="status">@ok</p> }
+    @if (TempData["MessageError"] is string err) { <p class="workspace-alert" role="alert">@err</p> }
+    @if (Model.Threads.Count == 0)
     {
-        <p class="empty-state">Du har ingen meldinger ennå.</p>
+        <p class="empty-state">Du har ingen samtaler ennå. Start en fra kontaktlisten.</p>
     }
     else
     {
-        <div class="message-inbox">
-        @foreach (var message in Model.Messages)
+        <div class="mt-list">
+        @for (var i = 0; i < Model.Threads.Count; i++)
         {
-            <article class="message-item @(message.IsUnread ? "message-unread" : "")">
-                <div><h2>@message.Subject</h2><p class="resource-meta">Fra @message.SenderName · @message.SentAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p></div>
-                <p>@message.Body</p>
-                <button type="button" class="btn-secondary message-reply-button" data-contact-name="@message.SenderName" data-recipient-id="@message.SenderId" data-subject="@message.Subject">Svar</button>
-            </article>
+            var th = Model.Threads[i];
+            <button type="button" class="mt-row@(th.Unread > 0 ? " is-unread" : "")" data-thread="@i">
+                <span class="kl-avatar is-@th.RoleClass">@th.Initials</span>
+                <span class="mt-who"><strong>@th.Title</strong><small>@th.Subtitle</small></span>
+                <span class="mt-prev">@th.Preview</span>
+                <span class="mt-meta"><time>@Tid(th.LastAtUtc)</time>@if (th.Unread > 0) { <b class="mt-badge">@th.Unread</b> }</span>
+                <svg class="mt-chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
         }
         </div>
+        @for (var i = 0; i < Model.Threads.Count; i++)
+        {
+            var th = Model.Threads[i];
+            <dialog class="mt-dlg" id="thread-@i" aria-label="Samtale med @th.Title">
+                <div class="mt-box">
+                    <header class="mt-head">
+                        <span class="kl-avatar is-@th.RoleClass">@th.Initials</span>
+                        <div><strong>@th.Title</strong><small>@th.Subtitle</small></div>
+                        <button type="button" class="mt-x" data-close aria-label="Lukk">&times;</button>
+                    </header>
+                    <div class="mt-people"><span>Deltakere (@(th.Names.Count + (th.IsGroup ? 0 : 1)))</span><em>@(th.IsGroup ? string.Join(", ", th.Names) : "Du, " + th.Title)</em></div>
+                    <div class="mt-actions">
+                        <button type="button" class="mt-btn is-primary" data-focus-reply>Svar</button>
+                        <a class="mt-btn" asp-controller="Home" asp-action="Contacts">Se kontakt</a>
+                    </div>
+                    <div class="mt-msgs" data-msgs>
+                        @foreach (var m in th.Messages)
+                        {
+                            <div class="mt-msg@(m.Mine ? " is-mine" : "")">
+                                <span class="kl-avatar is-sm">@string.Concat(m.SenderName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(d => char.ToUpperInvariant(d[0])))</span>
+                                <div>
+                                    <p class="mt-by"><strong>@(m.Mine ? "Du" : m.SenderName)</strong> · @Tid(m.SentAtUtc)</p>
+                                    <div class="mt-bubble">@if (!string.IsNullOrWhiteSpace(m.Subject)) { <b>@m.Subject</b> }<span>@m.Body</span></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    @if (th.OtherIds.Count > 0)
+                    {
+                        <form class="mt-reply" method="post" asp-controller="Messages" asp-action="@(th.IsGroup ? "SendGroup" : "Send")">
+                            @Html.AntiForgeryToken()
+                            @if (th.IsGroup) { foreach (var id in th.OtherIds) { <input type="hidden" name="recipientIds" value="@id" /> } }
+                            else { <input type="hidden" name="recipientId" value="@th.OtherIds[0]" /> }
+                            <input type="hidden" name="subject" value="@(th.IsGroup ? th.ReplySubject : "SV: " + th.ReplySubject)" />
+                            <input type="hidden" name="returnUrl" value="@(Context.Request.Path + "?open=" + i)" />
+                            <textarea name="body" required maxlength="1800" placeholder="Skriv svar …" aria-label="Skriv svar"></textarea>
+                            <button type="submit" class="mt-send">Send svar</button>
+                        </form>
+                    }
+                </div>
+            </dialog>
+        }
     }
 </section>
-<dialog id="messageComposer" class="message-composer" aria-labelledby="messageComposerHeading">
-    <form asp-controller="Messages" asp-action="Send" method="post">
-        @Html.AntiForgeryToken()
-        <input type="hidden" name="recipientId" id="messageRecipientId" />
-        <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
-        <div class="message-composer-heading">
-            <div><span class="eyebrow">SVAR PÅ MELDING</span><h2 id="messageComposerHeading">Til kontakt</h2></div>
-            <button type="button" class="message-close" data-close-message aria-label="Lukk">×</button>
-        </div>
-        <label>Emne <input name="subject" required maxlength="150" autocomplete="off" /></label>
-        <label>Melding <textarea name="body" required maxlength="2000"></textarea></label>
-        <button type="submit" class="btn-submit">Send svar</button>
-    </form>
-</dialog>
-<script src="~/js/messages.js" asp-append-version="true"></script>
+<script>
+(function () {
+    document.querySelectorAll('.mt-row').forEach(function (row) {
+        row.addEventListener('click', function () { open(row.dataset.thread); });
+    });
+    function open(i) {
+        var d = document.getElementById('thread-' + i);
+        if (!d) return;
+        d.showModal();
+        var m = d.querySelector('[data-msgs]'); m.scrollTop = m.scrollHeight;
+    }
+    document.querySelectorAll('.mt-dlg').forEach(function (d) {
+        d.addEventListener('click', function (e) { if (e.target === d) d.close(); });
+        d.querySelector('[data-close]').addEventListener('click', function () { d.close(); });
+        d.querySelector('[data-focus-reply]').addEventListener('click', function () {
+            var t = d.querySelector('textarea'); if (t) t.focus();
+        });
+    });
+    var q = new URLSearchParams(location.search).get('open');
+    if (q !== null) open(q);
+})();
+</script>

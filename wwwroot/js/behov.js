@@ -16,7 +16,10 @@
     const acc = Array.prototype.slice.call(form.querySelectorAll('[data-acc]'));
     acc.forEach(function (d) {
         d.addEventListener('toggle', function () {
-            if (d.open) acc.forEach(function (o) { if (o !== d) o.open = false; });
+            if (!d.open) return;
+            const scroller = d.parentElement, before = d.getBoundingClientRect().top;
+            acc.forEach(function (o) { if (o !== d) o.open = false; });
+            scroller.scrollTop += d.getBoundingClientRect().top - before;
         });
     });
 
@@ -98,7 +101,7 @@
         if (window.kartInstans) setTimeout(function () { window.kartInstans.invalidateSize(); }, 50);
     });
     $('nbChange').addEventListener('click', function () {
-        const m = $('map'); m.scrollIntoView({ block: 'center' }); m.focus();
+        const m = $('map'); m.focus({ preventScroll: true });
     });
 
     // Lokalt utkast (lagres bare i nettleseren).
