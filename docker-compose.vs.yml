@@ -1,0 +1,16 @@
+# Kun for lokal utvikling i Visual Studio: starter databasen og åpner den på localhost:3307.
+# Bruk:  docker compose -f docker-compose.vs.yml up -d     (deretter F5 i Visual Studio)
+services:
+  mariadb:
+    image: mariadb:10.11.19
+    environment:
+      MARIADB_DATABASE: heimevernet
+      MARIADB_USER: heimevernet_app
+      MARIADB_PASSWORD: vs-lokal-passord
+      MARIADB_ROOT_PASSWORD: vs-lokal-root
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - mariadb-vs-data:/var/lib/mysql
+volumes:
+  mariadb-vs-data:

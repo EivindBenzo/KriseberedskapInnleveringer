@@ -18,7 +18,7 @@ public class SeedingOgRegistreringTests
     public async Task DemodataGirEnKontoPerRolleOgKanKjøresFlereGanger()
     {
         await using var test = await TestDatabase.CreateAsync(demoData: true);
-        foreach (var (email, role, fornavn, _, _) in IdentitySeeder.DemoAccounts)
+        foreach (var (email, role, fornavn, _, _, _) in IdentitySeeder.DemoAccounts)
         {
             var user = await test.Users.FindByEmailAsync(email);
             Assert.NotNull(user);

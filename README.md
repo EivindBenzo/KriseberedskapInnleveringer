@@ -298,3 +298,11 @@ Fra den første prototypen (GitHub Copilot):
 Før større endringer ble det laget en backup-branch (`backup/oliver-before-resource-map-2026-09-28`) slik at endringene kunne rulles tilbake.
 
 Alle endringer er bygget og testet (se tallene over) før de ble gitt til gruppen. KI-generert kode kan inneholde feil, og gruppen må gjennomgå den selv.
+
+## Kjøre i Visual Studio
+
+1. Åpne `HeimevernetInnlevering1.sln` (krever Visual Studio 2026 eller nyere med .NET 10 SDK; Community fungerer).
+2. Start databasen: `docker compose -f docker-compose.vs.yml up -d` (Docker Desktop må kjøre).
+3. Velg profilen **Beredskapsportalen** og trykk F5. Appen åpnes på http://localhost:5080 med demokontoer.
+
+Tilkoblingen ligger i `Properties/launchSettings.json` og gjelder bare lokal utvikling.

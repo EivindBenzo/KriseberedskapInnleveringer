@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "Beredskapsportalen": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:5080",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "MARIADB_HOST": "localhost",
+        "MARIADB_PORT": "3307",
+        "MARIADB_DATABASE": "heimevernet",
+        "MARIADB_USER": "heimevernet_app",
+        "MARIADB_APP_PASSWORD": "vs-lokal-passord",
+        "SEED_DEMO_ACCOUNTS": "true"
+      }
+    }
+  }
+}
