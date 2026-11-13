@@ -746,7 +746,7 @@ body:has(.map-full) footer { display: none; }
 .rail-search { position: relative; display: flex; align-items: center; margin: 0; }
 .rail-search svg { position: absolute; left: .8rem; color: var(--muted); pointer-events: none; }
 .rail-search input { width: 100%; min-height: 46px; padding: .6rem .9rem .6rem 2.5rem; color: var(--text); background: var(--page); border: 1px solid var(--border); border-radius: 12px; font: inherit; }
-.rail-search input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+.rail-search input:focus { outline: 2px solid var(--heading); border-color: var(--heading); }
 .rail-note { margin: 0; padding: .55rem .75rem; font-size: .88rem; color: var(--text); background: var(--hover); border-radius: 10px; }
 .rail-note.is-success { color: #067647; background: rgba(18, 183, 106, .14); }
 .rail-suggest { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; font-size: .85rem; color: var(--muted); }
@@ -762,11 +762,11 @@ body:has(.map-full) footer { display: none; }
 .rail-count strong { color: var(--heading); font-size: 1.05rem; }
 .rail-list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
 .rail-empty { padding: 1rem; color: var(--muted); text-align: center; }
-.rail-card { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: .65rem; align-items: center; width: 100%; padding: .6rem .7rem; text-align: left; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-left: 4px solid #087181; border-radius: 12px; font: inherit; cursor: pointer; transition: box-shadow .15s, transform .15s; }
+.rail-card { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: .65rem; align-items: center; width: 100%; padding: .6rem .7rem; text-align: left; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-left: 4px solid #087181; border-radius: 12px; font: inherit; cursor: pointer; transition: box-shadow .15s, transform .15s; }
 .rail-card.is-off { border-left-color: #c76b14; }
 .rail-card:hover, .rail-card.is-selected { box-shadow: 0 6px 16px var(--shadow); transform: translateY(-1px); border-color: var(--accent); }
 .rail-card.is-selected { background: var(--hover); }
-.rail-card img { width: 38px; height: 38px; padding: 4px; background: #0b2f3a; border-radius: 10px; }
+.rail-card img { width: 42px; height: 42px; padding: 5px; background: #fff; border: 1px solid #b6d3d9; border-radius: 12px; }
 .rail-card strong, .rail-card small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-card strong { color: var(--heading); font-size: .95rem; }
 .rail-card small { color: var(--muted); font-size: .78rem; }

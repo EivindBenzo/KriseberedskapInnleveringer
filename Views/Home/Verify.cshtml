@@ -99,111 +99,14 @@
     }
     else
     {
-    <div>
-    <div class="type-chips" role="group" aria-label="Filtrer på ressurstype">
-        <a asp-action="Resources" asp-route-mine="@(mine ? "true" : null)" asp-route-city="@ViewBag.City" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)" class="type-chip @(string.IsNullOrEmpty((string?)ViewBag.SelectedType) ? "is-active" : "")">Alle</a>
-        @foreach (var typ in typer)
-        {
-            <a asp-action="Resources" asp-route-type="@typ" asp-route-mine="@(mine ? "true" : null)" asp-route-city="@ViewBag.City" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)" class="type-chip @(typ == (string?)ViewBag.SelectedType ? "is-active" : "")">@typ</a>
-        }
-    </div>
-    <form asp-action="Resources" method="get" class="filter-bar">
-        <input type="hidden" name="mine" value="@mine.ToString().ToLowerInvariant()" />
-        @* Byene og antallet ressurser i hver by regnes ut på serveren (ResourceCity.Aggregate). *@
-        <div class="form-group">
-            <label for="resourceCity">By</label>
-            <select id="resourceCity" name="city" class="form-control">
-                <option value="">Alle byer</option>
-                @foreach (var city in Model.Cities)
-                {
-                    <option value="@city.Name" selected="@(string.Equals(city.Name, valgtBy, StringComparison.OrdinalIgnoreCase))">@city.Name (@city.Count)</option>
-                }
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="type">Ressurstype</label>
-            <select id="type" name="type" class="form-control">
-                <option value="">Alle typer</option>
-                @foreach (var type in (ViewBag.Ressurstyper as List<string>) ?? HeimevernetInnlevering1.Data.SeedData.RessurstypeNavn.ToList())
-                {
-                    <option value="@type" selected="@(type == (string?)ViewBag.SelectedType)">@type</option>
-                }
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="eligible">Operativ status</label>
-            <select id="eligible" name="eligible" class="form-control">
-                <option value="false">Alle registrerte</option>
-                <option value="true" selected="@(ViewBag.Eligible is true)">Kan forespørres nå</option>
-            </select>
-        </div>
-        <button type="submit" class="btn-secondary">Vis resultater</button>
-    </form>
-    <div class="results-heading">
-        <h2>@(mine ? "Mine ressurser" : "Alle ressurser") <span class="count-badge">@Model.Ressurser.Count</span></h2>
-        <small class="resource-meta">Status ved lasting · @now.ToString("dd.MM.yyyy HH:mm") UTC</small>
-    </div>
-    <details class="workspace-disclosure">
-        <summary>Hva betyr statusene?</summary>
-        <p>Registrering er ikke en godkjenning. Bare tilgjengelige ressurser med gyldig godkjenning kan forespørres. Etter en tildeling er fullført, blir ressursen «returnert» og må verifiseres på nytt.</p>
-    </details>
-    @if (Model.Ressurser.Count == 0)
-    {
-        <p>Ingen ressurser passer valget. Prøv en annen type eller fjern søket.</p>
-    }
-    <div class="resource-list is-grid">
-        @foreach (var r in Model.Ressurser)
-        {
-            var status = ResourceOperationalStatus.From(r, now);
-            var typeNavn = r.Ressurstype?.Navn ?? "Ukjent";
-            var godkjentTil = WorkflowEligibility.GodkjentTil(r);
-            <div class="resource-row resource-card @(r.Status == Statuser.Ressurs.Tilgjengelig ? "is-available" : "is-unavailable")" id="ressurs-@r.RessursID">
-                <div>
-                    <h2><img src="@Url.Content(RessursIkon.Sti(typeNavn, status))" alt="" width="32" height="32" /> @r.Navn</h2>
-                    <p class="resource-meta">@typeNavn</p>
-                    <p class="resource-place"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>@NorwegianPlaces.Display(r.Stedsnavn, r.Breddegrad, r.Lengdegrad)</p>
-                    <details class="resource-facts">
-                        <summary>Detaljer om ressursen</summary>
-                        <dl>
-                            <div><dt>Registrert</dt><dd>@r.Registrert.ToString("dd.MM.yyyy HH:mm") UTC</dd></div>
-                            <div><dt>Tilgjengelig</dt><dd>fra @r.TilgjengeligFra.ToString("dd.MM.yyyy")@(r.TilgjengeligTil is DateOnly til ? " til " + til.ToString("dd.MM.yyyy") : "")</dd></div>
-                            <div><dt>Kontakt</dt><dd>@r.Kontaktperson, @r.Kontakttelefon</dd></div>
-                            @if (!string.IsNullOrWhiteSpace(r.Beskrivelse))
-                            {
-                                <div><dt>Beskrivelse</dt><dd>@r.Beskrivelse</dd></div>
-                            }
-                            @if (godkjentTil.HasValue)
-                            {
-                                <div><dt>Godkjenning gjelder til</dt><dd>@godkjentTil.Value.ToString("dd.MM.yyyy HH:mm") UTC</dd></div>
-                            }
-                        </dl>
-                    </details>
-                </div>
-                <div class="resource-status">
-                    <h3>Status</h3>
-                    <span class="status-badge @(r.Status == Statuser.Ressurs.Tilgjengelig ? "status-positive" : "status-warning")">@status.Lifecycle</span>
-                    <p class="resource-meta">Godkjenning: @status.Verification</p>
-                </div>
-                <div class="resource-actions">
-                    <a asp-action="Map" asp-route-focus="@r.RessursID" asp-fragment="ressurs-@r.RessursID" class="btn-secondary">Vis på kart</a>
-                    @if (ResourcePermissions.CanManage(User, r.EierID))
-                    {
-                        <a asp-action="Edit" asp-route-id="@r.RessursID" class="btn-secondary">Rediger</a>
-                    }
-                    @if (User.IsInRole(AppRoles.DispatchTeam))
-                    {
-                        <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs" class="btn-secondary">Koordiner</a>
-                    }
-                    @if (ResourcePermissions.CanManage(User, r.EierID))
-                    {
-                        <div class="resource-destructive-actions">
-                            <a asp-action="Delete" asp-route-id="@r.RessursID" class="btn-danger">Slett</a>
-                        </div>
-                    }
-                </div>
-            </div>
-        }
-    </div>
+    <div class="rl-wrap">
+        <partial name="_ResourceList" model="Model" />
     </div>
     }
 </section>
+@if (!history)
+{
+    <link rel="stylesheet" href="~/lib/leaflet/leaflet.css" />
+    <script src="~/lib/leaflet/leaflet.js"></script>
+    <script src="~/js/resources.js" asp-append-version="true"></script>
+}

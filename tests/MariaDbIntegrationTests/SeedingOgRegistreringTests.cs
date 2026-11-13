@@ -41,7 +41,7 @@ public class SeedingOgRegistreringTests
         var services = test.Scope.ServiceProvider;
         var http = new DefaultHttpContext { RequestServices = services };
         return new AccountController(services.GetRequiredService<UserManager<Bruker>>(),
-            services.GetRequiredService<SignInManager<Bruker>>())
+            services.GetRequiredService<SignInManager<Bruker>>(), services.GetRequiredService<HeimevernetInnlevering1.Services.ShellService>())
         {
             ControllerContext = new ControllerContext { HttpContext = http },
             TempData = new TempDataDictionary(http, new NoTempData()),

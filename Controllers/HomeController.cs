@@ -214,8 +214,9 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
 
     [HttpGet]
     public async Task<IActionResult> Resources(string? type, string? query, bool mine = false, bool eligible = false,
-        string? city = null, bool history = false)
+        string? city = null, bool history = false, string? sort = null)
     {
+        ViewBag.Sort = sort;
         if (history && !User.IsInRole(AppRoles.Kriseledelse)) return Forbid();
         ViewBag.SelectedType = type;
         ViewBag.Query = query;
@@ -442,10 +443,20 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
         var filter = ResourceFilter.For(User, type, query, city, mine, eligible);
         var cityScope = filter with { Type = null, Query = null, City = null, Eligible = AppRoles.DispatchOnly(User) };
         ViewBag.Ressurstyper = await RessurstypeNavnAsync();
+        var ressurser = await ResourceQueries.LoadAsync(db, filter, now);
+        var typeScope = await ResourceQueries.LoadAsync(db, filter with { Type = null }, now);
+        var ids = ressurser.Select(r => r.RessursID).ToList();
+        var logg = await db.Hendelseslogg.AsNoTracking()
+            .Where(l => l.RessursID != null && ids.Contains(l.RessursID.Value))
+            .OrderByDescending(l => l.Tidspunkt).Take(600)
+            .Select(l => new { l.RessursID, l.Handling, l.Begrunnelse, l.Tidspunkt }).ToListAsync();
         return new DataPageViewModel
         {
             Cities = ResourceCity.Aggregate(await ResourceQueries.LoadAsync(db, cityScope, now)),
-            Ressurser = await ResourceQueries.LoadAsync(db, filter, now)
+            Ressurser = ressurser,
+            TypeCounts = typeScope.GroupBy(r => r.Ressurstype?.Navn ?? "Ukjent").ToDictionary(g => g.Key, g => g.Count()),
+            Activity = logg.GroupBy(l => l.RessursID!.Value).ToDictionary(g => g.Key,
+                g => (IReadOnlyList<ResourceActivity>)g.Take(3).Select(l => new ResourceActivity(l.Handling, l.Begrunnelse, l.Tidspunkt)).ToList())
         };
     }
 }

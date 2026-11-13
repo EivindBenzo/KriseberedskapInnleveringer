@@ -13,7 +13,10 @@ public class ShellModel
     public string Navn { get; init; } = "";
     public string Initialer { get; init; } = "?";
     public IReadOnlyList<VarselElement> Varsler { get; init; } = [];
-    public int AntallUlest => Varsler.Count;
+    public int AntallUlest { get; init; }
+    public bool HarBilde { get; init; }
+    public string BildeVersjon { get; init; } = "";
+    public IReadOnlyList<string> Nøkler { get; init; } = [];
     public int Forespørsler { get; init; }
     public int Meldinger { get; init; }
     public int AktiveHendelser { get; init; }
@@ -28,6 +31,16 @@ public class ShellService(AppDbContext db, UserManager<Bruker> users)
     public const string Provider = "Profil";
     public const string VarselToken = "Varsler";
     public const string VaktToken = "Vaktstatus";
+    public const string SettToken = "VarselSett";
+
+    public static string Nøkkel(VarselElement v) => v.Kategori + "|" + v.Tekst;
+
+    public static string Menneskelig(string? tekst)
+    {
+        if (string.IsNullOrEmpty(tekst)) return "";
+        var s = System.Text.RegularExpressions.Regex.Replace(tekst, @"(?<=\p{Ll})(?=\p{Lu})", " ");
+        return s.Length > 1 ? s[..1] + s[1..].ToLowerInvariant() : s;
+    }
 
     public static readonly (string Nøkkel, string Tittel, string Beskrivelse)[] Kategorier =
     [
@@ -92,19 +105,25 @@ public class ShellService(AppDbContext db, UserManager<Bruker> users)
             else if (principal.IsInRole(AppRoles.Ressursleverandor))
                 logg = logg.Where(l => l.RessursID != null && db.Ressurser.Any(r => r.RessursID == l.RessursID && r.EierID == id));
             var endringer = await logg.OrderByDescending(l => l.Tidspunkt).Take(3).Select(l => new { l.Handling, l.Begrunnelse, l.Tidspunkt }).ToListAsync();
-            varsler.AddRange(endringer.Select(l => new VarselElement("status", Forkort(l.Handling), Forkort(l.Begrunnelse), "Operations", "Index", l.Tidspunkt)));
+            varsler.AddRange(endringer.Select(l => new VarselElement("status", Forkort(Menneskelig(l.Handling)), Forkort(l.Begrunnelse), "Operations", "Index", l.Tidspunkt)));
         }
 
         var meldinger = await db.Meldinger.AsNoTracking().CountAsync(m => m.MottakerID == id && m.Lest == null);
         if (meldinger > 0 && valg["meldinger"])
             varsler.Add(new("meldinger", meldinger == 1 ? "1 ulest melding" : $"{meldinger} uleste meldinger", "Åpne innboksen", "Messages", "Inbox", DateTime.UtcNow));
 
+        var sett = (await users.GetAuthenticationTokenAsync(user, Provider, SettToken) ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        var bilde = await users.GetAuthenticationTokenAsync(user, Provider, "Profilbilde");
         var hendelser = driftsrolle ? await db.Hendelser.AsNoTracking().CountAsync(h => h.Status == Statuser.Hendelse.Aktiv) : 0;
         return _cache = new ShellModel
         {
             Navn = user.FulltNavn,
             Initialer = string.Concat(user.FulltNavn.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(p => char.IsLetter(p[0])).Select(p => char.ToUpperInvariant(p[0])).Take(2)) is { Length: > 0 } i ? i : "?",
             Varsler = varsler.OrderByDescending(v => v.Tid).ToList(),
+            AntallUlest = varsler.Count(v => !sett.Contains(Nøkkel(v))),
+            Nøkler = varsler.Select(Nøkkel).ToList(),
+            HarBilde = bilde is not null,
+            BildeVersjon = bilde is null ? "" : bilde.Length.ToString("x") + bilde[^Math.Min(8, bilde.Length)..].GetHashCode().ToString("x"),
             Forespørsler = ventende,
             Meldinger = meldinger,
             AktiveHendelser = hendelser

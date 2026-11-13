@@ -154,8 +154,8 @@ header::after {
 }
 
 :focus-visible {
-    outline: 3px solid var(--accent);
-    outline-offset: 3px;
+    outline: 2px solid var(--heading);
+    outline-offset: 2px;
 }
 
 .theme-toggle:focus-visible,
@@ -386,8 +386,8 @@ textarea.form-control {
 }
 
 .btn-secondary:focus-visible {
-    outline: 3px solid var(--accent);
-    outline-offset: 3px;
+    outline: 2px solid var(--heading);
+    outline-offset: 2px;
     box-shadow: 0 0 0 2px var(--surface);
 }
 

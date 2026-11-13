@@ -151,6 +151,9 @@
         valgtMarkor = markor;
         panelBody.innerHTML = m.popup;
         panel.hidden = false;
+        panel.style.animation = 'none';
+        void panel.offsetWidth;
+        panel.style.animation = '';
         velgKort(m.ressursId);
         const faner = panelBody.querySelectorAll('.mp-tabs button');
         faner.forEach(function (knapp) {

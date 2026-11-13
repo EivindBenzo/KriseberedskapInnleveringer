@@ -1,0 +1,176 @@
+@model HeimevernetInnlevering1.ViewModels.DataPageViewModel
+@using System.Globalization
+@using HeimevernetInnlevering1.Models
+@using HeimevernetInnlevering1.Services
+@{
+    var mine = ViewBag.Mine is true;
+    var now = DateTime.UtcNow;
+    var valgtBy = (string?)ViewBag.City ?? "";
+    var valgtType = (string?)ViewBag.SelectedType;
+    var sort = (string?)ViewBag.Sort ?? "nyest";
+    var eligible = ViewBag.Eligible is true;
+    var typer = (ViewBag.Ressurstyper as List<string>) ?? HeimevernetInnlevering1.Data.SeedData.RessurstypeNavn.ToList();
+    var totalt = Model.TypeCounts.Values.Sum();
+    var aktiveFiltre = (valgtBy.Length > 0 ? 1 : 0) + (eligible ? 1 : 0);
+    var sortert = sort switch
+    {
+        "navn" => Model.Ressurser.OrderBy(r => r.Navn).ToList(),
+        "status" => Model.Ressurser.OrderBy(r => r.Status).ThenBy(r => r.Navn).ToList(),
+        "type" => Model.Ressurser.OrderBy(r => r.Ressurstype?.Navn).ThenBy(r => r.Navn).ToList(),
+        _ => Model.Ressurser.OrderByDescending(r => r.Registrert).ToList()
+    };
+    string Inv(IFormattable d) => d.ToString("0.#####", CultureInfo.InvariantCulture);
+}
+<form asp-action="Resources" method="get" class="rl-toolbar" id="rlForm">
+    <input type="hidden" name="mine" value="@mine.ToString().ToLowerInvariant()" />
+    <input type="hidden" name="type" value="@valgtType" />
+    <input type="hidden" name="sort" value="@sort" />
+    <label class="rl-search">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.500-3.500"/></svg>
+        <input type="search" name="query" value="@ViewBag.Query" placeholder="Søk etter ressurs, sted eller eier" aria-label="Søk i ressurser" data-rl-search />
+        <kbd aria-hidden="true">/</kbd>
+    </label>
+    <details class="rl-filters">
+        <summary><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg>Filtre@(aktiveFiltre > 0 ? $" ({aktiveFiltre})" : "")<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.500" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+        <div class="rl-filter-panel">
+            <div class="form-group">
+                <label for="resourceCity">By</label>
+                <select id="resourceCity" name="city" class="form-control">
+                    <option value="">Alle byer</option>
+                    @foreach (var city in Model.Cities)
+                    {
+                        <option value="@city.Name" selected="@(string.Equals(city.Name, valgtBy, StringComparison.OrdinalIgnoreCase))">@city.Name (@city.Count)</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="eligible">Operativ status</label>
+                <select id="eligible" name="eligible" class="form-control">
+                    <option value="false">Alle registrerte</option>
+                    <option value="true" selected="@eligible">Kan forespørres nå</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-secondary">Bruk filtre</button>
+        </div>
+    </details>
+    <div class="rl-view" role="group" aria-label="Visning">
+        <button type="button" data-rl-view="grid" aria-pressed="true"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Kortvisning</button>
+        <button type="button" data-rl-view="list" aria-pressed="false"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Listevisning</button>
+    </div>
+</form>
+
+<div class="rl-pills" role="group" aria-label="Filtrer på ressurstype">
+    <a asp-action="Resources" asp-route-mine="@(mine ? "true" : null)" asp-route-city="@ViewBag.City" asp-route-query="@ViewBag.Query" asp-route-sort="@sort" asp-route-eligible="@(eligible ? "true" : null)" class="rl-pill @(string.IsNullOrEmpty(valgtType) ? "is-active" : "")">Alle ressurser <b>@totalt</b></a>
+    @foreach (var typ in typer)
+    {
+        Model.TypeCounts.TryGetValue(typ, out var antall);
+        <a asp-action="Resources" asp-route-type="@typ" asp-route-mine="@(mine ? "true" : null)" asp-route-city="@ViewBag.City" asp-route-query="@ViewBag.Query" asp-route-sort="@sort" asp-route-eligible="@(eligible ? "true" : null)" class="rl-pill @(typ == valgtType ? "is-active" : "")">@typ <b>@antall</b></a>
+    }
+</div>
+
+<div class="rl-heading">
+    <h2>@(mine ? "Mine ressurser" : "Alle ressurser") <span class="count-badge">@Model.Ressurser.Count</span></h2>
+    <div class="rl-sort">
+        <label for="rlSort">Sorter etter:</label>
+        <select id="rlSort" class="form-control" data-rl-sort>
+            <option value="nyest" selected="@(sort == "nyest")">Sist oppdatert</option>
+            <option value="navn" selected="@(sort == "navn")">Navn</option>
+            <option value="type" selected="@(sort == "type")">Type</option>
+            <option value="status" selected="@(sort == "status")">Status</option>
+        </select>
+    </div>
+</div>
+<details class="workspace-disclosure">
+    <summary>Hva betyr statusene?</summary>
+    <p>Registrering er ikke en godkjenning. Bare tilgjengelige ressurser med gyldig godkjenning kan forespørres. Etter en tildeling er fullført, blir ressursen «returnert» og må verifiseres på nytt.</p>
+</details>
+@if (Model.Ressurser.Count == 0)
+{
+    <p>Ingen ressurser passer valget. Prøv en annen type eller fjern søket.</p>
+}
+<div class="resource-list rl-grid" id="rlList">
+    @foreach (var r in sortert)
+    {
+        var status = ResourceOperationalStatus.From(r, now);
+        var typeNavn = r.Ressurstype?.Navn ?? "Ukjent";
+        var godkjentTil = WorkflowEligibility.GodkjentTil(r);
+        var tone = r.Status == Statuser.Ressurs.Tilgjengelig ? "good" : Statuser.Ressurs.Opptatt.Contains(r.Status) ? "info" : "warn";
+        var sted = NorwegianPlaces.Display(r.Stedsnavn, r.Breddegrad, r.Lengdegrad);
+        var ikon = Url.Content(RessursIkon.Sti(typeNavn, status));
+        var kanRedigere = ResourcePermissions.CanManage(User, r.EierID);
+        var aktivitet = Model.Activity.TryGetValue(r.RessursID, out var a) ? a : [];
+        var verifisert = status.Verification;
+        <article class="rc is-@tone" id="ressurs-@r.RessursID" data-rc>
+            <div class="rc-main">
+                <header class="rc-head">
+                    <span class="rc-icon"><img src="@ikon" alt="" width="36" height="36" /></span>
+                    <div>
+                        <h3>@r.Navn</h3>
+                        <p>@typeNavn</p>
+                    </div>
+                    <span class="rc-chip is-@tone">@status.Lifecycle</span>
+                </header>
+                <p class="rc-place"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.500A2.500 2.500 0 1 1 12 6.500a2.500 2.500 0 0 1 0 5z"/></svg>@sted</p>
+                <p class="rc-verify"><span class="rc-chip is-soft @(status.IsEligible ? "is-good" : "is-warn")">@verifisert</span></p>
+                <dl class="rc-facts">
+                    <div><dt>Eier</dt><dd>@(r.Eier?.FulltNavn ?? "Ukjent")</dd></div>
+                    <div><dt>Kapasitet</dt><dd>@r.Antall @r.Enhet</dd></div>
+                </dl>
+                <div class="rc-actions">
+                    <a asp-action="Map" asp-route-focus="@r.RessursID" asp-fragment="ressurs-@r.RessursID" class="rc-btn is-primary"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.500 7-12a7 7 0 0 0-14 0c0 5.500 7 12 7 12z"/><circle cx="12" cy="9" r="2.500"/></svg>Se i kart</a>
+                    @if (kanRedigere)
+                    {
+                        <a asp-action="Edit" asp-route-id="@r.RessursID" class="rc-btn">Rediger</a>
+                    }
+                    <button type="button" class="rc-btn rc-mapbtn" data-rc-toggle aria-expanded="false" aria-controls="rc-detail-@r.RessursID" title="Vis kart og detaljer" aria-label="Vis kart og detaljer for @r.Navn">
+                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="rc-detail" id="rc-detail-@r.RessursID" hidden>
+                <div class="rc-map" data-lat="@Inv(r.Breddegrad)" data-lng="@Inv(r.Lengdegrad)" data-icon="@ikon" data-label="@sted" role="img" aria-label="Kart over @r.Navn"></div>
+                <div class="rc-info">
+                    <dl>
+                        <div><dt>Adresse</dt><dd>@sted</dd></div>
+                        <div><dt>Eier</dt><dd>@(r.Eier?.FulltNavn ?? "Ukjent")</dd></div>
+                        <div><dt>Kapasitet</dt><dd>@r.Antall @r.Enhet@(r.ReservertAntall > 0 ? $" · {r.ReservertAntall} reservert" : "")</dd></div>
+                        <div><dt>Kontakt</dt><dd>@r.Kontaktperson, @r.Kontakttelefon</dd></div>
+                        <div><dt>Verifisering</dt><dd>@verifisert@(godkjentTil.HasValue ? " · gjelder til " + godkjentTil.Value.ToString("dd.MM.yyyy") : "")</dd></div>
+                        <div><dt>Registrert</dt><dd>@r.Registrert.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</dd></div>
+                        @if (!string.IsNullOrWhiteSpace(r.Beskrivelse))
+                        {
+                            <div><dt>Beskrivelse</dt><dd>@r.Beskrivelse</dd></div>
+                        }
+                    </dl>
+                    <h4>Siste aktivitet</h4>
+                    @if (aktivitet.Count == 0)
+                    {
+                        <p class="rc-empty">Ingen aktivitet registrert.</p>
+                    }
+                    else
+                    {
+                        <ol class="rc-timeline">
+                            @foreach (var h in aktivitet)
+                            {
+                                <li><strong>@ShellService.Menneskelig(h.Action)</strong><time datetime="@h.OccurredAtUtc.ToString("O")">@h.OccurredAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</time>@if (!string.IsNullOrWhiteSpace(h.Description)) { <span>@h.Description</span> }</li>
+                            }
+                        </ol>
+                    }
+                    <div class="rc-actions">
+                        <a asp-action="Map" asp-route-focus="@r.RessursID" asp-fragment="ressurs-@r.RessursID" class="rc-btn is-primary">Se i kart</a>
+                        <a href="https://www.google.com/maps/dir/?api=1&destination=@Inv(r.Breddegrad),@Inv(r.Lengdegrad)" target="_blank" rel="noopener" class="rc-btn">Veibeskrivelse</a>
+                        @if (User.IsInRole(AppRoles.DispatchTeam))
+                        {
+                            <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs" class="rc-btn">Koordiner</a>
+                        }
+                        @if (kanRedigere)
+                        {
+                            <a asp-action="Edit" asp-route-id="@r.RessursID" class="rc-btn">Rediger ressurs</a>
+                            <a asp-action="Delete" asp-route-id="@r.RessursID" class="rc-btn is-danger">Slett</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </article>
+    }
+</div>

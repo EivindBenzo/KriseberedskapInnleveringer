@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HeimevernetInnlevering1.Controllers;
 
-public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> signIn) : Controller
+public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> signIn, ShellService shell) : Controller
 {
     private const string LoginError = "Kunne ikke logge inn. Kontroller opplysningene eller prøv igjen senere.";
 
@@ -228,8 +228,18 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
         var user = await users.GetUserAsync(User);
         var data = user is null ? null : await users.GetAuthenticationTokenAsync(user, AvatarProvider, AvatarToken);
         if (data is null || !data.StartsWith(JpegPrefix, StringComparison.Ordinal)) return NotFound();
-        Response.Headers.CacheControl = "private, no-cache";
+        Response.Headers.CacheControl = "private, max-age=31536000, immutable";
         return File(Convert.FromBase64String(data[JpegPrefix.Length..]), "image/jpeg");
+    }
+
+    [Authorize, HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkNotificationsSeen()
+    {
+        var user = await users.GetUserAsync(User);
+        if (user is null) return Unauthorized();
+        var modell = await shell.HentAsync(User);
+        await users.SetAuthenticationTokenAsync(user, ShellService.Provider, ShellService.SettToken, string.Join('\n', modell.Nøkler));
+        return NoContent();
     }
 
     private static bool IsJpeg(string base64)

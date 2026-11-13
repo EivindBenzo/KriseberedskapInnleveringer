@@ -23,6 +23,26 @@
         });
     });
 
+    // Når bjellen åpnes, markeres varslene som sett og den røde prikken fjernes.
+    var bjelle = document.querySelector('.um-bell');
+    if (bjelle) {
+        bjelle.addEventListener('toggle', function () {
+            var prikk = bjelle.querySelector('.um-dot');
+            if (!bjelle.open || !prikk) return;
+            var token = document.querySelector('.user-menu input[name=__RequestVerificationToken]');
+            var kropp = new URLSearchParams();
+            if (token) kropp.set('__RequestVerificationToken', token.value);
+            fetch('/Account/MarkNotificationsSeen', { method: 'POST', body: kropp, credentials: 'same-origin' })
+                .then(function (r) { if (r.ok) prikk.remove(); })
+                .catch(function () { });
+        });
+    }
+
+    var vakt = document.querySelector('[data-vakt]');
+    if (vakt) {
+        vakt.addEventListener('change', function () { vakt.className = 'ph-select vakt-' + vakt.value; });
+    }
+
     // Skjuler profilbilder som ikke lastes, slik at initialer/ikon vises i stedet.
     document.querySelectorAll('.nav-avatar, [data-avatar-img]').forEach(function (img) {
         img.addEventListener('error', function () { img.remove(); });
