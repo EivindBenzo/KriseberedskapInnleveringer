@@ -1,0 +1,60 @@
+@model HeimevernetInnlevering1.Models.AssignDialogModel
+@using HeimevernetInnlevering1.Models
+@{
+    var need = Model.Need;
+    var akutt = need.Prioritet == Statuser.Prioritet.Akutt;
+    double Km(Ressurs r)
+    {
+        const double R = 6371;
+        var la1 = (double)need.Breddegrad * Math.PI / 180; var la2 = (double)r.Breddegrad * Math.PI / 180;
+        var dLa = la2 - la1; var dLo = ((double)r.Lengdegrad - (double)need.Lengdegrad) * Math.PI / 180;
+        var a = Math.Sin(dLa / 2) * Math.Sin(dLa / 2) + Math.Cos(la1) * Math.Cos(la2) * Math.Sin(dLo / 2) * Math.Sin(dLo / 2);
+        return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+    var liste = Model.Matches.Where(r => r.TilgjengeligAntall > 0).Select(r => (r, km: Km(r))).OrderBy(x => x.km).ToList();
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    string Enh(Ressurs r) => string.IsNullOrWhiteSpace(r.Enhet) ? "stk" : r.Enhet;
+    var førsteEnhet = liste.Count > 0 ? Enh(liste[0].r) : "stk";
+    var id = "assign-" + need.BehovID;
+}
+<dialog id="@id" class="dc-dialog as-dialog">
+    <form asp-controller="Operations" asp-action="CreateRequest" method="post" class="as-form" data-as-form>
+        <input type="hidden" name="needId" value="@need.BehovID" />
+        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+        <header class="as-head">
+            <i class="dc-ico dc-ico-alert">@Model.Icon@if (akutt) { <b class="dc-bang">!</b> }</i>
+            <div><h3>Tildel ressurs</h3><p>Send en forespørsel om ressurs til dette @(akutt ? "akutte " : "")behovet.</p></div>
+            <button type="button" class="as-x" data-dc-close aria-label="Lukk">&times;</button>
+        </header>
+        <div class="as-body">
+            <div class="as-need"><div><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div><span class="dc-pill">@Statuser.Visning(need.Prioritet)</span></div>
+            <div class="as-qtybox"><span>Behov: <b class="dc-q-name">@need.Behovstype?.Navn</b></span><span class="dc-q-sep"></span><span>Mangler: <b class="dc-q-num">@need.Mangler.ToString("0.##")</b> <em class="dc-unit" data-as-unit>@førsteEnhet</em> <small>av @need.Antall.ToString("0.##") <span data-as-unit>@førsteEnhet</span></small></span></div>
+            @if (!string.IsNullOrWhiteSpace(need.Beskrivelse)) { <p class="as-desc">@need.Beskrivelse</p> }
+            @if (liste.Count == 0)
+            {
+                <p class="empty-state">Ingen tilgjengelige ressurser av riktig type.</p>
+            }
+            else
+            {
+                <label class="as-label" for="@(id)-res">Velg ressurs <small>(nærmest først)</small></label>
+                <select id="@(id)-res" name="resourceId" class="as-select" data-as-select required>
+                    @foreach (var (r, km) in liste)
+                    {
+                        var maks = Math.Min(need.Mangler, r.TilgjengeligAntall);
+                        <option value="@r.RessursID" data-avail="@r.TilgjengeligAntall.ToString("0.##", inv)" data-max="@maks.ToString(inv)" data-unit="@Enh(r)">@r.Navn · @km.ToString("0") km · @r.TilgjengeligAntall.ToString("0.##") @Enh(r) ledig</option>
+                    }
+                </select>
+                <label class="as-label">Antall som tildeles</label>
+                <div class="as-qty-row">
+                    <div class="as-stepper"><button type="button" data-as-dec aria-label="Færre">&minus;</button><input type="number" name="quantity" step="0.01" min="0.01" data-as-qty required /><button type="button" data-as-inc aria-label="Flere">+</button></div>
+                    <em class="dc-unit" data-as-unit>@førsteEnhet</em>
+                    <span class="as-avail">Tilgjengelig: <b data-as-avail></b> <span data-as-unit>@førsteEnhet</span> · <b data-as-km></b> km unna</span>
+                </div>
+            }
+        </div>
+        <footer class="as-foot">
+            <button type="button" class="dc-ghost" data-dc-close>Avbryt</button>
+            <button type="submit" class="dc-primary" @(liste.Count == 0 ? "disabled" : "")>📦 Send forespørsel</button>
+        </footer>
+    </form>
+</dialog>

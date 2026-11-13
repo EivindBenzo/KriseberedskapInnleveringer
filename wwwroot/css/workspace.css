@@ -1714,3 +1714,42 @@ body.dark .hx-pincount,[data-theme=dark] .hx-pincount{background:#14532d;color:#
 :root[data-theme="dark"] .dc-urgent .dc-q-name,:root[data-theme="dark"] .dc-urgent .dc-q-num{color:#f1f7f8}
 :root[data-theme="dark"] .dc-urgent .dc-unit{background:#134e4a;color:#99f6e4}
 :root[data-theme="dark"] .dc-urgent .dc-actions .dc-primary{background:#14b8a6;border-color:#14b8a6;color:#04201d}
+
+/* Round 26: assign dialog */
+.as-dialog{border:0;border-radius:20px;padding:0;width:min(560px,94vw);box-shadow:0 30px 80px rgba(15,35,45,.35);background:#fff;color:#12303a}
+.as-dialog::backdrop{background:rgba(20,40,50,.45);backdrop-filter:blur(3px)}
+.as-form{display:flex;flex-direction:column}
+.as-head{display:grid;grid-template-columns:auto 1fr auto;gap:1rem;align-items:center;padding:1.3rem 1.4rem .6rem}
+.as-head h3{margin:0;font-size:1.5rem}.as-head p{margin:.15rem 0 0;color:#5b6b73;font-size:.92rem}
+.as-head .dc-ico-alert{position:relative;width:56px;height:56px;display:grid;place-items:center;font-size:1.7rem;background:#fdebd8;border-radius:14px;font-style:normal}
+.as-head .dc-bang{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#d92d20;color:#fff;font-size:.8rem;display:grid;place-items:center;border:2px solid #fff}
+.as-x{background:none;border:0;font-size:1.8rem;line-height:1;cursor:pointer;color:#12303a;align-self:start}
+.as-body{padding:.4rem 1.4rem 1rem;display:flex;flex-direction:column;gap:.7rem}
+.as-need{display:flex;justify-content:space-between;align-items:center;background:#fbf4ef;border-radius:12px;padding:.8rem 1rem}
+.as-need div{display:grid}.as-need span:not(.dc-pill){color:#5b6b73;font-size:.9rem}
+.as-qtybox{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .9rem;background:#fbf4ef;border-radius:12px;padding:.65rem 1rem;color:#5b6b73}
+.as-qtybox .dc-q-name{font-size:1.15rem;color:#b42318}.as-qtybox .dc-q-num{font-size:1.5rem;color:#b42318}
+.as-qtybox .dc-q-sep{width:1px;height:1.6rem;background:#d9cfc8}
+.as-qtybox .dc-unit,.as-qty-row .dc-unit{font-style:normal;font-weight:700;background:#cfe9e6;color:#0f3d3a;border-radius:999px;padding:.2rem .8rem}
+.as-desc{margin:0}
+.as-label{font-weight:700;margin-top:.3rem}.as-label small{font-weight:400;color:#5b6b73}
+.as-select{width:100%;padding:.7rem .8rem;border:1px solid #cbd5d9;border-radius:12px;background:#f4f8f8;font-size:1rem;color:inherit}
+.as-qty-row{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.as-stepper{display:flex;border:1px solid #cbd5d9;border-radius:12px;overflow:hidden}
+.as-stepper button{width:42px;border:0;background:#fff;font-size:1.3rem;cursor:pointer;color:inherit}
+.as-stepper input{width:80px;text-align:center;border:0;border-left:1px solid #e1e8ea;border-right:1px solid #e1e8ea;font-size:1rem;background:transparent;color:inherit;-moz-appearance:textfield}
+.as-stepper input::-webkit-outer-spin-button,.as-stepper input::-webkit-inner-spin-button{-webkit-appearance:none}
+.as-avail{margin-left:auto;color:#5b6b73;font-size:.9rem}
+.as-foot{display:flex;justify-content:flex-end;gap:.7rem;padding:1rem 1.4rem;border-top:1px solid #e1e8ea}
+.as-foot .dc-primary{background:#0f5f5a;color:#fff;border:1px solid #0f5f5a;border-radius:10px;padding:.7rem 1.4rem;font-weight:700;cursor:pointer;flex:1;max-width:260px}
+.as-foot .dc-ghost{background:#fff;color:#0f5f5a;border:1px solid #0f5f5a;border-radius:10px;padding:.7rem 1.4rem;font-weight:700;cursor:pointer}
+.as-foot .dc-primary:disabled{opacity:.5;cursor:not-allowed}
+:root[data-theme="dark"] .as-dialog{background:#13242b;color:#e6f0f2}
+:root[data-theme="dark"] .as-need,:root[data-theme="dark"] .as-qtybox{background:#2a1f1a;color:#cfe3e8}
+:root[data-theme="dark"] .as-select,:root[data-theme="dark"] .as-stepper button{background:#1b323b;color:#e6f0f2;border-color:#2d4a55}
+:root[data-theme="dark"] .as-stepper{border-color:#2d4a55}
+:root[data-theme="dark"] .as-foot{border-color:#2d4a55}
+:root[data-theme="dark"] .as-x{color:#e6f0f2}
+:root[data-theme="dark"] .as-qtybox .dc-unit,:root[data-theme="dark"] .as-qty-row .dc-unit{background:#134e4a;color:#99f6e4}
+:root[data-theme="dark"] .as-foot .dc-primary{background:#14b8a6;border-color:#14b8a6;color:#04201d}
+:root[data-theme="dark"] .as-foot .dc-ghost{background:transparent;color:#7ff3ee;border-color:#2f8f8a}

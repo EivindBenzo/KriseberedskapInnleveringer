@@ -355,30 +355,14 @@ else
                 <div class="dc-btns">
                     @if (need.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes)
                     {
-                        <button type="button" class="dc-primary" data-dc-toggle>Tildel ressurs (@matches.Count)</button>
+                        <button type="button" class="dc-primary" data-dc-dialog="assign-@need.BehovID">Tildel ressurs (@matches.Count)</button>
                     }
                 </div>
             </div>
             <div class="dc-chips"><span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
             <p class="dc-desc">@need.Beskrivelse</p>
             <div class="dc-meta dc-col"><span>👤 @need.Kontaktperson · 📞 @need.Kontakttelefon</span><span>Antall: @need.Antall@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")@(need.Hendelse is Hendelse h ? " · " + h.Navn : "")</span></div>
-            <div class="dc-more" hidden>
-                @if (matches.Count == 0)
-                {
-                    <p class="empty-state">Ingen tilgjengelige ressurser av riktig type.</p>
-                }
-                @foreach (var resource in matches)
-                {
-                    <form asp-controller="Operations" asp-action="CreateRequest" method="post" class="inline-form">
-                        <input type="hidden" name="needId" value="@need.BehovID" />
-                        <input type="hidden" name="resourceId" value="@resource.RessursID" />
-                        <input type="hidden" name="returnUrl" value="@Tilbake("behov-" + need.BehovID)" />
-                        <span><strong>@resource.Navn</strong> · @resource.Ressurstype?.Navn · @resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet tilgjengelig</span>
-                        @{ var maksAntall = Math.Min(need.Mangler, resource.TilgjengeligAntall).ToString(System.Globalization.CultureInfo.InvariantCulture); }<label>Antall <input type="number" name="quantity" min="0.01" max="@maksAntall" step="0.01" value="@maksAntall" required /></label>
-                        <button type="submit" class="dc-primary">Send forespørsel</button>
-                    </form>
-                }
-            </div>
+            @await Html.PartialAsync("_AssignDialog", new AssignDialogModel(need, matches, Tilbake("behov-" + need.BehovID), TypeIkon(need.Behovstype?.Navn)))
         </article>
     }
     </div>
@@ -453,26 +437,9 @@ else
             <p class="dc-desc">@need.Beskrivelse</p>
             <div class="dc-meta"><span>👤 @need.Kontaktperson</span><span>📞 @need.Kontakttelefon</span>@if (need.Frist is DateTime frist) { <span>⏱ frist @Stamp(frist)</span> }</div>
             <div class="dc-actions">
-                <button type="button" class="dc-primary" data-dc-toggle>📦 Tildel ressurser (@passende.Count)</button>
+                <button type="button" class="dc-primary" data-dc-dialog="assign-@need.BehovID">📦 Tildel ressurser (@passende.Count)</button>
             </div>
-            <div class="dc-more" hidden>
-                @if (passende.Count == 0)
-                {
-                    <p class="empty-state">Ingen tilgjengelige ressurser av typen @need.Behovstype?.Navn.</p>
-                }
-                @foreach (var resource in passende)
-                {
-                    var maks = Math.Min(mangler, resource.TilgjengeligAntall);
-                    <form asp-controller="Operations" asp-action="CreateRequest" method="post" class="inline-form">
-                        <input type="hidden" name="needId" value="@need.BehovID" />
-                        <input type="hidden" name="resourceId" value="@resource.RessursID" />
-                        <input type="hidden" name="returnUrl" value="@Tilbake("behov-" + need.BehovID)" />
-                        <span><strong>@resource.Navn</strong> · @resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet tilgjengelig</span>
-                        <label>Antall <input type="number" name="quantity" min="0.01" max="@maks.ToString(System.Globalization.CultureInfo.InvariantCulture)" step="0.01" value="@maks.ToString(System.Globalization.CultureInfo.InvariantCulture)" required /></label>
-                        <button type="submit" class="dc-primary">Send forespørsel</button>
-                    </form>
-                }
-            </div>
+            @await Html.PartialAsync("_AssignDialog", new AssignDialogModel(need, passende, Tilbake("behov-" + need.BehovID), TypeIkon(need.Behovstype?.Navn)))
         </article>
     }
     </div>

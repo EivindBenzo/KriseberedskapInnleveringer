@@ -93,3 +93,24 @@ document.addEventListener('click', function (e) {
     }
     if (document.querySelector('[data-dashboard-panel]')) { window.addEventListener('hashchange', go); go(); }
 })();
+
+/* Round 26: assign dialog */
+(function () {
+    function sync(form, resetQty) {
+        var sel = form.querySelector('[data-as-select]'); if (!sel || !sel.selectedOptions.length) return;
+        var o = sel.selectedOptions[0], q = form.querySelector('[data-as-qty]');
+        form.querySelectorAll('[data-as-unit]').forEach(function (n) { n.textContent = o.dataset.unit; });
+        form.querySelector('[data-as-avail]').textContent = o.dataset.avail;
+        var km = /· (\d+) km/.exec(o.textContent); form.querySelector('[data-as-km]').textContent = km ? km[1] : '–';
+        q.max = o.dataset.max;
+        if (resetQty || Number(q.value) > Number(q.max)) q.value = o.dataset.max;
+    }
+    document.querySelectorAll('[data-as-form]').forEach(function (f) {
+        sync(f, true);
+        var sel = f.querySelector('[data-as-select]'); if (sel) sel.addEventListener('change', function () { sync(f, true); });
+        var q = f.querySelector('[data-as-qty]'); if (!q) return;
+        var step = function (d) { var v = Number(q.value || 0) + d; v = Math.max(Number(q.min), Math.min(Number(q.max), v)); q.value = Math.round(v * 100) / 100; };
+        f.querySelector('[data-as-dec]').addEventListener('click', function () { step(-1); });
+        f.querySelector('[data-as-inc]').addEventListener('click', function () { step(1); });
+    });
+})();
