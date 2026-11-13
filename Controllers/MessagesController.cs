@@ -58,4 +58,35 @@ public class MessagesController(AppDbContext db) : Controller
         TempData["MessageSuccess"] = "Meldingen er sendt.";
         return LocalRedirect(Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Action("Contacts", "Home")!);
     }
-}
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendGroup(int[] recipientIds, string subject, string body, string? returnUrl)
+    {
+        var senderId = ResourcePermissions.BrukerId(User);
+        if (senderId is null) return Forbid();
+        var back = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Action("Contacts", "Home")!;
+        var ids = recipientIds.Where(id => id != senderId).Distinct().ToList();
+        var members = await db.Users.Where(user => ids.Contains(user.Id)).ToListAsync();
+        if (members.Count < 2 || string.IsNullOrWhiteSpace(subject) || subject.Trim().Length > 140 ||
+            string.IsNullOrWhiteSpace(body) || body.Trim().Length > 1800)
+        {
+            TempData["MessageError"] = "Velg minst to personer og skriv et emne og en melding.";
+            return LocalRedirect(back);
+        }
+
+        var deltakere = string.Join(", ", members.Select(member => member.FulltNavn));
+        foreach (var member in members)
+        {
+            db.Meldinger.Add(new Melding
+            {
+                SendtAvID = senderId.Value,
+                MottakerID = member.Id,
+                Emne = "Gruppechat: " + subject.Trim(),
+                Innhold = body.Trim() + "\n\nDeltakere: " + deltakere
+            });
+        }
+        await db.SaveChangesAsync();
+        TempData["MessageSuccess"] = $"Gruppemeldingen er sendt til {members.Count} personer.";
+        return LocalRedirect(back);
+    }}

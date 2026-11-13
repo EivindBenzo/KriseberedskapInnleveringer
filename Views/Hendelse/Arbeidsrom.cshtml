@@ -10,9 +10,10 @@
         "HendelsePrioritet" => "Prioritet endret",
         _ => HeimevernetInnlevering1.Services.ShellService.Menneskelig(handling)
     };
+    var closed = Model.Incident.Status == Statuser.Hendelse.Avsluttet;
     var akutte = Model.OpenNeeds.Count(b => b.Prioritet == Statuser.Prioritet.Akutt);
 }
-<section class="iw" aria-labelledby="incident-workspace-heading">
+<section class="iw@(closed ? " is-closed" : "")" aria-labelledby="incident-workspace-heading">
     <div class="iw-banner">
         <div class="iw-banner-text">
             <span class="iw-eyebrow">HENDELSESARBEIDSROM</span>
@@ -23,6 +24,10 @@
             </p>
             <a asp-action="Index" class="iw-back">← Alle hendelser</a>
         </div>
+        @if (closed)
+        {
+            <div class="iw-banner-status"><span class="iw-pill"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg> Avsluttet</span><strong>Hendelsen er avsluttet</strong><span>Operasjonen er fullført.</span></div>
+        }
         <div class="iw-banner-img" aria-hidden="true"></div>
     </div>
 
@@ -35,6 +40,10 @@
         <p class="notice" role="status">@success</p>
     }
 
+    @if (closed)
+    {
+        <p class="iw-closed-note"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg> Denne hendelsen er avsluttet. Alle behov og tildelinger er lukket.</p>
+    }
     @if (!string.IsNullOrWhiteSpace(Model.Incident.Beskrivelse))
     {
         <p class="iw-info"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 11v5M12 8h.01"/></svg>@Model.Incident.Beskrivelse</p>
@@ -42,12 +51,17 @@
 
     <nav class="iw-tabs" aria-label="Hendelsesarbeidsrom">
         <a class="is-active" aria-current="page" asp-action="Arbeidsrom" asp-route-id="@Model.Incident.HendelseID">Arbeidsrom</a>
+        @if (closed) { <span class="iw-lock"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Lukket arbeidsrom (lesetilgang)</span> }
     </nav>
 
-    <section class="iw-metrics" aria-label="Hendelsessammendrag">
-        <div class="iw-metric is-red"><i><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></svg></i><span>Akutte behov</span><strong>@akutte</strong></div>
+    <section class="iw-metrics@(closed ? " has-status" : "")" aria-label="Hendelsessammendrag">
+        <div class="iw-metric is-red"><i><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></svg></i><span>Akutte behov</span><strong>@akutte</strong>@if (closed) { <small>Håndtert og lukket</small> }</div>
         <div class="iw-metric is-blue"><i><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></i><span>Åpne behov</span><strong>@Model.OpenNeeds.Count</strong></div>
         <div class="iw-metric is-green"><i><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg></i><span>Aktive tildelinger</span><strong>@Model.ActiveAssignments.Count</strong></div>
+    @if (closed)
+        {
+            <div class="iw-metric is-green is-status"><i><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg></i><span>Status</span><strong>Avsluttet</strong></div>
+        }
     </section>
 
     <div class="iw-grid">

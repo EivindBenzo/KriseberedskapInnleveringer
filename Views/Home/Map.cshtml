@@ -87,17 +87,26 @@
             <div id="mapPanelBody"></div>
         </aside>
         <aside id="placementConfirmation" class="map-panel pc-panel" role="dialog" aria-label="Bekreft plassering" hidden>
+            <button type="button" class="mp-close" id="pcClose" aria-label="Avbryt">&times;</button>
             <div class="mp-head">
                 <span class="mp-icon"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.500 7-12a7 7 0 0 0-14 0c0 5.500 7 12 7 12z"/><circle cx="12" cy="9" r="2.500"/></svg></span>
-                <div><span class="mp-kicker">Ny ressurs</span><strong class="mp-title">Bekreft plassering</strong></div>
+                <div><span class="mp-kicker">Ny ressurs &middot; <span id="pcType">Ressurs</span></span><strong class="mp-title" id="pcName">Ny ressurs</strong></div>
             </div>
             <div class="mp-body">
-                <p class="mp-line"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.500 7-12a7 7 0 0 0-14 0c0 5.500 7 12 7 12z"/><circle cx="12" cy="9" r="2.500"/></svg><span id="placementLabel">Kontroller plasseringen før du fortsetter.</span></p>
-                <p class="mp-desc">Er dette stedet du vil plassere ressursen? Du kan klikke et nytt punkt i kartet for å flytte den.</p>
+                <p class="mp-line"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.500 7-12a7 7 0 0 0-14 0c0 5.500 7 12 7 12z"/><circle cx="12" cy="9" r="2.500"/></svg><span id="placementLabel">Valgt punkt</span></p>
+                <p class="mp-line"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6z"/></svg><span></span></p>
+                <div class="mp-chips"><span class="mp-chip is-info">Venter p&aring; bekreftelse</span></div>
+                <div class="mp-tabs" role="tablist"><button type="button" aria-selected="true">Oversikt</button></div>
+                <dl class="mp-facts">
+                    <div><dt>Breddegrad</dt><dd id="pcLat">&ndash;</dd></div>
+                    <div><dt>Lengdegrad</dt><dd id="pcLng">&ndash;</dd></div>
+                    <div><dt>Type</dt><dd id="pcType2">&ndash;</dd></div>
+                    <div><dt>Tips</dt><dd>Klikk i kartet for &aring; flytte punktet</dd></div>
+                </dl>
             </div>
             <div class="pc-actions">
                 <button type="button" id="cancelPlacement" class="pc-btn is-cancel">Avbryt</button>
-                <button type="button" id="confirmPlacement" class="pc-btn is-confirm">Bekreft plassering</button>
+                <button type="button" id="confirmPlacement" class="pc-btn is-confirm">Bekreft</button>
             </div>
         </aside>
         <div class="map-key" aria-label="Tegnforklaring">

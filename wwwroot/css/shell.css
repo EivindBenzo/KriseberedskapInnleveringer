@@ -139,3 +139,10 @@ body.shell-body { min-height: 100vh; background: var(--page); }
 :root[data-theme="dark"] .ph-select.vakt-pa { color: #bbf7d0; background: #143629; border-color: #22c55e; }
 :root[data-theme="dark"] .ph-select.vakt-beredskap { color: #d1d5db; background: #2b3038; border-color: #6b7280; }
 :root[data-theme="dark"] .ph-select.vakt-av { color: #fecaca; background: #451a1a; border-color: #ef4444; }
+
+/* Round 9 */
+.um-bell > summary:hover,.um-bell[open] > summary{background:rgba(255,255,255,.16)!important;border-color:rgba(255,255,255,.4)!important;box-shadow:0 0 0 3px rgba(255,255,255,.1);transform:none!important}
+.um-bell > summary:hover svg{color:#fff}
+.ph-select option[value="pa"]{color:#14532d;background:#dcfce7}
+.ph-select option[value="beredskap"]{color:#374151;background:#e5e7eb}
+.ph-select option[value="av"]{color:#7f1d1d;background:#fee2e2}

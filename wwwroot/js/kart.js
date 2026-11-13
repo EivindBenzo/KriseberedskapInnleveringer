@@ -279,6 +279,12 @@
     function showConfirmation(latlng) {
         confirmation.hidden = false;
         confirmationLabel.textContent = 'Valgt punkt: ' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5);
+        const set = function (id, v) { const e = document.getElementById(id); if (e) e.textContent = v; };
+        const nm = document.getElementById('resourceName'), ty = document.getElementById('resourceType');
+        set('pcName', nm && nm.value.trim() ? nm.value.trim() : 'Ny ressurs');
+        const tv = ty && ty.value ? ty.value : 'Ressurs';
+        set('pcType', tv); set('pcType2', tv);
+        set('pcLat', latlng.lat.toFixed(5)); set('pcLng', latlng.lng.toFixed(5));
     }
 
     if (p.lat != null) showConfirmation({ lat: p.lat, lng: p.lng });
@@ -309,6 +315,8 @@
         form.requestSubmit();
     });
 
+    const pcClose = document.getElementById('pcClose');
+    if (pcClose) pcClose.addEventListener('click', function () { cancelPlacement.click(); });
     cancelPlacement.addEventListener('click', function () {
         placementConfirmed = false;
         placementEnabled = false;

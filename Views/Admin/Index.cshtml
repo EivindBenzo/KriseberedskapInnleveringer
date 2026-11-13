@@ -79,3 +79,10 @@
     [s, r, st].forEach(function (e) { e.addEventListener('input', f); });
 })();
 </script>
+<script>
+(function(){
+    function closeAll(except){document.querySelectorAll("details.bu-edit[open]").forEach(function(d){if(d!==except)d.removeAttribute("open");});}
+    document.addEventListener("click",function(e){closeAll(e.target.closest("details.bu-edit"));});
+    document.addEventListener("keydown",function(e){if(e.key==="Escape")closeAll(null);});
+})();
+</script>
