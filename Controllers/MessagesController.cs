@@ -14,7 +14,7 @@ public class MessagesController(AppDbContext db) : Controller
     private const string ParticipantMarker = "\n\nDeltakere: ";
 
     [HttpGet]
-    public async Task<IActionResult> Inbox()
+    public async Task<IActionResult> Inbox(int? with)
     {
         var actorId = ResourcePermissions.BrukerId(User);
         if (actorId is null) return Forbid();
@@ -101,7 +101,16 @@ public class MessagesController(AppDbContext db) : Controller
             }
         }
 
-        return View(new InboxViewModel { Threads = threads.OrderByDescending(t => t.LastAtUtc).ToList() });
+        if (with is int partner && partner != me && byId.TryGetValue(partner, out var contact) && !threads.Any(t => t.Key == "d|" + partner))
+        {
+            var role = roleOf.GetValueOrDefault(partner, "");
+            threads.Add(new MessageThread("d|" + partner, false, contact.FulltNavn, string.IsNullOrEmpty(role) ? "Kontakt" : AppRoles.Label(role), RoleClass(role),
+                Initials(contact.FulltNavn), [partner], [contact.FulltNavn], "Melding", 0, DateTime.UtcNow, "", []));
+        }
+        var ordered = threads.OrderByDescending(t => t.LastAtUtc).ToList();
+        if (with is int w) ViewBag.OpenIndex = ordered.FindIndex(t => t.Key == "d|" + w);
+        return View(new InboxViewModel { Threads = ordered });
+
     }
     [HttpPost]
     [ValidateAntiForgeryToken]

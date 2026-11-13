@@ -1474,3 +1474,13 @@ body:has(.nb) .main-content{display:flex;flex-direction:column;overflow:hidden;m
 .dc-assign .dc-steps li.is-now{color:#0f5f5a;font-weight:700}
 .dc-foot{display:flex;gap:.8rem;flex-wrap:wrap;background:#f1f4f3;border-radius:10px;padding:.5rem .7rem;font-size:.82rem;color:#34423f}
 .dc-foot span+span{border-left:1px solid #cfd8d6;padding-left:.8rem}
+.dc-link-btn{display:inline-flex;align-items:center;text-decoration:none;border-radius:8px;padding:.4rem .7rem;font-weight:600}
+.dc-head .dc-link-btn{background:#0f5f5a;color:#fff}
+.dc-assign .dc-btns .dc-link-btn.dc-ghost{border:1px solid #0f5f5a;color:#0f5f5a;background:#fff}
+.dc-chips{display:flex;gap:.4rem;flex-wrap:wrap;margin:.7rem 0 .5rem}
+.dc-assign .dc-desc{margin:.5rem 0 0;font-size:.85rem}
+.dc-assign .dc-more{margin-top:.6rem}
+.map-full .rail-chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem}
+.map-full .rail-chips a,.map-full .rail-chips a:hover,.map-full .rail-chips a.is-active{justify-content:center;white-space:nowrap;padding:.35rem .4rem!important;font-size:.82rem!important;border-width:1px!important;box-sizing:border-box;min-width:0}
+dialog.mt-dlg[open]{display:flex;flex-direction:column;position:fixed;inset:0;margin:auto;width:80vw;height:80vh;max-width:80vw;max-height:80vh}
+dialog.mt-dlg .mt-box{height:100%;max-height:100%;min-height:0;flex:1}

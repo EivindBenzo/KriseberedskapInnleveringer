@@ -62,7 +62,7 @@
                             @Html.AntiForgeryToken()
                             @if (th.IsGroup) { foreach (var id in th.OtherIds) { <input type="hidden" name="recipientIds" value="@id" /> } }
                             else { <input type="hidden" name="recipientId" value="@th.OtherIds[0]" /> }
-                            <input type="hidden" name="subject" value="@(th.IsGroup ? th.ReplySubject : "SV: " + th.ReplySubject)" />
+                            <input type="hidden" name="subject" value="@(th.IsGroup || th.Messages.Count == 0 ? th.ReplySubject : "SV: " + th.ReplySubject)" />
                             <input type="hidden" name="returnUrl" value="@(Context.Request.Path + "?open=" + i)" />
                             <textarea name="body" required maxlength="1800" placeholder="Skriv svar …" aria-label="Skriv svar"></textarea>
                             <button type="submit" class="mt-send">Send svar</button>
@@ -92,6 +92,7 @@
         });
     });
     var q = new URLSearchParams(location.search).get('open');
+    if (q === null && @(((ViewBag.OpenIndex as int?) ?? -1)) >= 0) q = '@(ViewBag.OpenIndex)';
     if (q !== null) open(q);
 })();
 </script>

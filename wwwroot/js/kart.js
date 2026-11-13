@@ -122,7 +122,6 @@
     const markorPerRessurs = {};
     let valgtMarkor = null;
     let forrigeVisning = null;
-    let forrigeVisning = null;
 
     function avstandTekst(lat, lng) {
         const km = brukerPosisjon.distanceTo(L.latLng(lat, lng)) / 1000;

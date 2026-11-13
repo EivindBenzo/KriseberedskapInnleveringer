@@ -163,59 +163,64 @@ else
     }
     </section>
 
-    <section class="dashboard-panel" data-dashboard-panel="confirmed" hidden>
-    <div class="results-heading section-head">
-        <h2 id="mine-ressurser">Mine ressurser <span class="count-badge">@Model.OwnResources.Count</span></h2>
-        <a asp-action="Map" asp-route-register="true" class="btn-submit">Registrer ressurs</a>
-    </div>
+    <section class="dashboard-panel dc-panel" data-dashboard-panel="confirmed" hidden>
+    <div class="dc-head"><h2 id="mine-ressurser">Mine ressurser <span class="count-badge">@Model.OwnResources.Count</span></h2>
+        <a asp-action="Map" asp-route-register="true" class="dc-primary dc-link-btn">Registrer ressurs</a></div>
     @if (Model.OwnResources.Count == 0)
     {
         <p class="empty-state">Du har ikke registrert noen ressurser ennå.</p>
     }
+    <div class="dc-grid">
     @foreach (var resource in Model.OwnResources)
     {
         var status = ResourceOperationalStatus.From(resource, now);
         var sisteAvvisning = resource.Verifiseringer.OrderByDescending(v => v.Tidspunkt).FirstOrDefault();
-        <article id="min-ressurs-@resource.RessursID" class="workflow-item">
-            <div class="results-heading">
-                <h3>@resource.Navn</h3>
-                <div>
-                    <span class="status-badge @ResourceChip(resource)">@Statuser.Visning(resource.Status)</span>
-                    @if (status.Verification != status.Lifecycle)
+        var rn = (resource.Ressurstype?.Navn ?? "").ToLowerInvariant();
+        var rikon = rn.Contains("generator") ? "⚡" : rn.Contains("kjøretøy") ? "🚗" : rn.Contains("personell") ? "👥" : rn.Contains("drone") ? "🛸" : rn.Contains("maskin") ? "🚜" : "📦";
+        <article id="min-ressurs-@resource.RessursID" class="dc-card dc-assign">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@rikon</i>
+                <div class="dc-title"><strong>@resource.Navn</strong><span>📍 @resource.Ressurstype?.Navn · @resource.Stedsnavn</span></div>
+                <div class="dc-btns">
+                    @if (resource.Status is Statuser.Ressurs.Tilgjengelig or Statuser.Ressurs.Utilgjengelig)
                     {
-                        <span class="status-badge @(status.Verification == "Godkjent" ? "status-positive" : "status-warning")">@status.Verification</span>
+                        var settTilgjengelig = resource.Status == Statuser.Ressurs.Utilgjengelig;
+                        <button type="submit" form="av-@resource.RessursID" class="dc-primary">@(settTilgjengelig ? "Sett tilgjengelig" : "Sett utilgjengelig")</button>
                     }
+                    @if (!Statuser.Ressurs.Opptatt.Contains(resource.Status))
+                    {
+                        <a asp-action="Edit" asp-route-id="@resource.RessursID" class="dc-ghost dc-link-btn">Rediger</a>
+                    }
+                    <button type="button" class="dc-ghost" data-dc-toggle>Historikk</button>
                 </div>
             </div>
-            <p class="resource-meta">@resource.Ressurstype?.Navn · @resource.Stedsnavn</p>
-            <p class="inventory-summary"><strong>@resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet</strong> tilgjengelig av @resource.Antall.ToString("0.##") @resource.Enhet@(resource.ReservertAntall > 0 ? $" · {resource.ReservertAntall:0.##} reservert" : "") · @(resource.ErForbruksvare ? "forbruksvare" : "returneres etter bruk")</p>
+            <div class="dc-chips">
+                <span class="status-badge @ResourceChip(resource)">@Statuser.Visning(resource.Status)</span>
+                @if (status.Verification != status.Lifecycle)
+                {
+                    <span class="status-badge @(status.Verification == "Godkjent" ? "status-positive" : "status-warning")">@status.Verification</span>
+                }
+            </div>
+            <div class="dc-foot"><span><strong>@resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet</strong> av @resource.Antall.ToString("0.##")@(resource.ReservertAntall > 0 ? $" · {resource.ReservertAntall:0.##} reservert" : "")</span><span>@(resource.ErForbruksvare ? "Forbruksvare" : "Returneres")</span></div>
             @if (resource.Status == Statuser.Ressurs.VenterPåVerifisering)
             {
-                <p>Ressursen er ikke synlig for dispatch før den er verifisert.</p>
+                <p class="dc-desc">Ressursen er ikke synlig for dispatch før den er verifisert.</p>
             }
             @if (resource.Status == Statuser.Ressurs.Avvist && sisteAvvisning?.Begrunnelse is string grunn)
             {
-                <p><strong>Avvist:</strong> @grunn</p>
+                <p class="dc-desc"><strong>Avvist:</strong> @grunn</p>
             }
-            <div class="inline-form">
-                @if (resource.Status is Statuser.Ressurs.Tilgjengelig or Statuser.Ressurs.Utilgjengelig)
-                {
-                    var settTilgjengelig = resource.Status == Statuser.Ressurs.Utilgjengelig;
-                    <form asp-controller="Operations" asp-action="Availability" method="post">
-                        <input type="hidden" name="id" value="@resource.RessursID" />
-                        <input type="hidden" name="available" value="@(settTilgjengelig ? "true" : "false")" />
-                        <input type="hidden" name="returnUrl" value="@Tilbake("min-ressurs-" + resource.RessursID)" />
-                        <button type="submit" class="btn-secondary">@(settTilgjengelig ? "Sett tilgjengelig" : "Sett utilgjengelig")</button>
-                    </form>
-                }
-                @if (!Statuser.Ressurs.Opptatt.Contains(resource.Status))
-                {
-                    <a asp-action="Edit" asp-route-id="@resource.RessursID" class="btn-secondary">Rediger</a>
-                }
+            <form id="av-@resource.RessursID" asp-controller="Operations" asp-action="Availability" method="post" hidden>
+                <input type="hidden" name="id" value="@resource.RessursID" />
+                <input type="hidden" name="available" value="@(resource.Status == Statuser.Ressurs.Utilgjengelig ? "true" : "false")" />
+                <input type="hidden" name="returnUrl" value="@Tilbake("min-ressurs-" + resource.RessursID)" />
+            </form>
+            <div class="dc-more" hidden>
+                @await Html.PartialAsync("_Timeline", Model.ResourceTimeline.GetValueOrDefault(resource.RessursID))
             </div>
-            @await Html.PartialAsync("_Timeline", Model.ResourceTimeline.GetValueOrDefault(resource.RessursID))
         </article>
     }
+    </div>
     </section>
 }
 
@@ -247,8 +252,7 @@ else
 @if (dispatch)
 {
     <section class="dashboard-panel dc-panel" data-dashboard-panel="requests" hidden>
-    <div class="dc-head"><h2 id="verifiseringskoe">Venter på verifisering <span class="count-badge">@Model.VerificationQueue.Count</span></h2>
-        <a asp-controller="Home" asp-action="Dashboard">Se alle til verifisering →</a></div>
+    <div class="dc-head"><h2 id="verifiseringskoe">Venter på verifisering <span class="count-badge">@Model.VerificationQueue.Count</span></h2></div>
     @if (Model.VerificationQueue.Count == 0)
     {
         <p class="empty-state">Ingen ressurser venter på verifisering.</p>
@@ -256,7 +260,7 @@ else
     <div class="dc-grid">
     @foreach (var resource in Model.VerificationQueue)
     {
-        <article class="dc-card is-orange">
+        <article id="verifisering-@resource.RessursID" class="dc-card is-orange">
             <form asp-controller="Operations" asp-action="Verify" method="post" class="dc-verify">
                 <input type="hidden" name="id" value="@resource.RessursID" />
                 <input type="hidden" name="returnUrl" value="@Tilbake("verifiseringskoe")" />
@@ -367,8 +371,7 @@ else
 @if (dispatch)
 {
     <section class="dashboard-panel dashboard-urgent-panel dc-panel" data-dashboard-panel="urgent" hidden>
-    <div class="dc-head"><h2 id="akutte-behov">Akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2>
-        <a asp-controller="Home" asp-action="Dashboard">Se alle behov →</a></div>
+    <div class="dc-head"><h2 id="akutte-behov">Akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2></div>
     @if (Model.UrgentNeeds.Count == 0)
     {
         <p class="empty-state">Ingen akutte behov akkurat nå.</p>

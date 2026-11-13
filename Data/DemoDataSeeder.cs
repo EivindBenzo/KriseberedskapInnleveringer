@@ -27,6 +27,15 @@ public static class DemoDataSeeder
                 Status = Statuser.Hendelse.Planlagt, Prioritet = Statuser.HendelsePrioritet.Medium,
                 Breddegrad = 60.7945m, Lengdegrad = 11.0680m
             });
+        if (!await db.Hendelser.AnyAsync(h => h.Navn == "Skogbrann i Lærdal"))
+            db.Hendelser.Add(new Hendelse
+            {
+                OpprettetAvID = leader, Navn = "Skogbrann i Lærdal", Område = "Lærdal",
+                Beskrivelse = "Omfattende skogbrann i tørt terreng. Brannvesen og mannskap trengs, og evakuering vurderes.",
+                Starttidspunkt = now.AddHours(-6),
+                Status = Statuser.Hendelse.Aktiv, Prioritet = Statuser.HendelsePrioritet.Hoy,
+                Breddegrad = 61.0987m, Lengdegrad = 7.4777m
+            });
         if (!await db.Hendelser.AnyAsync(h => h.Navn == "Flom i Glomma (avsluttet)"))
             db.Hendelser.Add(new Hendelse
             {

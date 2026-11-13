@@ -162,9 +162,9 @@
                     <div class="rc-actions">
                         <a asp-action="Map" asp-route-focus="@r.RessursID" asp-fragment="ressurs-@r.RessursID" class="rc-btn is-primary">Se i kart</a>
                         <a href="https://www.google.com/maps/dir/?api=1&destination=@Inv(r.Breddegrad),@Inv(r.Lengdegrad)" target="_blank" rel="noopener" class="rc-btn">Veibeskrivelse</a>
-                        @if (User.IsInRole(AppRoles.DispatchTeam))
+                        @if (User.IsInRole(AppRoles.DispatchTeam) && r.Status == Statuser.Ressurs.VenterPåVerifisering)
                         {
-                            <a asp-controller="Home" asp-action="Dashboard" class="rc-btn">Koordiner</a>
+                            <a asp-controller="Home" asp-action="Dashboard" asp-fragment="verifisering-@r.RessursID" class="rc-btn">Koordiner</a>
                         }
                         @if (kanRedigere)
                         {
