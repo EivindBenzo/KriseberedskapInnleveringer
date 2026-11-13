@@ -202,3 +202,76 @@ body.shell-body { min-height: 100vh; background: var(--page); }
 .pk-fav{margin-bottom:1rem}
 .pk-fav .pp-h,[data-pk-allh]{margin:.6rem 0 .8rem}
 .pk-fav[hidden],[data-pk-allh][hidden]{display:none}
+
+/* Round 20: role Oversikt */
+.ov-hero{position:relative;display:flex;justify-content:space-between;align-items:center;gap:1.2rem;flex-wrap:wrap;min-height:150px;padding:1.4rem 1.6rem;border-radius:1.1rem;color:#fff;overflow:hidden;background:#0a4250 url("../images/hendelser-mountains.svg") right center/cover no-repeat;margin-bottom:1rem}
+.ov-hero::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#0a4250 0%,#0a4250 32%,rgba(10,66,80,.82) 52%,rgba(10,66,80,0) 88%);z-index:1}
+.ov-scene{position:absolute;right:0;top:0;height:100%;width:62%;z-index:0}
+.ov-hero>*:not(.ov-scene){position:relative;z-index:2}
+.ov-hero-main{display:flex;align-items:center;gap:1rem}
+.ov-avatar{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:#e8f3f5;color:#0a4250;font-weight:800;font-size:1.3rem}
+.ov-hero-txt small{display:block;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem;opacity:.85}
+.ov-hero-txt h2{margin:.15rem 0;font-size:1.6rem;color:#fff}
+.ov-hero-txt p{margin:.15rem 0;font-size:.9rem}
+.ov-sub{opacity:.9}
+.ov-rolepill{display:inline-block;padding:.12rem .6rem;border-radius:999px;background:rgba(255,255,255,.2);font-weight:700;font-size:.8rem;margin-right:.4rem}
+.ov-contact{list-style:none;margin:0;padding:0;display:grid;gap:.35rem;font-size:.88rem;background:rgba(10,66,80,.55);padding:.7rem .9rem;border-radius:.8rem}
+.ov-contact li{display:flex;align-items:center;gap:.5rem}
+.ov-vakt{justify-content:space-between;gap:1rem!important;border-top:1px solid rgba(255,255,255,.25);padding-top:.35rem}
+.ov-stats{display:grid;gap:.8rem;margin-bottom:1rem;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.ov-stat{display:flex;align-items:center;gap:.8rem;padding:.9rem 1rem;background:var(--surface,#fff);border:1px solid var(--border,#dde5ea);border-left:4px solid #0a7a8c;border-radius:.8rem;box-shadow:var(--shadow,none)}
+.ov-stat:nth-child(2){border-left-color:#d4382f}.ov-stat:nth-child(3){border-left-color:#e08a1e}.ov-stat:nth-child(4){border-left-color:#2e8b57}.ov-stat:nth-child(5){border-left-color:#7a4fd0}
+.ov-stat strong{display:block;font-size:1.7rem;line-height:1;color:var(--heading,#12303a)}
+.ov-stat span{color:var(--muted,#5b6b73);font-size:.82rem}
+.ov-stat-ic{display:grid;place-items:center;width:40px;height:40px;border-radius:.7rem;background:rgba(10,122,140,.12);color:#0a7a8c;flex:none}
+.ov-stat em{margin-left:auto;font-style:normal}
+.ov-row{display:grid;gap:1rem;margin-bottom:1rem}
+.ov-row-2{grid-template-columns:repeat(2,minmax(0,1fr))}.ov-row-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ov-card{background:var(--surface,#fff);border:1px solid var(--border,#dde5ea);border-radius:1rem;padding:1.1rem 1.2rem;box-shadow:var(--shadow,none);margin-bottom:0}
+.ov-card>h3{margin:0 0 .8rem;font-size:1.05rem;color:var(--heading,#12303a)}
+.ov-card>h3 small{font-weight:400;color:var(--muted,#5b6b73)}
+.ov-card+.ov-row,.ov-card+.ov-card{margin-top:1rem}
+.ov-pill{display:inline-block;padding:.12rem .6rem;border-radius:999px;font-size:.75rem;font-weight:700;white-space:nowrap}
+.ov-pill.c-red{background:#fde4e2;color:#b3261e}.ov-pill.c-amber{background:#fdeccf;color:#9a5b00}.ov-pill.c-green{background:#dcf3e4;color:#1d6b3f}.ov-pill.c-blue{background:#dcebfb;color:#1c4f99}.ov-pill.c-gray{background:#e7ecef;color:#475861}
+.ov-btn{display:inline-block;padding:.38rem .85rem;border-radius:.6rem;border:1px solid var(--border,#c9d5db);background:var(--surface,#fff);color:var(--heading,#12303a);font-weight:700;font-size:.82rem;text-decoration:none;white-space:nowrap}
+.ov-btn:hover{border-color:#0a7a8c;color:#0a7a8c}
+.ov-btn.is-primary{background:#0a7a8c;border-color:#0a7a8c;color:#fff}.ov-btn.is-primary:hover{background:#086473;color:#fff}
+.ov-item{display:flex;align-items:center;gap:.7rem;padding:.65rem 0;border-top:1px solid var(--border,#e4eaee)}
+.ov-item:first-of-type{border-top:0}
+.ov-item-t{flex:1;min-width:0}.ov-item-t strong{display:block;font-size:.9rem;color:var(--heading,#12303a)}.ov-item-t small{display:block;color:var(--muted,#5b6b73);font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-ic{display:grid;place-items:center;width:38px;height:38px;border-radius:.7rem;background:rgba(10,122,140,.12);color:#0a7a8c;flex:none}
+.ov-chips{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:.3rem 0}
+.ov-hoved{display:grid;grid-template-columns:150px 1fr;gap:1rem}
+.ov-hoved-img{min-height:130px;border-radius:.8rem;background:linear-gradient(180deg,#0a4250,#1d6f78) url("../images/hendelser-mountains.svg") center/cover no-repeat}
+.ov-hoved h4{margin:.3rem 0;font-size:1.1rem;color:var(--heading,#12303a)}.ov-hoved p{margin:.2rem 0;color:var(--muted,#5b6b73);font-size:.88rem}
+.ov-tiles{display:grid;gap:.7rem}.ov-tiles-3{grid-template-columns:repeat(3,1fr)}.ov-tiles-2{grid-template-columns:repeat(2,1fr)}
+.ov-tile{display:flex;flex-direction:column;gap:.3rem;padding:.9rem;border:1px solid var(--border,#dde5ea);border-radius:.8rem;text-decoration:none;color:inherit}
+.ov-tile strong{font-size:1.4rem;color:var(--heading,#12303a)}.ov-tile small{color:var(--muted,#5b6b73);font-size:.8rem}
+.ov-tile.is-row{flex-direction:row;align-items:center;gap:.7rem}.ov-tile.is-row strong{font-size:.95rem}
+.ov-tile.is-link strong{font-size:1rem}.ov-tile.is-link:hover{border-color:#0a7a8c;background:rgba(10,122,140,.06)}
+.ov-util{display:flex;justify-content:space-between;margin:.9rem 0 .35rem;font-size:.85rem;color:var(--muted,#5b6b73)}.ov-util b{color:var(--heading,#12303a)}
+.ov-bar{height:9px;border-radius:99px;background:#e3eaee;overflow:hidden}.ov-bar i{display:block;height:100%;background:#0a7a8c;border-radius:99px}
+.ov-link{display:inline-block;margin-top:.8rem;color:#0a7a8c;font-weight:700;text-decoration:none}
+.ov-tl{list-style:none;margin:0;padding:0 0 0 .3rem;border-left:2px solid var(--border,#dde5ea)}
+.ov-tl li{position:relative;padding:0 0 .8rem .9rem;display:grid}
+.ov-tl li::before{content:"";position:absolute;left:-.62rem;top:.3rem;width:9px;height:9px;border-radius:50%;background:#0a7a8c}
+.ov-tl strong{font-size:.88rem;color:var(--heading,#12303a)}.ov-tl span,.ov-tl time{font-size:.78rem;color:var(--muted,#5b6b73)}
+.ov-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.ov-table th{text-align:left;color:var(--muted,#5b6b73);font-weight:600;font-size:.76rem;padding:.4rem .5rem;border-bottom:1px solid var(--border,#dde5ea)}
+.ov-table td{padding:.6rem .5rem;border-bottom:1px solid var(--border,#e4eaee);color:var(--heading,#12303a);vertical-align:middle}
+.ov-table td small{display:block;color:var(--muted,#5b6b73)}
+.ov-cols-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
+.ov-col{border:1px solid var(--border,#dde5ea);border-radius:.8rem;padding:.8rem;border-top:4px solid #d4382f}
+.ov-col.is-blue{border-top-color:#2f6fd0}.ov-col.is-amber{border-top-color:#e08a1e}
+.ov-col>header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;color:var(--heading,#12303a)}
+.ov-col .ov-item{flex-wrap:wrap}
+.ov-hcard{border:1px solid var(--border,#dde5ea);border-left:4px solid #2f6fd0;border-radius:.8rem;padding:.8rem 1rem;margin-bottom:.7rem;display:grid;gap:.2rem}
+.ov-hcard.is-red{border-left-color:#d4382f}.ov-hcard small{color:var(--muted,#5b6b73)}
+.pp-tasks li.is-done i{background:#2e8b57;color:#fff}
+:root[data-theme="dark"] .ov-pill.c-red{background:#4a1f1d;color:#ffb3ad}
+:root[data-theme="dark"] .ov-pill.c-amber{background:#47340f;color:#ffd48a}
+:root[data-theme="dark"] .ov-pill.c-green{background:#173a28;color:#8fe0b0}
+:root[data-theme="dark"] .ov-pill.c-blue{background:#1b3354;color:#a9cbff}
+:root[data-theme="dark"] .ov-pill.c-gray{background:#2a3a42;color:#c3d0d6}
+:root[data-theme="dark"] .ov-bar{background:#2a3a42}
+@media(max-width:1100px){.ov-row-2,.ov-row-3,.ov-cols-3{grid-template-columns:1fr}.ov-hoved{grid-template-columns:1fr}.ov-tiles-3{grid-template-columns:1fr}}

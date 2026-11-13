@@ -128,40 +128,253 @@
         <div class="ph-save"><button type="submit" class="ph-save-btn">Lagre endringer</button></div>
     </form>
     </div>
-    <div class="pp-panel" data-pp="oversikt" hidden>
-        <div class="pk-head"><div><h2>Oversikt</h2><p>Alt om din rolle på ett sted</p></div></div>
-        <h3 class="pp-h">@oversiktTittel</h3>
-        <div class="pp-stats">
-            @foreach (var (label, value) in Model.Stats)
-            {
-                <div class="pp-stat"><strong>@value</strong><span>@label</span></div>
-            }
-        </div>
-
-        <div class="ph-grid">
-            <article class="ph-card">
-                <h3>Dine oppgaver som @rolle.ToLowerInvariant()</h3>
-                <ul class="pp-tasks">
-                    @foreach (var o in oppgaver) { <li><i aria-hidden="true">✓</i>@o</li> }
-                </ul>
-            </article>
-            <article class="ph-card pp-wide">
-                <h3>Siste aktivitet</h3>
-                @if (Model.Aktivitet.Count == 0)
-                {
-                    <p class="ph-empty">Ingen registrert aktivitet ennå. Handlinger du gjør i portalen vises her.</p>
-                }
-                else
-                {
-                    <ol class="ph-timeline">
-                        @foreach (var (handling, detalj, tid) in Model.Aktivitet)
-                        {
-                            <li><strong>@ShellService.Menneskelig(handling)</strong>@if (!string.IsNullOrWhiteSpace(detalj)) { <span>@detalj</span> }<time datetime="@tid.ToString("o")">@tid.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</time></li>
-                        }
-                    </ol>
-                }
-            </article>
-        </div>
+    <div class="pp-panel" data-pp="oversikt" hidden>
+    @{
+        var ov = Model.Ov;
+        var erKl = Model.Roles.Contains(AppRoles.Kriseledelse);
+        var erDp = !erKl && Model.Roles.Contains(AppRoles.DispatchTeam);
+        var erRl = !erKl && !erDp && Model.Roles.Contains(AppRoles.Ressursleverandor);
+        var heroSub = erKl ? "Overordnet oversikt over hendelser, beslutninger og ressurser" : erDp ? "Koordiner behov, forespørsler og leveranser" : erRl ? "Hold oversikt over ressurser, forespørsler og leveranser" : "Følg behovene dine og status i pågående hendelser";
+        string Ic(string n) => n switch
+        {
+            "alarm" => "<path d=\"M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z\"/><path d=\"M12 9v4M12 17h.01\"/>",
+            "warning" => "<path d=\"M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z\"/><path d=\"M12 9v4M12 17h.01\"/>",
+            "layers" => "<path d=\"m12 3 9 5-9 5-9-5z\"/><path d=\"m3 13 9 5 9-5\"/>",
+            "hammer" => "<path d=\"M12 3v18M5 21h14M5 8h14M7 8l-3 6h6zM17 8l-3 6h6z\"/>",
+            "chat" or "mail" => "<path d=\"M4 5h16v12H8l-4 4z\"/>",
+            "clipboard" or "doc" => "<rect x=\"5\" y=\"4\" width=\"14\" height=\"17\" rx=\"2\"/><path d=\"M9 9h6M9 13h6M9 17h4\"/>",
+            "shield" => "<path d=\"M12 3 4 6v6c0 5 3.500 8 8 9 4.500-1 8-4 8-9V6z\"/><path d=\"m9 12 2 2 4-4\"/>",
+            "truck" => "<path d=\"M2 6h11v10H2zM13 9h4l4 4v3h-8\"/><circle cx=\"7\" cy=\"18\" r=\"2\"/><circle cx=\"17\" cy=\"18\" r=\"2\"/>",
+            "check" => "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"m8 12 3 3 5-6\"/>",
+            "refresh" => "<path d=\"M20 12a8 8 0 1 1-3-6.200M20 4v5h-5\"/>",
+            "signal" => "<path d=\"M12 3s7 6 7 12a7 7 0 0 1-14 0c0-6 7-12 7-12z\"/>",
+            "pin" => "<path d=\"M12 21s7-6.200 7-12a7 7 0 0 0-14 0c0 5.800 7 12 7 12z\"/><circle cx=\"12\" cy=\"9\" r=\"2.500\"/>",
+            "map" => "<path d=\"M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z\"/><path d=\"M9 4v14M15 6v14\"/>",
+            "users" => "<circle cx=\"9\" cy=\"8\" r=\"3.500\"/><path d=\"M2 20c0-3.500 3-6 7-6s7 2.500 7 6M16 4a3.500 3.500 0 0 1 0 7M18 14c2.500.6 4 2.700 4 6\"/>",
+            "plus" => "<path d=\"M12 5v14M5 12h14\"/>",
+            _ => "<path d=\"M21 8 12 3 3 8v8l9 5 9-5z\"/><path d=\"m3 8 9 5 9-5M12 13v8\"/>"
+        };
+        Microsoft.AspNetCore.Html.IHtmlContent Svg(string n, int s = 20) => new Microsoft.AspNetCore.Html.HtmlString($"<svg viewBox=\"0 0 24 24\" width=\"{s}\" height=\"{s}\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">{Ic(n)}</svg>");
+        string Ago(DateTime? t) { if (t is null) return ""; var d = DateTime.UtcNow - t.Value; return d.TotalMinutes < 1 ? "nå" : d.TotalMinutes < 60 ? $"{(int)d.TotalMinutes} min siden" : d.TotalHours < 24 ? $"{(int)d.TotalHours} t siden" : t.Value.ToLocalTime().ToString("dd.MM HH:mm"); }
+        string IkonFor(string s) { s = (s ?? "").ToLowerInvariant(); return s.Contains("strøm") || s.Contains("generator") ? "alarm" : s.Contains("kjøretøy") || s.Contains("transport") || s.Contains("brann") ? "truck" : s.Contains("personell") || s.Contains("mann") ? "users" : s.Contains("vann") || s.Contains("mat") ? "signal" : "box"; }
+    }
+    <header class="ov-hero">
+        <svg class="ov-scene" viewBox="0 0 640 220" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">
+            <path d="M0 220V150l70-60 60 50 80-80 90 90 70-40 110 70 80-50 80 60v30z" fill="#1d6f78" opacity=".55"/>
+            <path d="M120 220V160l60-50 60 50 70-30 70 50 90-40 100 60v30z" fill="#0f4f5a" opacity=".8"/>
+            <rect x="330" y="86" width="90" height="94" fill="#f4f7f8"/><rect x="320" y="76" width="110" height="12" fill="#e2e8ea"/>
+            <rect x="338" y="100" width="12" height="16" fill="#8fb3bd"/><rect x="360" y="100" width="12" height="16" fill="#8fb3bd"/><rect x="382" y="100" width="12" height="16" fill="#8fb3bd"/><rect x="404" y="100" width="12" height="16" fill="#8fb3bd"/>
+            <rect x="366" y="140" width="18" height="40" fill="#8fb3bd"/>
+            <path d="M375 76V34" stroke="#e2e8ea" stroke-width="3"/><path d="M375 34h26v16h-26z" fill="#d84a4a"/><path d="M382 34v16M375 40h26" stroke="#fff" stroke-width="3"/>
+            <path d="M0 196q20-12 40 0t40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0v30H0z" fill="#2b8fa0" opacity=".85"/>
+            <path d="M0 208q20-10 40 0t40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0 40 0v20H0z" fill="#1f7486"/>
+            <g transform="translate(470 40)"><ellipse cx="40" cy="22" rx="30" ry="14" fill="#f4f7f8"/><path d="M60 18h42v6H60z" fill="#e2e8ea"/><rect x="26" y="12" width="26" height="10" rx="3" fill="#7fb6c6"/><path d="M8 0h64M40 0v8" stroke="#e2e8ea" stroke-width="3"/><path d="M20 38h44" stroke="#e2e8ea" stroke-width="3"/></g>
+            <g transform="translate(250 150)"><rect width="64" height="26" rx="5" fill="#f4f7f8"/><rect x="44" y="4" width="16" height="10" rx="2" fill="#7fb6c6"/><rect y="12" width="64" height="5" fill="#d84a4a"/><circle cx="14" cy="28" r="6" fill="#1b2b33"/><circle cx="50" cy="28" r="6" fill="#1b2b33"/></g>
+        </svg>
+        <div class="ov-hero-main">
+            <span class="ov-avatar">@Initialer(navn)</span>
+            <div class="ov-hero-txt">
+                <small>Min arbeidsflate</small>
+                <h2>@navn</h2>
+                <p><span class="ov-rolepill">@rolle</span> @Model.Organisation</p>
+                <p class="ov-sub">@heroSub</p>
+            </div>
+        </div>
+        <ul class="ov-contact">
+            @if (!string.IsNullOrWhiteSpace(Model.Phone)) { <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4h4l2 5-2.500 1.500a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>@Model.Phone</li> }
+            <li><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>@Model.Email</li>
+            @if (erDp || erKl || erRl) { <li class="ov-vakt"><span>@(erRl ? "Tilgjengelighet" : "Vaktstatus")</span><b>@(ShellService.Vaktstatuser.FirstOrDefault(s => s.Verdi == Model.Vakt).Tekst ?? "På vakt")</b></li> }
+        </ul>
+    </header>
+
+    <div class="ov-stats ov-stats-@ov.Stats.Count">
+        @foreach (var s in ov.Stats)
+        {
+            <div class="ov-stat"><span class="ov-stat-ic">@Svg(s.Ikon, 22)</span><div><strong>@s.Value</strong><span>@s.Label</span></div>@if (s.Merke is not null) { <em class="ov-pill c-red">@s.Merke</em> }</div>
+        }
+    </div>
+
+    @if (erKl)
+    {
+        <div class="ov-row ov-row-2">
+            <article class="ov-card">
+                <h3>Hovedhendelse nå</h3>
+                @if (ov.Hoved is { } h)
+                {
+                    <div class="ov-hoved">
+                        <div class="ov-hoved-img" aria-hidden="true"></div>
+                        <div>
+                            <div class="ov-chips"><span class="ov-pill c-green">Pågår</span><span class="ov-pill @h.ChipK">@h.Chip</span></div>
+                            <h4>@h.Tittel</h4>
+                            <p>@h.Tekst</p>
+                            <p class="ov-meta">@ov.HovedBehov behov knyttet til hendelsen</p>
+                            <a class="ov-btn is-primary" href="@h.Url">@h.Knapp →</a>
+                        </div>
+                    </div>
+                }
+                else { <p class="ph-empty">Ingen pågående hendelse.</p> }
+            </article>
+            <article class="ov-card">
+                <h3>Beslutninger som krever ledervalg</h3>
+                @if (ov.A.Count == 0) { <p class="ph-empty">Ingen beslutninger venter.</p> }
+                @foreach (var r in ov.A)
+                {
+                    <div class="ov-item"><span class="ov-ic">@Svg(IkonFor(r.Ikon))</span><div class="ov-item-t"><strong>@r.Tittel</strong><small>@r.Under</small></div><span class="ov-pill @r.ChipK">@r.Chip</span><a class="ov-btn" href="@r.Url">@r.Knapp</a></div>
+                }
+            </article>
+        </div>
+        <div class="ov-row ov-row-2">
+            <article class="ov-card">
+                <h3>Ressursbilde</h3>
+                <div class="ov-tiles ov-tiles-3">
+                    <div class="ov-tile"><span class="ov-ic">@Svg("truck")</span><strong>@ov.ResTilgjengelig</strong><small>Tilgjengelige ressurser</small></div>
+                    <div class="ov-tile"><span class="ov-ic">@Svg("layers")</span><strong>@ov.ResAktive</strong><small>Aktive tildelinger</small></div>
+                    <div class="ov-tile"><span class="ov-ic">@Svg("doc")</span><strong>@ov.ResVenter</strong><small>Forespørsler venter på svar</small></div>
+                </div>
+                <div class="ov-util"><span>Ressursutnyttelse</span><b>@ov.Utnyttelse %</b></div>
+                <div class="ov-bar"><i style="width:@(ov.Utnyttelse)%"></i></div>
+            </article>
+            <article class="ov-card">
+                <h3>Operativ logg <small>(siste aktivitet)</small></h3>
+                @if (ov.Aktivitet.Count == 0) { <p class="ph-empty">Ingen aktivitet ennå.</p> }
+                <ol class="ov-tl">@foreach (var r in ov.Aktivitet) { <li><strong>@r.Tittel</strong>@if (!string.IsNullOrWhiteSpace(r.Under)) { <span>@r.Under</span> }<time>@Ago(r.Tid)</time></li> }</ol>
+            </article>
+        </div>
+    }
+    else if (erRl)
+    {
+        <div class="ov-row ov-row-2">
+            <article class="ov-card">
+                <h3>Ressurser som krever handling</h3>
+                @if (ov.A.Count == 0) { <p class="ph-empty">Ingenting krever handling akkurat nå.</p> }
+                @foreach (var r in ov.A)
+                {
+                    <div class="ov-item"><span class="ov-ic">@Svg(IkonFor(r.Ikon))</span><div class="ov-item-t"><strong>@r.Tittel</strong><small>@r.Under</small></div><a class="ov-btn" href="@r.Url">@r.Knapp</a></div>
+                }
+            </article>
+            <article class="ov-card">
+                <h3>Ressursoversikt</h3>
+                <div class="ov-tiles ov-tiles-2">
+                    @foreach (var t in ov.Typer) { <div class="ov-tile is-row"><span class="ov-ic">@Svg(IkonFor(t.Navn))</span><div><strong>@t.Navn</strong><small>@t.Totalt totalt · @t.Tilgjengelig tilgjengelige</small></div></div> }
+                </div>
+                @if (ov.Typer.Count == 0) { <p class="ph-empty">Ingen ressurser registrert.</p> }
+                <a class="ov-link" href="@Url.Action("Resources", "Home")">Alle ressurser →</a>
+            </article>
+        </div>
+        <div class="ov-row ov-row-2">
+            <article class="ov-card">
+                <h3>Aktive leveranser</h3>
+                @if (ov.Leveranser.Count == 0) { <p class="ph-empty">Ingen aktive leveranser.</p> }
+                else
+                {
+                    <table class="ov-table">
+                        <thead><tr><th>Status</th><th>Ressurs</th><th>Destinasjon</th><th>Mengde</th><th>Neste handling</th></tr></thead>
+                        <tbody>
+                        @foreach (var r in ov.Leveranser)
+                        {
+                            <tr><td><span class="ov-pill @r.ChipK">@r.Chip</span></td><td>@r.Tittel</td><td>@r.Under</td><td>@r.Tekst</td><td><a class="ov-btn" href="@r.Url">@r.Knapp</a></td></tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+            </article>
+            <article class="ov-card">
+                <h3>Siste aktivitet</h3>
+                @if (ov.Aktivitet.Count == 0) { <p class="ph-empty">Ingen aktivitet ennå.</p> }
+                <ol class="ov-tl">@foreach (var r in ov.Aktivitet) { <li><strong>@r.Tittel</strong>@if (!string.IsNullOrWhiteSpace(r.Under)) { <span>@r.Under</span> }<time>@Ago(r.Tid)</time></li> }</ol>
+            </article>
+        </div>
+    }
+    else if (erDp)
+    {
+        <article class="ov-card">
+            <h3>Må håndteres nå</h3>
+            <div class="ov-cols-3">
+                <section class="ov-col is-red">
+                    <header><b>Akutte behov</b><span class="ov-pill c-red">@ov.AntA</span></header>
+                    @if (ov.A.Count == 0) { <p class="ph-empty">Ingen akutte behov.</p> }
+                    @foreach (var r in ov.A) { <div class="ov-item"><span class="ov-ic">@Svg(IkonFor(r.Ikon))</span><div class="ov-item-t"><strong>@r.Tittel</strong><small>@r.Under</small></div><span class="ov-pill c-red">Høy</span><a class="ov-btn" href="@r.Url">@r.Knapp</a></div> }
+                </section>
+                <section class="ov-col is-blue">
+                    <header><b>Innkommende leverandørsvar</b><span class="ov-pill c-blue">@ov.AntB</span></header>
+                    @if (ov.B.Count == 0) { <p class="ph-empty">Ingen nye svar.</p> }
+                    @foreach (var r in ov.B) { <div class="ov-item"><span class="ov-ic">@Svg("mail")</span><div class="ov-item-t"><strong>@r.Tittel</strong><small>@r.Under</small></div><a class="ov-btn" href="@r.Url">@r.Knapp</a></div> }
+                </section>
+                <section class="ov-col is-amber">
+                    <header><b>Venter på verifisering</b><span class="ov-pill c-amber">@ov.AntC</span></header>
+                    @if (ov.C.Count == 0) { <p class="ph-empty">Ingenting å verifisere.</p> }
+                    @foreach (var r in ov.C) { <div class="ov-item"><span class="ov-ic">@Svg(IkonFor(r.Ikon))</span><div class="ov-item-t"><strong>@r.Tittel</strong><small>@r.Under</small></div><a class="ov-btn" href="@r.Url">@r.Knapp</a></div> }
+                </section>
+            </div>
+        </article>
+        <div class="ov-row ov-row-3">
+            <article class="ov-card">
+                <h3>Dine oppgaver som dispatch-team</h3>
+                <ul class="pp-tasks">@foreach (var o in ov.Oppgaver) { <li class="@(o.Ferdig ? "is-done" : "")"><i aria-hidden="true">@(o.Ferdig ? "✓" : "")</i>@o.Tekst</li> }</ul>
+                @{ var ferdig = ov.Oppgaver.Count(o => o.Ferdig); }
+                <div class="ov-util"><span>@ferdig av @ov.Oppgaver.Count oppgaver fullført</span></div>
+                <div class="ov-bar"><i style="width:@(ov.Oppgaver.Count == 0 ? 0 : ferdig * 100 / ov.Oppgaver.Count)%"></i></div>
+            </article>
+            <article class="ov-card">
+                <h3>Hendelser du følger</h3>
+                @if (ov.Hendelser.Count == 0) { <p class="ph-empty">Ingen pågående hendelser.</p> }
+                @foreach (var r in ov.Hendelser) { <div class="ov-item"><div class="ov-item-t"><strong>@r.Tittel</strong><small>@r.Under</small></div><a class="ov-btn" href="@r.Url">Arbeidsrom →</a></div> }
+            </article>
+            <article class="ov-card">
+                <h3>Siste aktivitet</h3>
+                @if (ov.Aktivitet.Count == 0) { <p class="ph-empty">Ingen aktivitet ennå.</p> }
+                <ol class="ov-tl">@foreach (var r in ov.Aktivitet) { <li><strong>@r.Tittel</strong>@if (!string.IsNullOrWhiteSpace(r.Under)) { <span>@r.Under</span> }<time>@Ago(r.Tid)</time></li> }</ol>
+            </article>
+        </div>
+    }
+    else
+    {
+        <div class="ov-row ov-row-2">
+            <article class="ov-card">
+                <h3>Behov jeg følger nå</h3>
+                @if (ov.A.Count == 0) { <p class="ph-empty">Du har ikke meldt inn noen behov ennå.</p> }
+                else
+                {
+                    <table class="ov-table">
+                        <thead><tr><th>Behov</th><th>Prioritet</th><th>Status</th><th>Sist oppdatert</th></tr></thead>
+                        <tbody>
+                        @foreach (var r in ov.A)
+                        {
+                            <tr><td><strong>@r.Tittel</strong><small>@r.Under</small></td><td><span class="ov-pill @r.ChipK">@r.Chip</span></td><td><span class="ov-pill @r.Chip2K">@r.Chip2</span></td><td>@Ago(r.Tid)</td></tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+            </article>
+            <article class="ov-card">
+                <h3>Pågående hendelser i mitt område</h3>
+                @if (ov.Hendelser.Count == 0) { <p class="ph-empty">Ingen pågående hendelser.</p> }
+                @foreach (var r in ov.Hendelser)
+                {
+                    <div class="ov-hcard @(r.ChipK == "c-red" ? "is-red" : "is-blue")">
+                        <div class="ov-chips"><strong>@r.Tittel</strong><span class="ov-pill c-blue">Knyttet til meg</span></div>
+                        <small>@r.Under</small>
+                        <div class="ov-chips"><a class="ov-btn" href="@r.Url">@r.Knapp</a><a class="ov-btn is-primary" href="@Url.Action("Registrer", "Behov")">Meld behov +</a></div>
+                    </div>
+                }
+            </article>
+        </div>
+        <div class="ov-row ov-row-2">
+            <article class="ov-card">
+                <h3>Hva kan jeg gjøre nå?</h3>
+                <div class="ov-tiles ov-tiles-3">
+                    <a class="ov-tile is-link" href="@Url.Action("Registrer", "Behov")"><span class="ov-ic">@Svg("plus")</span><strong>Meld nytt behov</strong><small>Registrer et nytt ressursbehov</small></a>
+                    <a class="ov-tile is-link" href="@Url.Action("Map", "Home")"><span class="ov-ic">@Svg("map")</span><strong>Se kartet</strong><small>Oversikt over hendelser og ressurser</small></a>
+                    <a class="ov-tile is-link" href="#kontakter" data-pn="kontakter"><span class="ov-ic">@Svg("users")</span><strong>Åpne kontaktliste</strong><small>Finn kontaktpersoner</small></a>
+                </div>
+            </article>
+            <article class="ov-card">
+                <h3>Siste oppdateringer fra dispatch</h3>
+                @if (ov.Aktivitet.Count == 0) { <p class="ph-empty">Ingen oppdateringer ennå.</p> }
+                <ol class="ov-tl">@foreach (var r in ov.Aktivitet) { <li><strong>@r.Tittel</strong>@if (!string.IsNullOrWhiteSpace(r.Under)) { <span>@r.Under</span> }<time>@Ago(r.Tid)</time></li> }</ol>
+            </article>
+        </div>
+    }
     </div>
     <div class="pp-panel" data-pp="kontakter" hidden>
         <div class="pk-head">

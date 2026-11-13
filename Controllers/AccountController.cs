@@ -133,8 +133,140 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
         var logg = await db.Hendelseslogg.AsNoTracking().Where(l => l.UtførtAvID == user.Id)
             .OrderByDescending(l => l.Tidspunkt).Take(5).Select(l => new { l.Handling, l.Begrunnelse, l.Tidspunkt }).ToListAsync();
         model.Aktivitet.AddRange(logg.Select(l => (l.Handling, l.Begrunnelse, l.Tidspunkt)));
+        await BuildOversiktAsync(db, model, user.Id, roles);
         return View(model);
     }
+
+    private async Task BuildOversiktAsync(AppDbContext db, ProfileViewModel model, int uid, IReadOnlyCollection<string> roles)
+    {
+        var ov = model.Ov;
+        string U(string c, string a, object? r = null) => Url.Action(a, c, r) ?? "#";
+        (string, string) P(string p) => p == Statuser.Prioritet.Akutt ? ("Akutt", "c-red") : ("Planlagt", "c-gray");
+        (string, string) B(string s) => s switch
+        {
+            Statuser.Behov.Ny => ("Ny", "c-blue"), Statuser.Behov.Vurderes => ("Vurderes", "c-amber"),
+            Statuser.Behov.Tildelt => ("Tildelt", "c-blue"), _ => ("Løst", "c-green")
+        };
+        string Kort(string s, int n = 60) => s.Length <= n ? s : s[..n].TrimEnd() + "…";
+        var kl = roles.Contains(AppRoles.Kriseledelse);
+        var dp = roles.Contains(AppRoles.DispatchTeam);
+        var rl = roles.Contains(AppRoles.Ressursleverandor);
+        var oa = !kl && !dp && !rl;
+
+        var ulest = await db.Meldinger.AsNoTracking().CountAsync(m => m.MottakerID == uid && m.Lest == null);
+        var aktiveH = await db.Hendelser.AsNoTracking().Where(h => h.Status == Statuser.Hendelse.Aktiv).OrderBy(h => h.Starttidspunkt).ToListAsync();
+        var aktiveTild = db.Tildelinger.AsNoTracking().Where(t => t.Fullført == null);
+        var åpne = db.Behov.AsNoTracking().Where(b => b.Status != Statuser.Behov.Løst);
+        var akutte = åpne.Where(b => b.Prioritet == Statuser.Prioritet.Akutt);
+        var venterVerif = db.Ressurser.AsNoTracking().Where(r => r.Status == Statuser.Ressurs.VenterPåVerifisering);
+        var logQuery = db.Hendelseslogg.AsNoTracking().OrderByDescending(l => l.Tidspunkt);
+
+        OvRad Logg(string h, string d, DateTime t) => new() { Tittel = ShellService.Menneskelig(h), Under = d, Tid = t };
+        OvRad HRad(Hendelse h, string knapp, string url) => new()
+        {
+            Tittel = h.Navn, Under = $"Pågående · Startet {h.Starttidspunkt.ToLocalTime():dd.MM HH:mm}", Tekst = h.Beskrivelse,
+            Chip = h.Prioritet == Statuser.HendelsePrioritet.Hoy ? "Høy prioritet" : h.Prioritet == Statuser.HendelsePrioritet.Medium ? "Middels prioritet" : "Lav prioritet",
+            ChipK = h.Prioritet == Statuser.HendelsePrioritet.Hoy ? "c-red" : h.Prioritet == Statuser.HendelsePrioritet.Medium ? "c-amber" : "c-gray",
+            Knapp = knapp, Url = url, Ikon = h.Navn
+        };
+        async Task<List<OvRad>> BehovRader(IQueryable<Behov> q, string knapp, int n = 3) =>
+            (await q.Include(b => b.Behovstype).OrderByDescending(b => b.Registrert).Take(n).ToListAsync()).Select(b =>
+            {
+                var (pc, pk) = P(b.Prioritet); var (sc, sk) = B(b.Status);
+                return new OvRad { Tittel = $"{b.Behovstype?.Navn}: {Kort(b.Beskrivelse, 46)}", Under = b.Stedsnavn, Chip = pc, ChipK = pk, Chip2 = sc, Chip2K = sk, Tid = b.Registrert, Knapp = knapp, Url = U("Home", "Dashboard"), Ikon = b.Behovstype?.Navn ?? "" };
+            }).ToList();
+
+        if (kl)
+        {
+            ov.Stats.Add(new("Aktive hendelser", aktiveH.Count, "alarm"));
+            ov.Stats.Add(new("Akutte behov", await akutte.CountAsync(), "layers"));
+            ov.Stats.Add(new("Beslutninger venter", await åpne.CountAsync(b => b.Status == Statuser.Behov.Ny || b.Status == Statuser.Behov.Vurderes), "hammer"));
+            ov.Stats.Add(new("Meldinger", ulest, "chat", ulest > 0 ? $"{ulest} ulest" : null));
+            var h = aktiveH.OrderByDescending(x => x.Prioritet == Statuser.HendelsePrioritet.Hoy).ThenBy(x => x.Starttidspunkt).FirstOrDefault();
+            if (h is not null)
+            {
+                ov.Hoved = HRad(h, "Åpne arbeidsrom", U("Hendelse", "Arbeidsrom", new { id = h.HendelseID }));
+                ov.HovedBehov = await db.Behov.CountAsync(b => b.HendelseID == h.HendelseID);
+            }
+            ov.A.AddRange(await BehovRader(åpne.Where(b => b.Status == Statuser.Behov.Ny || b.Status == Statuser.Behov.Vurderes).OrderByDescending(b => b.Prioritet == Statuser.Prioritet.Akutt), "Se sak"));
+            ov.ResTilgjengelig = await db.Ressurser.CountAsync(r => r.Status == Statuser.Ressurs.Tilgjengelig);
+            ov.ResAktive = await aktiveTild.CountAsync();
+            ov.ResVenter = await db.Forespørsler.CountAsync(f => f.Svar == Statuser.Svar.Venter);
+            var tot = await db.Ressurser.SumAsync(r => (decimal?)r.Antall) ?? 0; var res = await db.Ressurser.SumAsync(r => (decimal?)r.ReservertAntall) ?? 0;
+            ov.Utnyttelse = tot > 0 ? (int)Math.Round(res / tot * 100) : 0;
+            ov.Aktivitet.AddRange((await logQuery.Take(3).ToListAsync()).Select(l => Logg(l.Handling, l.Begrunnelse, l.Tidspunkt)));
+        }
+        else if (dp)
+        {
+            ov.AntA = await akutte.CountAsync(); ov.AntB = await db.Forespørsler.CountAsync(f => f.Svar != Statuser.Svar.Venter); ov.AntC = await venterVerif.CountAsync();
+            ov.Stats.Add(new("Åpne behov", await åpne.CountAsync(), "clipboard"));
+            ov.Stats.Add(new("Akutte behov", ov.AntA, "warning"));
+            ov.Stats.Add(new("Forespørsler", await db.Forespørsler.CountAsync(f => f.Svar == Statuser.Svar.Venter), "mail"));
+            ov.Stats.Add(new("Aktive tildelinger", await aktiveTild.CountAsync(), "layers"));
+            ov.Stats.Add(new("Venter på verifisering", ov.AntC, "shield"));
+            ov.A.AddRange(await BehovRader(akutte, "Håndter"));
+            ov.B.AddRange((await db.Forespørsler.AsNoTracking().Include(f => f.Ressurs).ThenInclude(r => r!.Eier).Where(f => f.Svar != Statuser.Svar.Venter)
+                .OrderByDescending(f => f.Svart).Take(3).ToListAsync()).Select(f => new OvRad
+                {
+                    Tittel = f.Ressurs?.Eier?.Organisasjon ?? f.Ressurs?.Navn ?? "Leverandør", Under = $"Svar på forespørsel #F-{f.ForespørselID}: {(f.Svar == Statuser.Svar.Godtatt ? "godtatt" : "avslått")}",
+                    Tid = f.Svart, Knapp = "Vurder", Url = U("Home", "Dashboard"), Ikon = f.Ressurs?.Navn ?? ""
+                }));
+            ov.C.AddRange((await venterVerif.Include(r => r.Eier).Include(r => r.Ressurstype).OrderBy(r => r.Registrert).Take(3).ToListAsync()).Select(r => new OvRad
+            {
+                Tittel = $"{r.Navn}{(r.Antall > 1 ? $" ({r.Antall:0.##})" : "")}", Under = r.Eier?.Organisasjon ?? "", Tid = r.Registrert, Knapp = "Verifiser", Url = U("Home", "Dashboard"), Ikon = r.Ressurstype?.Navn ?? ""
+            }));
+            foreach (var h in aktiveH.Take(3)) ov.Hendelser.Add(HRad(h, "Arbeidsrom", U("Hendelse", "Arbeidsrom", new { id = h.HendelseID })));
+            var mine = await db.Forespørsler.CountAsync(f => f.SendtAvID == uid);
+            ov.Oppgaver.Add(("Verifisere nye ressurser", ov.AntC == 0));
+            ov.Oppgaver.Add(("Sende forespørsler og opprette tildelinger", mine > 0));
+            ov.Oppgaver.Add(("Følge leveranser til de er fullført", !await aktiveTild.AnyAsync()));
+            ov.Oppgaver.Add(("Koordinere akutte behov med relevante aktører", ov.AntA == 0));
+            ov.Oppgaver.Add(("Oppdatere hendelser og gi status i arbeidsrom", aktiveH.Count == 0));
+            ov.Aktivitet.AddRange((await logQuery.Where(l => l.UtførtAvID == uid).Take(3).ToListAsync()).Select(l => Logg(l.Handling, l.Begrunnelse, l.Tidspunkt)));
+        }
+        else if (rl)
+        {
+            var mine = db.Ressurser.AsNoTracking().Where(r => r.EierID == uid);
+            var venter = db.Forespørsler.AsNoTracking().Where(f => f.Svar == Statuser.Svar.Venter && f.Ressurs!.EierID == uid);
+            var mineTild = aktiveTild.Where(t => t.Forespørsel!.Ressurs!.EierID == uid);
+            ov.Stats.Add(new("Mine ressurser", await mine.CountAsync(), "truck"));
+            ov.Stats.Add(new("Tilgjengelige", await mine.CountAsync(r => r.Status == Statuser.Ressurs.Tilgjengelig), "check"));
+            ov.Stats.Add(new("Forespørsler til meg", await venter.CountAsync(), "doc"));
+            ov.Stats.Add(new("Aktive leveranser", await mineTild.CountAsync(), "layers"));
+            ov.Stats.Add(new("Venter på verifisering", await mine.CountAsync(r => r.Status == Statuser.Ressurs.VenterPåVerifisering), "shield"));
+            ov.A.AddRange((await mine.Include(r => r.Ressurstype).Where(r => r.Status == Statuser.Ressurs.VenterPåVerifisering).Take(3).ToListAsync()).Select(r => new OvRad
+            { Tittel = r.Navn, Under = $"Venter på verifisering · Registrert {r.Registrert.ToLocalTime():dd.MM HH:mm}", Knapp = "Se ressurs", Url = U("Home", "Resources"), Ikon = r.Ressurstype?.Navn ?? "" }));
+            ov.A.AddRange((await venter.Include(f => f.Ressurs).Include(f => f.Behov).Take(3).ToListAsync()).Select(f => new OvRad
+            { Tittel = $"Forespørsel: {f.Ressurs?.Navn}", Under = $"Venter på svar · {f.Behov?.Stedsnavn}", Knapp = "Svar", Url = U("Home", "Dashboard"), Ikon = "doc" }));
+            ov.AntA = ov.A.Count;
+            foreach (var g in (await mine.Include(r => r.Ressurstype).ToListAsync()).GroupBy(r => r.Ressurstype?.Navn ?? "Annet"))
+                ov.Typer.Add((g.Key, g.Count(), g.Count(r => r.Status == Statuser.Ressurs.Tilgjengelig)));
+            ov.AntB = await mineTild.CountAsync();
+            ov.Leveranser.AddRange((await mineTild.Include(t => t.Forespørsel!).ThenInclude(f => f.Ressurs).ThenInclude(r => r!.Ressurstype).Include(t => t.Forespørsel!).ThenInclude(f => f.Behov)
+                .OrderByDescending(t => t.Tildelt).Take(4).ToListAsync()).Select(t => new OvRad
+                {
+                    Tittel = t.Forespørsel!.Ressurs!.Navn, Under = t.Forespørsel.Behov?.Stedsnavn ?? "", Tekst = $"{t.Forespørsel.Antall:0.##} {t.Forespørsel.Ressurs.Enhet}",
+                    Chip = Statuser.Visning(t.Fremdrift), ChipK = t.Fremdrift == Statuser.Fremdrift.PåVei ? "c-blue" : "c-green",
+                    Knapp = t.Fremdrift == Statuser.Fremdrift.Bekreftet ? "Planlegg rute" : t.Fremdrift == Statuser.Fremdrift.PåVei ? "Oppdater status" : "Bekreft levering",
+                    Url = U("Home", "Dashboard"), Ikon = t.Forespørsel.Ressurs.Ressurstype?.Navn ?? ""
+                }));
+            ov.Aktivitet.AddRange((await logQuery.Where(l => l.UtførtAvID == uid).Take(3).ToListAsync()).Select(l => Logg(l.Handling, l.Begrunnelse, l.Tidspunkt)));
+        }
+        else
+        {
+            var mine = db.Behov.AsNoTracking().Where(b => b.RegistrertAvID == uid);
+            ov.Stats.Add(new("Mine behov", await mine.CountAsync(), "clipboard"));
+            ov.Stats.Add(new("Behov under behandling", await mine.CountAsync(b => b.Status == Statuser.Behov.Vurderes || b.Status == Statuser.Behov.Tildelt), "refresh"));
+            ov.Stats.Add(new("Akutte behov", await mine.CountAsync(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Status != Statuser.Behov.Løst), "warning"));
+            ov.Stats.Add(new("Aktive hendelser", aktiveH.Count, "signal"));
+            ov.Stats.Add(new("Meldinger", ulest, "mail"));
+            ov.A.AddRange(await BehovRader(mine, "", 4));
+            foreach (var h in aktiveH.Take(2)) ov.Hendelser.Add(HRad(h, "Åpne hendelse", U("Home", "Map")));
+            var ids = await mine.Select(b => b.BehovID).ToListAsync();
+            ov.Aktivitet.AddRange((await logQuery.Where(l => l.BehovID != null && ids.Contains(l.BehovID.Value)).Take(3).ToListAsync()).Select(l => Logg(l.Handling, l.Begrunnelse, l.Tidspunkt)));
+        }
+    }
+
 
     private static string Ansvarsområde(IReadOnlyCollection<string> roles) =>
         roles.Contains(AppRoles.Kriseledelse) ? "Overordnet ledelse og brukeradministrasjon"
