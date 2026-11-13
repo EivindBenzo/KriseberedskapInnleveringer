@@ -88,7 +88,7 @@ public class ShellService(AppDbContext db, UserManager<Bruker> users)
             ventende = await db.Forespørsler.AsNoTracking().CountAsync(f => f.Svar == Statuser.Svar.Venter && f.Ressurs!.EierID == id);
         if (ventende > 0 && valg["foresporsler"])
             varsler.Add(new("foresporsler", ventende == 1 ? "1 forespørsel venter på svar" : $"{ventende} forespørsler venter på svar",
-                "Åpne forespørsler", "Operations", "Index", DateTime.UtcNow));
+                "Åpne forespørsler", "Home", "Dashboard", DateTime.UtcNow));
 
         if (driftsrolle && valg["akutt"])
         {
@@ -106,7 +106,7 @@ public class ShellService(AppDbContext db, UserManager<Bruker> users)
             else if (principal.IsInRole(AppRoles.Ressursleverandor))
                 logg = logg.Where(l => l.RessursID != null && db.Ressurser.Any(r => r.RessursID == l.RessursID && r.EierID == id));
             var endringer = await logg.OrderByDescending(l => l.Tidspunkt).Take(3).Select(l => new { l.Handling, l.Begrunnelse, l.Tidspunkt }).ToListAsync();
-            varsler.AddRange(endringer.Select(l => new VarselElement("status", Forkort(Menneskelig(l.Handling)), Forkort(l.Begrunnelse), "Operations", "Index", l.Tidspunkt)));
+            varsler.AddRange(endringer.Select(l => new VarselElement("status", Forkort(Menneskelig(l.Handling)), Forkort(l.Begrunnelse), "Home", "Dashboard", l.Tidspunkt)));
         }
 
         var meldinger = await db.Meldinger.AsNoTracking().CountAsync(m => m.MottakerID == id && m.Lest == null);

@@ -1,4 +1,4 @@
-﻿@using HeimevernetInnlevering1.Models
+@using HeimevernetInnlevering1.Models
 @model HeimevernetInnlevering1.ViewModels.DashboardViewModel
 @{
     ViewData["Title"] = "Oversikt";
@@ -248,7 +248,7 @@ else
 {
     <section class="dashboard-panel dc-panel" data-dashboard-panel="requests" hidden>
     <div class="dc-head"><h2 id="verifiseringskoe">Venter på verifisering <span class="count-badge">@Model.VerificationQueue.Count</span></h2>
-        <a asp-controller="Operations" asp-action="Index" asp-route-vis="verification">Se alle til verifisering →</a></div>
+        <a asp-controller="Home" asp-action="Dashboard">Se alle til verifisering →</a></div>
     @if (Model.VerificationQueue.Count == 0)
     {
         <p class="empty-state">Ingen ressurser venter på verifisering.</p>
@@ -280,13 +280,7 @@ else
 @if (dispatch)
 {
     <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
-    <nav class="section-nav dispatch-shortcuts" aria-label="Dispatch-arbeidsflyt">
-        <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs">Behov</a>
-        <a asp-controller="Operations" asp-action="Index" asp-route-vis="verification">Verifisering</a>
-        <a asp-controller="Operations" asp-action="Index" asp-route-vis="requests">Forespørsler</a>
-        <a asp-controller="Operations" asp-action="Index" asp-route-vis="assignments">Tildelinger</a>
-        <a asp-controller="Operations" asp-action="Index" asp-route-vis="resources">Ressurser</a>
-    </nav>
+
     <h2 id="apne-behov">Åpne behov <span class="count-badge">@Model.OpenNeeds.Count</span></h2>
     @if (Model.OpenNeeds.Count == 0)
     {
@@ -325,7 +319,7 @@ else
                             <input type="hidden" name="resourceId" value="@resource.RessursID" />
                             <input type="hidden" name="returnUrl" value="@Tilbake("behov-" + need.BehovID)" />
                             <span><strong>@resource.Navn</strong> · @resource.Ressurstype?.Navn · @resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet tilgjengelig</span>
-                            <label>Antall <input type="number" name="quantity" min="0.01" max="@resource.TilgjengeligAntall.ToString(System.Globalization.CultureInfo.InvariantCulture)" step="0.01" value="1" required /></label>
+                            @{ var maksAntall = Math.Min(need.Mangler, resource.TilgjengeligAntall).ToString(System.Globalization.CultureInfo.InvariantCulture); }<label>Antall <input type="number" name="quantity" min="0.01" max="@maksAntall" step="0.01" value="@maksAntall" required /></label>
                             <button type="submit">Send forespørsel</button>
                         </form>
                     }
@@ -374,7 +368,7 @@ else
 {
     <section class="dashboard-panel dashboard-urgent-panel dc-panel" data-dashboard-panel="urgent" hidden>
     <div class="dc-head"><h2 id="akutte-behov">Akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2>
-        <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs">Se alle behov →</a></div>
+        <a asp-controller="Home" asp-action="Dashboard">Se alle behov →</a></div>
     @if (Model.UrgentNeeds.Count == 0)
     {
         <p class="empty-state">Ingen akutte behov akkurat nå.</p>
@@ -383,19 +377,37 @@ else
     @foreach (var need in Model.UrgentNeeds)
     {
         var passendeTyper = need.Behovstype?.PassendeRessurstyper.Select(k => k.RessurstypeID).ToHashSet() ?? [];
-        var matches = Model.MatchingResources.Count(r => passendeTyper.Contains(r.RessurstypeID));
+        var passende = Model.MatchingResources.Where(r => passendeTyper.Contains(r.RessurstypeID)).ToList();
+        var mangler = need.Mangler;
         <article id="behov-@need.BehovID" class="dc-card is-red">
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">!</i>
                 <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>@need.Stedsnavn</span></div>
                 <span class="dc-pill">Akutt</span>
-                <div class="dc-qty"><b>@need.Antall</b><small>antall</small></div>
+                <div class="dc-qty"><b>@mangler.ToString("0.##")</b><small>mangler av @need.Antall</small></div>
             </div>
             <p class="dc-desc">@need.Beskrivelse</p>
             <div class="dc-meta"><span>👤 @need.Kontaktperson</span><span>📞 @need.Kontakttelefon</span>@if (need.Frist is DateTime frist) { <span>⏱ frist @Stamp(frist)</span> }</div>
             <div class="dc-actions">
-                <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs" class="dc-primary">Tildel ressurs (@matches)</a>
-                <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs" class="dc-ghost">Detaljer</a>
+                <button type="button" class="dc-primary" data-dc-toggle>Tildel ressurs (@passende.Count)</button>
+            </div>
+            <div class="dc-more" hidden>
+                @if (passende.Count == 0)
+                {
+                    <p class="empty-state">Ingen tilgjengelige ressurser av typen @need.Behovstype?.Navn.</p>
+                }
+                @foreach (var resource in passende)
+                {
+                    var maks = Math.Min(mangler, resource.TilgjengeligAntall);
+                    <form asp-controller="Operations" asp-action="CreateRequest" method="post" class="inline-form">
+                        <input type="hidden" name="needId" value="@need.BehovID" />
+                        <input type="hidden" name="resourceId" value="@resource.RessursID" />
+                        <input type="hidden" name="returnUrl" value="@Tilbake("behov-" + need.BehovID)" />
+                        <span><strong>@resource.Navn</strong> · @resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet tilgjengelig</span>
+                        <label>Antall <input type="number" name="quantity" min="0.01" max="@maks.ToString(System.Globalization.CultureInfo.InvariantCulture)" step="0.01" value="@maks.ToString(System.Globalization.CultureInfo.InvariantCulture)" required /></label>
+                        <button type="submit" class="dc-primary">Send forespørsel</button>
+                    </form>
+                }
             </div>
         </article>
     }
@@ -407,7 +419,7 @@ else
 {
     <section class="dashboard-panel dc-panel" data-dashboard-panel="confirmed" hidden>
     <div class="dc-head"><h2 id="tildelinger">Aktive tildelinger <span class="count-badge">@Model.Assignments.Count</span></h2>
-        <a asp-controller="Operations" asp-action="Index" asp-route-vis="assignments">Se alle tildelinger →</a></div>
+        </div>
     @if (Model.Assignments.Count == 0)
     {
         <p class="empty-state">Ingen aktive tildelinger.</p>
@@ -418,10 +430,12 @@ else
         var steg = Array.IndexOf(Statuser.Fremdrift.Rekkefølge, assignment.Fremdrift);
         var next = WorkflowTransitions.NextAssignmentStep(assignment.Fremdrift);
         var res = assignment.Forespørsel!.Ressurs!;
-        <article id="tildeling-@assignment.TildelingID" class="dc-card is-green">
+        var tn = (res.Ressurstype?.Navn ?? "").ToLowerInvariant();
+        var ikon = tn.Contains("generator") ? "⚡" : tn.Contains("kjøretøy") ? "🚗" : tn.Contains("personell") ? "👥" : tn.Contains("drone") ? "🛸" : tn.Contains("maskin") ? "🚜" : "📦";
+        <article id="tildeling-@assignment.TildelingID" class="dc-card dc-assign">
             <div class="dc-top">
-                <i class="dc-ico" aria-hidden="true">⚡</i>
-                <div class="dc-title"><strong>@res.Navn</strong><span>@assignment.Forespørsel.Behov!.Stedsnavn</span></div>
+                <i class="dc-ico" aria-hidden="true">@ikon</i>
+                <div class="dc-title"><strong>@res.Navn</strong><span>📍 @assignment.Forespørsel.Behov!.Stedsnavn</span></div>
                 <div class="dc-btns">
                     @if (dispatch && next is not null) { <button type="submit" form="tf-@assignment.TildelingID" class="dc-primary">Sett til @next.ToLowerInvariant()</button> }
                     <button type="button" class="dc-ghost" data-dc-toggle>Detaljer</button>
@@ -430,10 +444,10 @@ else
             <ol class="dc-steps" aria-label="Fremdrift">
                 @for (var i = 0; i < Statuser.Fremdrift.Rekkefølge.Length; i++)
                 {
-                    <li class="@(i < steg ? "is-done" : i == steg ? "is-now" : "")"><b></b><span>@Statuser.Visning(Statuser.Fremdrift.Rekkefølge[i])</span></li>
+                    <li class="@(i < steg ? "is-done" : i == steg ? "is-now" : "")"><b>@(i < steg ? "✓" : "")</b><span>@Statuser.Visning(Statuser.Fremdrift.Rekkefølge[i])</span></li>
                 }
             </ol>
-            <div class="dc-meta"><span>👤 @(res.Kontaktperson ?? res.Eier?.FulltNavn)</span><span>📞 @res.Kontakttelefon</span></div>
+            <div class="dc-foot"><span>👤 @(res.Kontaktperson ?? res.Eier?.FulltNavn)</span><span>📞 @res.Kontakttelefon</span></div>
             <div class="dc-more" hidden>
             @if (dispatch && next is not null)
             {
@@ -464,7 +478,7 @@ else
     <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
     <div class="results-heading section-head">
         <h2 id="dispatch-koe">Dispatch-kø <span class="count-badge">@Model.DispatchQueue.Count</span></h2>
-        <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" class="btn-secondary">Åpne operasjoner</a>
+        <a asp-controller="Home" asp-action="Dashboard" class="btn-secondary">Åpne operasjoner</a>
     </div>
     @if (Model.DispatchQueue.Count == 0)
     {
@@ -486,7 +500,7 @@ else
 
     <div class="results-heading section-head">
         <h2 id="situasjonsbilde">Situasjonsbilde</h2>
-        <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs" class="btn-secondary">Åpne styring</a>
+        <a asp-controller="Home" asp-action="Dashboard" class="btn-secondary">Åpne styring</a>
     </div>
     <div class="dashboard-stats">
         <div><strong>@Model.ActiveIncidents.Count</strong><span>aktive hendelser</span></div>
@@ -525,7 +539,7 @@ else
     }
     <div class="results-heading section-head">
         <h2 id="behov-prioritet">Behov etter prioritet</h2>
-        <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs" class="btn-secondary">Prioriter og endre status</a>
+        <a asp-controller="Home" asp-action="Dashboard" class="btn-secondary">Prioriter og endre status</a>
     </div>
     @if (Model.Needs.Count == 0)
     {

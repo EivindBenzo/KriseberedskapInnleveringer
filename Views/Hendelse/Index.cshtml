@@ -124,7 +124,7 @@
                     }
                 </div>
                 <div class="hx-row-actions">
-                    @if (h.Status == Statuser.Hendelse.Aktiv)
+                    @if (h.Status == Statuser.Hendelse.Aktiv && antallAktiv >= 2)
                     {
                         <form asp-action="Hovedhendelse" asp-route-id="@h.HendelseID" method="post"><button type="submit" class="hx-main-btn" title="Vis denne øverst">☆ Gjør til hovedhendelse</button></form>
                     }

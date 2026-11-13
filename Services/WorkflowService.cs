@@ -88,7 +88,7 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
             .SingleOrDefaultAsync(r => r.RessursID == id) ?? throw new WorkflowException("Ressursen finnes ikke.");
 
     private async Task<Behov> HentBehov(int id) =>
-        await db.Behov.Include(b => b.Behovstype!).ThenInclude(type => type.PassendeRessurstyper)
+        await db.Behov.Include(b => b.Behovstype!).ThenInclude(type => type.PassendeRessurstyper).Include(b => b.Forespørsler)
             .SingleOrDefaultAsync(b => b.BehovID == id) ?? throw new WorkflowException("Behovet finnes ikke.");
 
     private static void Aktivt(Behov behov)
@@ -460,6 +460,8 @@ public class WorkflowService(AppDbContext db, IOptions<WorkflowOptions> options)
                 throw new WorkflowException("Ressursen må være tilgjengelig og ha gyldig godkjenning.");
             if (!behov.Behovstype!.PassendeRessurstyper.Any(link => link.RessurstypeID == ressurs.RessurstypeID))
                 throw new WorkflowException("Ressursen har ikke riktig type for dette behovet.");
+            if (antall > behov.Mangler)
+                throw new WorkflowException(behov.Mangler <= 0 ? "Behovet er allerede fullt dekket." : $"Behovet mangler bare {behov.Mangler:0.##}.");
             if (antall > ressurs.TilgjengeligAntall)
                 throw new WorkflowException($"Bare {ressurs.TilgjengeligAntall:0.##} {ressurs.Enhet} er tilgjengelig.");
             var forespørsel = new Forespørsel

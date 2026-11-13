@@ -312,7 +312,7 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
                     [("Tilgjengelighet", status.Availability), ("Godkjenning", status.Verification),
                      ("Godkjent til", godkjentTil?.ToString("dd.MM.yyyy HH:mm") + " UTC"), ("Registrert", r.Registrert.ToString("dd.MM.yyyy HH:mm") + " UTC")],
                     (double)r.Breddegrad, (double)r.Lengdegrad, lenke, "Se detaljer",
-                    User.IsInRole(AppRoles.DispatchTeam) ? Url?.Action("Index", "Operations", new { vis = "needs" }) + "#needs" : null,
+                    User.IsInRole(AppRoles.DispatchTeam) ? Url?.Action("Dashboard", "Home") : null,
                     status.IsEligible ? "Klar til å forespørres." : "Sjekk status før tildeling.");
                 return new KartMarkor((double)r.Breddegrad, (double)r.Lengdegrad, BildeUrl(RessursIkon.Sti(type, status)),
                     $"{r.Navn} ({type}) – {status.Availability}", popup, r.RessursID == focus, false, null, r.RessursID, status.IsEligible);

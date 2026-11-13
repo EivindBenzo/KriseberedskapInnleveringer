@@ -22,6 +22,10 @@ public class Behov
 
     public Behovstype? Behovstype { get; set; }
     public Bruker? RegistrertAv { get; set; }
+
+    /// <summary>Antall som allerede er dekket av ventende eller godtatte forespørsler (krever at Forespørsler er lastet).</summary>
+    public decimal Dekket => Forespørsler.Where(f => f.Svar == Statuser.Svar.Venter || f.Svar == Statuser.Svar.Godtatt).Sum(f => f.Antall);
+    public decimal Mangler => Math.Max(0, Antall - Dekket);
     public Hendelse? Hendelse { get; set; }
     public ICollection<Forespørsel> Forespørsler { get; set; } = new List<Forespørsel>();
 }

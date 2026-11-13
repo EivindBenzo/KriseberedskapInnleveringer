@@ -82,7 +82,7 @@
                 }
             </section>
             <section class="iw-card">
-                <header><h2>Aktive tildelinger</h2><a asp-controller="Operations" asp-action="Index">Se alle tildelinger →</a></header>
+                <header><h2>Aktive tildelinger</h2><a asp-controller="Home" asp-action="Dashboard">Se alle tildelinger →</a></header>
                 @if (Model.ActiveAssignments.Count == 0)
                 {
                     <div class="iw-empty"><i>◔</i><strong>Ingen aktive tildelinger</strong><span>Det er ingen aktive tildelinger i denne hendelsen.</span></div>

@@ -34,7 +34,18 @@ public class HendelseController(AppDbContext db, WorkflowService workflow, Steds
             return new HendelseKort(t.Count, ferdig, t.Select(x => x.RessursID).Distinct().Count(),
                 aktører.Count(a => a.Id == h.HendelseID), prosent, h.Behov.Count);
         });
-        var featured = hendelser.FirstOrDefault(h => h.Status == Statuser.Hendelse.Aktiv);
+        var aktive = hendelser.Where(h => h.Status == Statuser.Hendelse.Aktiv).OrderBy(h => h.Starttidspunkt).ToList();
+        Hendelse? featured = null;
+        if (aktive.Count == 1) featured = aktive[0];
+        else if (aktive.Count > 1)
+        {
+            var bruker = await users.GetUserAsync(User);
+            var lagret = bruker is null ? null : await users.GetAuthenticationTokenAsync(bruker, "Profil", "Hovedhendelse");
+            featured = aktive.FirstOrDefault(h => h.HendelseID.ToString() == lagret) ?? aktive[0];
+        }
+        featured ??= hendelser.Where(h => h.Status == Statuser.Hendelse.Planlagt).OrderBy(h => h.Starttidspunkt).FirstOrDefault()
+            ?? hendelser.OrderByDescending(h => h.Starttidspunkt).FirstOrDefault();
+        ViewBag.HovedId = featured?.HendelseID;
         if (featured is not null)
             ViewBag.Siste = await (from l in db.Hendelseslogg.AsNoTracking()
                                    join b in db.Users.AsNoTracking() on l.UtførtAvID equals b.Id
@@ -42,6 +53,18 @@ public class HendelseController(AppDbContext db, WorkflowService workflow, Steds
                                    orderby l.Tidspunkt descending
                                    select new HendelseLoggRad(l.Tidspunkt, l.Handling, l.Begrunnelse, b.Fornavn + " " + b.Etternavn))
                 .Take(4).ToListAsync();
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Hovedhendelse(int id)
+    {
+        var hendelse = await db.Hendelser.AsNoTracking().SingleOrDefaultAsync(h => h.HendelseID == id);
+        var bruker = await users.GetUserAsync(User);
+        if (hendelse is null || hendelse.Status != Statuser.Hendelse.Aktiv || bruker is null)
+            TempData["WorkflowError"] = "Bare en pågående hendelse kan være hovedhendelse.";
+        else
+            await users.SetAuthenticationTokenAsync(bruker, "Profil", "Hovedhendelse", id.ToString());
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpGet]

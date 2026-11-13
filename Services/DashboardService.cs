@@ -33,7 +33,7 @@ public class DashboardService(AppDbContext db)
             .Include(f => f.Tildeling);
         IQueryable<Behov> BehovMedDetaljer() => db.Behov.AsNoTracking()
             .Include(b => b.Behovstype!).ThenInclude(t => t.PassendeRessurstyper)
-            .Include(b => b.Hendelse);
+            .Include(b => b.Hendelse).Include(b => b.Forespørsler);
 
         if (provider)
         {
@@ -107,25 +107,25 @@ public class DashboardService(AppDbContext db)
         var dispatchQueue = new List<DispatchQueueItem>();
         if (dispatch)
         {
-            foreach (var need in orderedNeeds.Where(n => n.Prioritet == Statuser.Prioritet.Akutt))
+            foreach (var need in orderedNeeds.Where(n => n.Prioritet == Statuser.Prioritet.Akutt && n.Mangler > 0))
             {
                 var compatibleResources = matching.Count(resource =>
                     need.Behovstype!.PassendeRessurstyper.Any(link => link.RessurstypeID == resource.RessurstypeID));
                 if (compatibleResources == 0)
                     dispatchQueue.Add(new(1, "Akutt behov uten ressurs", $"{need.Behovstype!.Navn} · {need.Stedsnavn}",
-                        "Ingen verifisert, tilgjengelig ressurs av riktig type.", "/Operations?vis=needs#needs"));
+                        "Ingen verifisert, tilgjengelig ressurs av riktig type.", "/Home/Dashboard"));
             }
             dispatchQueue.AddRange(queue.Select(resource => new DispatchQueueItem(
                 2, "Venter på verifisering", resource.Navn,
-                $"{resource.Ressurstype!.Navn} · {resource.Stedsnavn}", "/Operations?vis=verification#resources")));
+                $"{resource.Ressurstype!.Navn} · {resource.Stedsnavn}", "/Home/Dashboard")));
             dispatchQueue.AddRange(requests.Where(request => request.Svar == Statuser.Svar.Godtatt && request.Tildeling is null)
                 .Select(request => new DispatchQueueItem(3, "Klar for tildeling",
                     $"{request.Ressurs!.Navn} → {request.Behov!.Stedsnavn}",
-                    "Ressursleverandøren har godtatt. Dispatch må opprette tildeling.", "/Operations?vis=requests#requests")));
+                    "Ressursleverandøren har godtatt. Dispatch må opprette tildeling.", "/Home/Dashboard")));
             dispatchQueue.AddRange(assignments.Where(assignment => assignment.Fremdrift is Statuser.Fremdrift.Bekreftet or Statuser.Fremdrift.PåVei)
                 .Select(assignment => new DispatchQueueItem(4, "Følg opp levering",
                     $"{assignment.Forespørsel!.Ressurs!.Navn} → {assignment.Forespørsel.Behov!.Stedsnavn}",
-                    $"Fremdrift: {Statuser.Visning(assignment.Fremdrift)}.", "/Operations?vis=assignments#assignments")));
+                    $"Fremdrift: {Statuser.Visning(assignment.Fremdrift)}.", "/Home/Dashboard")));
             dispatchQueue.AddRange(unreadMessages.Select(message => new DispatchQueueItem(
                 5, "Ulest melding", $"{message.SenderName}: {message.Subject}",
                 "Åpne innboksen for å lese og svare.", "/Messages/Inbox")));
@@ -138,8 +138,8 @@ public class DashboardService(AppDbContext db)
             IncomingRequests = incoming,
             VerificationQueue = queue,
             Needs = orderedNeeds,
-            OpenNeeds = orderedNeeds.Where(b => b.Prioritet != Statuser.Prioritet.Akutt).ToList(),
-            UrgentNeeds = orderedNeeds.Where(b => b.Prioritet == Statuser.Prioritet.Akutt).ToList(),
+            OpenNeeds = orderedNeeds.Where(b => b.Prioritet != Statuser.Prioritet.Akutt && b.Mangler > 0).ToList(),
+            UrgentNeeds = orderedNeeds.Where(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Mangler > 0).ToList(),
             MatchingResources = matching,
             Requests = requests,
             Assignments = assignments,

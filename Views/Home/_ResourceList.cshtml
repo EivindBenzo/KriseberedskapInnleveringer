@@ -164,7 +164,7 @@
                         <a href="https://www.google.com/maps/dir/?api=1&destination=@Inv(r.Breddegrad),@Inv(r.Lengdegrad)" target="_blank" rel="noopener" class="rc-btn">Veibeskrivelse</a>
                         @if (User.IsInRole(AppRoles.DispatchTeam))
                         {
-                            <a asp-controller="Operations" asp-action="Index" asp-route-vis="needs" asp-fragment="needs" class="rc-btn">Koordiner</a>
+                            <a asp-controller="Home" asp-action="Dashboard" class="rc-btn">Koordiner</a>
                         }
                         @if (kanRedigere)
                         {
