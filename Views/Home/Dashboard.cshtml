@@ -21,7 +21,7 @@
     string TypeIkon(string? n) { var t = (n ?? "").ToLowerInvariant(); return t.Contains("brann") ? "🔥" : t.Contains("flom") || t.Contains("vann") || t.Contains("nedbør") ? "🌊" : t.Contains("strøm") || t.Contains("generator") ? "⚡" : t.Contains("mannskap") || t.Contains("personell") ? "👥" : t.Contains("transport") || t.Contains("kjøretøy") ? "🚗" : t.Contains("søk") ? "🔍" : t.Contains("drone") ? "🛸" : t.Contains("maskin") ? "🚜" : t.Contains("mat") || t.Contains("nødhjelp") ? "🥫" : "📦"; }
     string ResIkon(string t)
     {
-        var d = t.Contains("generator") ? "<path d='M13 2 3 14h9l-1 8 10-12h-9l1-8z'/>"
+        var d = t.Contains("generator") || t.Contains("utstyr") ? "<path d='M13 2 3 14h9l-1 8 10-12h-9l1-8z'/>"
             : t.Contains("kjøretøy") ? "<path d='M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2'/><circle cx='7' cy='17' r='2'/><path d='M9 17h6'/><circle cx='17' cy='17' r='2'/>"
             : t.Contains("personell") ? "<path d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8'/>"
             : t.Contains("drone") ? "<circle cx='12' cy='12' r='2'/><path d='M12 10V6M12 14v4M10 12H6M14 12h4'/><circle cx='5' cy='5' r='2'/><circle cx='19' cy='5' r='2'/><circle cx='5' cy='19' r='2'/><circle cx='19' cy='19' r='2'/>"
@@ -152,24 +152,30 @@ else
     @foreach (var request in Model.IncomingRequests.Where(f => f.Svar == Statuser.Svar.Venter))
     {
         var behov = request.Behov!;
-        <article id="innkommende-@request.ForespørselID" class="dc-card dc-assign is-orange">
+        <article id="innkommende-@request.ForespørselID" class="dc-card dc-assign is-orange fq-card">
             <form asp-controller="Operations" asp-action="Respond" method="post" class="dc-verify">
                 <input type="hidden" name="id" value="@request.ForespørselID" />
                 <input type="hidden" name="returnUrl" value="@Tilbake("innkommende-" + request.ForespørselID)" />
-                <div class="dc-top">
+                <div class="fq-top">
                     <i class="dc-ico" aria-hidden="true">@TypeIkon(behov.Behovstype?.Navn)</i>
                     <div class="dc-title"><strong>@request.Ressurs!.Navn</strong><span>📍 @Tittel(behov)</span></div>
-                    <div class="dc-btns">
-                        <button name="accept" value="true" type="submit" class="dc-primary">Godta</button>
-                        <button name="accept" value="false" type="submit" class="dc-ghost">Avslå</button>
+                    <span class="vq-badge fq-badge">Forespørsel</span>
+                </div>
+                <div class="fq-bottom">
+                    <div class="dc-foot fq-pill"><span>📦 @request.Antall.ToString("0.##") @request.Ressurs.Enhet</span><span>📅 Sendt @Stamp(request.Sendt)</span></div>
+                    <div class="vq-btns">
+                        <button name="accept" value="true" type="submit" class="vq-ok">✓ Godta</button>
+                        <button name="accept" value="false" type="submit" class="vq-no">✕ Avslå</button>
+                        <button type="button" class="vq-no" data-dc-toggle>Detaljer</button>
                     </div>
                 </div>
-                <div class="dc-chips"><span class="status-badge @PriorityChip(behov.Prioritet)">@Statuser.Visning(behov.Prioritet)</span>@if (behov.Frist is DateTime frist) { <span class="status-badge">Frist @Stamp(frist)</span> }</div>
-                <p class="dc-desc">@behov.Beskrivelse</p>
-                <input name="reason" maxlength="1000" class="dc-reason" placeholder="Kommentar (valgfritt)" aria-label="Kommentar" />
+                <div class="dc-more" hidden>
+                    <div class="dc-chips"><span class="status-badge @PriorityChip(behov.Prioritet)">@Statuser.Visning(behov.Prioritet)</span>@if (behov.Frist is DateTime frist) { <span class="status-badge">Frist @Stamp(frist)</span> }</div>
+                    <p class="dc-desc">@behov.Beskrivelse</p>
+                    <input name="reason" maxlength="1000" class="dc-reason" placeholder="Kommentar (valgfritt)" aria-label="Kommentar" />
+                    @await Html.PartialAsync("_Timeline", Model.RequestTimeline.GetValueOrDefault(request.ForespørselID))
+                </div>
             </form>
-            <button type="button" class="dc-ghost dc-histbtn" data-dc-toggle>Historikk</button>
-            <div class="dc-more" hidden>@await Html.PartialAsync("_Timeline", Model.RequestTimeline.GetValueOrDefault(request.ForespørselID))</div>
         </article>
     }
     </div>
@@ -299,20 +305,23 @@ else
     <div class="dc-grid">
     @foreach (var resource in Model.VerificationQueue)
     {
-        <article id="verifisering-@resource.RessursID" class="dc-card is-orange">
+        <article id="verifisering-@resource.RessursID" class="dc-card vq-card is-orange">
             <form asp-controller="Operations" asp-action="Verify" method="post" class="dc-verify">
                 <input type="hidden" name="id" value="@resource.RessursID" />
                 <input type="hidden" name="returnUrl" value="@Tilbake("verifiseringskoe")" />
-                <div class="dc-top">
-                    <i class="dc-ico" aria-hidden="true">▣</i>
-                    <div class="dc-title"><strong>@resource.Navn</strong><span>@(string.IsNullOrWhiteSpace(resource.Beskrivelse) ? resource.Ressurstype?.Navn + " · " + resource.Stedsnavn : resource.Beskrivelse)</span></div>
-                    <div class="dc-btns dc-stack">
-                        @if (resource.EierID != actorId) { <button name="approve" value="true" type="submit" class="dc-primary">Godkjenn</button> }
-                        <button name="approve" value="false" type="submit" class="dc-ghost">Avvis</button>
+                <div class="vq-top">
+                    <i class="dc-ico dc-ico-svg vq-ico" aria-hidden="true">@Html.Raw(ResIkon((resource.Ressurstype?.Navn ?? "").ToLowerInvariant()))</i>
+                    <div class="dc-title"><strong>@resource.Navn</strong><span>@resource.Ressurstype?.Navn · @resource.Stedsnavn</span></div>
+                    <span class="vq-badge">Venter</span>
+                </div>
+                <div class="vq-bottom">
+                    <div class="vq-meta"><span>👤 @resource.Eier?.FulltNavn (@resource.Eier?.Organisasjon)</span><span>📅 @Stamp(resource.Registrert)</span></div>
+                    <div class="vq-btns">
+                        @if (resource.EierID != actorId) { <button name="approve" value="true" type="submit" class="vq-ok">✓ Godkjenn</button> }
+                        <button name="approve" value="false" type="submit" class="vq-no" data-needs-reason>✕ Avvis</button>
                     </div>
                 </div>
-                <div class="dc-meta dc-col"><span>👤 Eier: @resource.Eier?.FulltNavn (@resource.Eier?.Organisasjon)</span><span>📞 @resource.Kontakttelefon</span><span>📅 Registrert: @Stamp(resource.Registrert)</span></div>
-                <input name="reason" maxlength="1000" class="dc-reason" placeholder="Begrunnelse (kreves ved avvisning)" aria-label="Begrunnelse" />
+                <input name="reason" maxlength="1000" class="dc-reason vq-reason" placeholder="Begrunnelse (kreves ved avvisning)" aria-label="Begrunnelse" hidden />
             </form>
         </article>
     }
@@ -326,7 +335,7 @@ else
     <div class="dc-head"><h2 id="apne-behov">Åpne behov <span class="count-badge">@Model.OpenNeeds.Count</span></h2></div>
     @if (Model.OpenNeeds.Count == 0)
     {
-        <p class="empty-state">Ingen åpne behov.</p>
+        <div class="dc-emptybox"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7.5 4.3 9 5.2M21 8v8a2 2 0 0 1-1 1.7l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.7l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg><strong>Ingen åpne behov</strong><span>Alle registrerte behov er under behandling eller løst.</span></div>
     }
     <div class="dc-grid">
     @foreach (var need in Model.OpenNeeds)
@@ -486,11 +495,18 @@ else
         var handling = next switch { Statuser.Fremdrift.PåVei => "Registrer avgang", Statuser.Fremdrift.Fremme => "Registrer ankomst", Statuser.Fremdrift.Fullført => "Bekreft levering", _ => "" };
         var antallTekst = assignment.Forespørsel.Antall.ToString("0.##") + " " + res.Enhet;
         var inv = System.Globalization.CultureInfo.InvariantCulture;
-        <article id="tildeling-@assignment.TildelingID" class="dc-card dc-assign dc-act">
+        <article id="tildeling-@assignment.TildelingID" class="dc-card dc-assign dc-act ta-card ta-s@(steg)">
+            <aside class="ta-side" style="--p:@((steg + 1) * 25)">
+                <div class="ta-ring"><div class="ta-ring-in">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@Html.Raw(steg == 0 ? "<rect x='8' y='2' width='8' height='4' rx='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/>" : steg == 1 ? "<path d='M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2'/><path d='M15 18H9'/><path d='M19 18h2a1 1 0 0 0 1-1v-3.7a1 1 0 0 0-.2-.6l-3.4-4.3a1 1 0 0 0-.8-.4H14'/><circle cx='17' cy='18' r='2'/><circle cx='7' cy='18' r='2'/>" : steg == 2 ? "<path d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z'/><circle cx='12' cy='10' r='3'/>" : "<path d='M20 6 9 17l-5-5'/>")</svg>
+                    <strong>@Statuser.Visning(assignment.Fremdrift)</strong>
+                    <small>@(steg + 1) av 4 steg</small>
+                </div></div>
+            </aside>
+            <div class="ta-body">
             <div class="dc-top">
                 <i class="dc-ico dc-ico-svg" aria-hidden="true">@Html.Raw(ResIkon(tn))</i>
                 <div class="dc-title"><strong>@res.Navn</strong><span>📍 @assignment.Forespørsel.Behov!.Stedsnavn</span></div>
-                <span class="dc-stat dc-stat-@steg">@Statuser.Visning(assignment.Fremdrift)</span>
             </div>
             <ol class="dc-steps" aria-label="Fremdrift">
                 @for (var i = 0; i < Statuser.Fremdrift.Rekkefølge.Length; i++)
@@ -504,8 +520,8 @@ else
                 <span title="Mottakskontakt">👤 @(string.IsNullOrWhiteSpace(assignment.Mottakskontakt) ? (res.Kontaktperson ?? res.Eier?.FulltNavn) : assignment.Mottakskontakt)</span>
             </div>
             <div class="dc-actions">
-                @if (dispatch && next is not null) { <button type="button" class="dc-primary" data-dc-dialog="dlg-@assignment.TildelingID">@handling</button> }
                 <button type="button" class="dc-ghost" data-dc-toggle>Detaljer</button>
+                @if (dispatch && next is not null) { <button type="button" class="dc-primary" data-dc-dialog="dlg-@assignment.TildelingID">@handling</button> }
             </div>
             @if (dispatch && next is not null)
             {
@@ -537,6 +553,7 @@ else
                 </dl>
                 @await Html.PartialAsync("_Timeline", Model.AssignmentTimeline.GetValueOrDefault(assignment.TildelingID))
             </div>
+        </div>
         </article>
     }
     </div>
@@ -638,17 +655,15 @@ else
     {
         <p class="empty-state">Du har ikke meldt inn noen behov.</p>
     }
-    <div class="dc-grid">
+    <div class="mb-list">
     @foreach (var need in Model.Needs)
     {
-        <article class="dc-card dc-assign">
-            <div class="dc-top">
-                <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
-                <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
-            </div>
-            <div class="dc-chips"><span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
-            <p class="dc-desc">@need.Beskrivelse</p>
-            <div class="dc-foot"><span><strong>Antall: @need.Antall</strong></span><span>Registrert @Stamp(need.Registrert)@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")</span></div>
+        <article class="mb-row">
+            <i class="dc-ico mb-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
+            <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
+            <span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span>
+            <span class="status-badge">@Statuser.Visning(need.Status)</span>
+            <span class="mb-chev" aria-hidden="true">›</span>
         </article>
     }
     </div>

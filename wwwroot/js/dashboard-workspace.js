@@ -67,3 +67,10 @@ document.addEventListener('click', function (e) {
         if (det) det.open = true;
     }
 });
+
+document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-needs-reason]');
+    if (!b) return;
+    var input = b.closest('form').querySelector('input[name="reason"]');
+    if (input && input.hidden) { e.preventDefault(); input.hidden = false; input.required = true; input.focus(); }
+});

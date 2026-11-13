@@ -1573,3 +1573,45 @@ header .um-bell>summary:hover,header .um-bell[open]>summary{background:rgba(17,1
 :root[data-theme="dark"] .hx-detail-btn:hover{background:#14b8a6;color:#04201d}
 :root[data-theme="dark"] .dc-head h2{color:#f1f7f8}
 :root[data-theme="dark"] .count-badge{background:#1b3640;color:#bfe3ea}
+
+/* Round 17: verification cards, tildeling side ring, role list designs */
+.vq-card{padding:.8rem 1rem;min-width:0}
+.vq-top{display:flex;align-items:flex-start;gap:.7rem}
+.vq-ico{background:#fdeedd;color:#e0701a;width:44px;height:44px;border-radius:12px}
+.vq-badge{margin-left:auto;padding:.2rem .7rem;border-radius:999px;background:#fdf1c4;color:#8a5a00;font-size:.78rem;font-weight:700;border:1px solid #f3df97}
+.vq-bottom,.fq-bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:.6rem;flex-wrap:wrap}
+.vq-meta{display:grid;gap:.2rem;font-size:.8rem;color:var(--muted);min-width:0}
+.vq-btns{display:flex;gap:.45rem;margin-left:auto}
+.vq-ok,.vq-no{border-radius:8px;padding:.4rem .8rem;font-weight:700;font-size:.85rem;cursor:pointer;white-space:nowrap;border:1.5px solid #0f6b66}
+.vq-ok{background:#0f6b66;color:#fff}.vq-ok:hover{background:#0b5753}
+.vq-no{background:transparent;color:#0f6b66}.vq-no:hover{background:rgba(15,107,102,.1)}
+.vq-reason{width:100%;box-sizing:border-box}
+.fq-top{display:flex;align-items:flex-start;gap:.7rem}
+.fq-badge{background:#dbeafe;color:#1d4ed8;border-color:#bfd6fb}
+.fq-pill{flex:1;min-width:0;margin:0}
+.fq-card .dc-more{margin-top:.6rem}
+.mb-list{display:grid;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--surface)}
+.mb-row{display:flex;align-items:center;gap:.7rem;padding:.6rem .9rem;border-top:1px solid var(--border)}
+.mb-row:first-child{border-top:0}
+.mb-row .dc-title{flex:1}
+.mb-ico{width:38px;height:38px;border-radius:10px}
+.mb-chev{font-size:1.4rem;color:var(--muted)}
+.dc-emptybox{display:grid;justify-items:center;gap:.3rem;text-align:center;padding:2rem 1rem;border:2px dashed #b7d3d4;border-radius:16px;color:#0f6b66;margin:.5rem 0}
+.dc-emptybox strong{color:var(--heading);font-size:1.05rem}.dc-emptybox span{color:var(--muted);font-size:.88rem}
+.dc-grid:has(.ta-card){grid-template-columns:repeat(2,minmax(0,1fr))}
+.dc-card.ta-card{display:grid;grid-template-columns:150px minmax(0,1fr);gap:0;padding:0;overflow:hidden;border-left:0}
+.ta-side{display:grid;place-items:center;padding:.8rem;background:linear-gradient(160deg,#0d4a4f,#0a3a40);color:#fff;border-left:5px solid #2dd4bf}
+.ta-s2 .ta-side,.ta-s3 .ta-side{border-left-color:#4ade80}
+.ta-ring{width:124px;height:124px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#5eead4 calc(var(--p)*1%),rgba(255,255,255,.14) 0)}
+.ta-s2 .ta-ring,.ta-s3 .ta-ring{background:conic-gradient(#86efac calc(var(--p)*1%),rgba(255,255,255,.14) 0)}
+.ta-ring-in{width:104px;height:104px;border-radius:50%;background:#0c3f45;display:grid;place-items:center;align-content:center;gap:.1rem;text-align:center}
+.ta-ring-in strong{font-size:1rem}.ta-ring-in small{font-size:.72rem;opacity:.8}
+.ta-body{padding:.8rem;display:grid;gap:.6rem;min-width:0;background:var(--surface)}
+.dc-actions{justify-content:flex-end}
+:root[data-theme="dark"] .vq-ico{background:#3d2a12;color:#fdba74}
+:root[data-theme="dark"] .vq-badge{background:#3c3217;color:#fef08a;border-color:#a1893e}
+:root[data-theme="dark"] .fq-badge{background:#15284a;color:#bfdbfe;border-color:#2c4a82}
+:root[data-theme="dark"] .vq-ok{background:#14b8a6;border-color:#14b8a6;color:#04201d}
+:root[data-theme="dark"] .vq-no{color:#7ff3ee;border-color:#2f8f8a}
+:root[data-theme="dark"] .dc-emptybox{border-color:#2f5560;color:#7ff3ee}
+:root[data-theme="dark"] .ta-body{background:#10242c}
