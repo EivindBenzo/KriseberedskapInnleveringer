@@ -17,6 +17,7 @@ public class ShellModel
     public bool HarBilde { get; init; }
     public string BildeVersjon { get; init; } = "";
     public IReadOnlyList<string> Nøkler { get; init; } = [];
+    public IReadOnlySet<string> Sett { get; init; } = new HashSet<string>();
     public int Forespørsler { get; init; }
     public int Meldinger { get; init; }
     public int AktiveHendelser { get; init; }
@@ -33,7 +34,7 @@ public class ShellService(AppDbContext db, UserManager<Bruker> users)
     public const string VaktToken = "Vaktstatus";
     public const string SettToken = "VarselSett";
 
-    public static string Nøkkel(VarselElement v) => v.Kategori + "|" + v.Tekst;
+    public static string Nøkkel(VarselElement v) => v.Kategori + "|" + v.Tekst + "|" + v.Tid.Ticks;
 
     public static string Menneskelig(string? tekst)
     {
@@ -128,6 +129,7 @@ public class ShellService(AppDbContext db, UserManager<Bruker> users)
             Varsler = varsler.OrderByDescending(v => v.Tid).ToList(),
             AntallUlest = varsler.Count(v => !sett.Contains(Nøkkel(v))),
             Nøkler = varsler.Select(Nøkkel).ToList(),
+            Sett = sett,
             HarBilde = bilde is not null,
             BildeVersjon = bilde is null ? "" : bilde.Length.ToString("x") + bilde[^Math.Min(8, bilde.Length)..].GetHashCode().ToString("x"),
             Forespørsler = ventende,

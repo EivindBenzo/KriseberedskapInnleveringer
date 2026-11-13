@@ -43,3 +43,9 @@
         if (panel) sessionStorage.setItem(activePanelKey, panel.dataset.dashboardPanel);
     });
 })();
+document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-dc-toggle]');
+    if (!b) return;
+    var more = b.closest('.dc-card').querySelector('.dc-more');
+    if (more) { more.hidden = !more.hidden; b.setAttribute('aria-expanded', String(!more.hidden)); }
+});

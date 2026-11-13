@@ -242,6 +242,19 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
         return NoContent();
     }
 
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkNotificationSeen(string key)
+    {
+        var user = await users.GetUserAsync(User);
+        if (user is null) return Unauthorized();
+        var modell = await shell.HentAsync(User);
+        if (!modell.Nøkler.Contains(key)) return NoContent();
+        var sett = (await users.GetAuthenticationTokenAsync(user, ShellService.Provider, ShellService.SettToken) ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        sett.Add(key);
+        await users.SetAuthenticationTokenAsync(user, ShellService.Provider, ShellService.SettToken, string.Join('\n', sett.Where(modell.Nøkler.Contains)));
+        return NoContent();
+    }
+
     private static bool IsJpeg(string base64)
     {
         var buffer = new byte[base64.Length * 3 / 4 + 3];

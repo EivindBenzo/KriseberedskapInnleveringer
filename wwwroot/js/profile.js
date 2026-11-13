@@ -23,21 +23,41 @@
         });
     });
 
-    // Når bjellen åpnes, markeres varslene som sett og den røde prikken fjernes.
+    // Varsler markeres som sett enkeltvis ved klikk, eller alle samtidig med "Marker alle som lest".
     var bjelle = document.querySelector('.um-bell');
     if (bjelle) {
-        bjelle.addEventListener('toggle', function () {
-            var prikk = bjelle.querySelector('.um-dot');
-            if (!bjelle.open || !prikk) return;
+        var sendt = function (url, nokkel) {
             var token = document.querySelector('.user-menu input[name=__RequestVerificationToken]');
             var kropp = new URLSearchParams();
             if (token) kropp.set('__RequestVerificationToken', token.value);
-            fetch('/Account/MarkNotificationsSeen', { method: 'POST', body: kropp, credentials: 'same-origin' })
-                .then(function (r) { if (r.ok) prikk.remove(); })
-                .catch(function () { });
+            if (nokkel) kropp.set('key', nokkel);
+            return fetch(url, { method: 'POST', body: kropp, credentials: 'same-origin', keepalive: true });
+        };
+        var oppdater = function (n) {
+            var prikk = bjelle.querySelector('.um-dot');
+            if (!prikk) return;
+            if (n <= 0) prikk.remove(); else prikk.textContent = n > 9 ? '9+' : String(n);
+        };
+        var teller = function () { return bjelle.querySelectorAll('li:not(.is-read) [data-notif-key]').length; };
+        bjelle.querySelectorAll('[data-notif-key]').forEach(function (a) {
+            a.addEventListener('click', function () {
+                var li = a.closest('li');
+                if (li.classList.contains('is-read')) return;
+                li.classList.add('is-read');
+                oppdater(teller());
+                sendt('/Account/MarkNotificationSeen', a.getAttribute('data-notif-key')).catch(function () { });
+            });
+        });
+        var alle = bjelle.querySelector('[data-mark-all]');
+        if (alle) alle.addEventListener('click', function () {
+            sendt('/Account/MarkNotificationsSeen').then(function (r) {
+                if (!r.ok) return;
+                bjelle.querySelectorAll('li').forEach(function (li) { li.classList.add('is-read'); });
+                oppdater(0);
+                alle.remove();
+            }).catch(function () { });
         });
     }
-
     var vakt = document.querySelector('[data-vakt]');
     if (vakt) {
         vakt.addEventListener('change', function () { vakt.className = 'ph-select vakt-' + vakt.value; });

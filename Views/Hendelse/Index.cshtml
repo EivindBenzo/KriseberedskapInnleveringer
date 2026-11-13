@@ -18,6 +18,21 @@
     string PrioKlasse(string p) => p == Statuser.HendelsePrioritet.Hoy ? "is-red" : p == Statuser.HendelsePrioritet.Medium ? "is-yellow" : "is-green";
     string PrioTekst(string p) => p == Statuser.HendelsePrioritet.Hoy ? "Høy prioritet" : p == Statuser.HendelsePrioritet.Medium ? "Medium prioritet" : "Lav prioritet";
     string PrioIkon(string p) => p == Statuser.HendelsePrioritet.Hoy ? "↑" : p == Statuser.HendelsePrioritet.Medium ? "=" : "↓";
+    // Ikon for hendelsestype, avledet av ord i navn og beskrivelse. Alt som ikke passer får «annet».
+    string TypeIkon(Hendelse h)
+    {
+        var s = ((h.Navn ?? "") + " " + (h.Beskrivelse ?? "")).ToLowerInvariant();
+        bool Har(params string[] ord) => ord.Any(s.Contains);
+        if (Har("flom", "oversvøm", "overvann", "høy vannstand")) return "<path d=\"M2 8c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2M2 14c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2M2 20c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2\"/>";
+        if (Har("regn", "nedbør", "styrtregn", "skybrudd")) return "<path d=\"M16 13v8M8 13v8M12 15v8M20 16.6A5 5 0 0 0 18 7h-1.3A8 8 0 1 0 4 14.3\"/>";
+        if (Har("brann", "ild", "skogbrann", "gressbrann")) return "<path d=\"M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z\"/>";
+        if (Har("skred", "ras", "jordskjelv", "leire")) return "<path d=\"m8 3 4 8 5-5 5 15H2z\"/>";
+        if (Har("storm", "orkan", "vind", "uvær")) return "<path d=\"M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2M9.6 4.6A2 2 0 1 1 11 8H2M12.6 19.4A2 2 0 1 0 14 16H2\"/>";
+        if (Har("snø", "snøfall", "is ", "ising", "kulde", "vinter")) return "<path d=\"M2 12h20M12 2v20M4.9 4.9l14.2 14.2M19.1 4.9 4.9 19.1\"/>";
+        if (Har("strøm", "blackout", "kraft", "nettbrudd")) return "<path d=\"M13 2 3 14h9l-1 8 10-12h-9z\"/>";
+        if (Har("øvelse", "øving", "trening")) return "<circle cx=\"12\" cy=\"12\" r=\"10\"/><circle cx=\"12\" cy=\"12\" r=\"6\"/><circle cx=\"12\" cy=\"12\" r=\"2\"/>";
+        return "<circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 16v-4M12 8h.01\"/>";
+    }
 }
 <link rel="stylesheet" href="~/lib/leaflet/leaflet.css" />
 <section class="hx" aria-labelledby="incident-heading">
@@ -32,40 +47,42 @@
             }
         </div>
         <div class="hx-tiles">
-            <div class="hx-tilebox is-orange"><i>⚠</i><strong>@antallAktiv</strong><span>Pågående</span></div>
-            <div class="hx-tilebox is-blue"><i>▦</i><strong>@antallPlan</strong><span>Planlagt</span></div>
-            <div class="hx-tilebox is-green"><i>✓</i><strong>@antallFerdig</strong><span>Avsluttede</span></div>
+            <div class="hx-tilebox"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></svg><strong>@antallAktiv</strong><span>Pågående</span></div>
+            <div class="hx-tilebox"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><strong>@antallPlan</strong><span>Planlagt</span></div>
+            <div class="hx-tilebox"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><strong>@antallFerdig</strong><span>Avsluttede</span></div>
         </div>
     </header>
-
     @if (TempData["WorkflowError"] is string error) { <p class="workspace-alert" role="alert">@error</p> }
     @if (TempData["WorkflowSuccess"] is string success) { <p class="notice" role="status">@success</p> }
 
     @if (featured is not null)
     {
         var k = kort.GetValueOrDefault(featured.HendelseID) ?? new HendelseKort(0, 0, 0, 0, 0, 0);
-        <article class="hx-feature @PrioKlasse(featured.Prioritet)">
+        <article class="hx-feature @StatusKlasse(featured.Status)">
             <div class="hx-feature-main">
                 <div class="hx-title">
-                    <i class="hx-tile"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 8c2.5 0 2.5-2 5-2s2.5 2 5 2 2.500-2 5-2 2.5 2 5 2M2 14c2.5 0 2.5-2 5-2s2.5 2 5 2 2.500-2 5-2 2.500 2 5 2M2 20c2.500 0 2.500-2 5-2s2.500 2 5 2 2.500-2 5-2 2.500 2 5 2"/></svg></i>
+                    <i class="hx-tile"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@Html.Raw(TypeIkon(featured))</svg></i>
                     <div>
                         <h2>@featured.Navn</h2>
-                        <div class="hx-chips"><span class="hx-chip is-orange">Pågår</span><span class="hx-chip @PrioKlasse(featured.Prioritet)">@PrioTekst(featured.Prioritet)</span></div>
+                        <div class="hx-chips"><span class="hx-chip @StatusKlasse(featured.Status)">@Statuser.Hendelse.Etikett(featured.Status)</span><span class="hx-chip @PrioKlasse(featured.Prioritet)">@PrioTekst(featured.Prioritet)</span></div>
                         <p class="hx-meta">@featured.Område · Opprettet @Stamp(featured.Starttidspunkt)</p>
                     </div>
                 </div>
                 @if (!string.IsNullOrWhiteSpace(featured.Beskrivelse)) { <p class="hx-desc">@featured.Beskrivelse</p> }
-                <div class="hx-progress"><div><span>Fremdrift i håndtering</span><b>@k.Prosent%</b></div><meter min="0" max="100" value="@k.Prosent"></meter></div>
-                <div class="hx-stats">
-                    <div><span>Ressurser i bruk</span><strong>@k.Ressurser</strong></div>
-                    <div><span>Tiltak</span><strong>@k.TiltakFerdig / @k.Tiltak</strong></div>
-                    <div><span>Involverte aktører</span><strong>@k.Aktører</strong></div>
-                </div>
                 <div class="hx-actions">
-                    <a class="btn-secondary" asp-action="Arbeidsrom" asp-route-id="@featured.HendelseID">Åpne arbeidsrom</a>
-                    <a class="btn-secondary" asp-controller="Home" asp-action="Map" asp-route-sted="@featured.Område">Se på kart</a>
-                    <span class="hx-main-badge">★ Hovedhendelse</span>
+                    <a class="hx-btn-solid" asp-action="Arbeidsrom" asp-route-id="@featured.HendelseID">Åpne arbeidsrom ↗</a>
+                    <a class="hx-btn-line" asp-controller="Home" asp-action="Map" asp-route-sted="@featured.Område">Se på kart ↗</a>
                     @if (kriseledelse) { @await Html.PartialAsync("_HendelseKontroll", featured) }
+                </div>
+            </div>
+            <div class="hx-feature-mid">
+                <h3>Fremdrift i håndtering</h3>
+                <div class="hx-bar"><div class="hx-bar-track"><span style="width:@k.Prosent%"></span></div><b>@k.Prosent %</b></div>
+                <div class="hx-stats">
+                    <div><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.7a1 1 0 0 0-.2-.6l-3.3-4.1a1 1 0 0 0-.8-.4H14"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg><span>Ressurser i bruk</span><strong>@k.Ressurser</strong></div>
+                    <div><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><span>Tiltak fullført</span><strong>@k.TiltakFerdig / @k.Tiltak</strong></div>
+                    <div><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg><span>Involverte aktører</span><strong>@k.Aktører</strong></div>
+                    <div><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></svg><span>Åpne behov</span><strong>@k.Behov</strong></div>
                 </div>
             </div>
             <div class="hx-feature-side">
@@ -74,18 +91,12 @@
                 <ul class="hx-timeline">
                     @foreach (var a in siste)
                     {
-                        <li><time>@a.Tidspunkt.ToString("HH:mm")</time><span>@(string.IsNullOrWhiteSpace(a.Tekst) ? a.Handling : a.Tekst)</span></li>
+                        <li><div><strong>@a.Handling</strong>@if (!string.IsNullOrWhiteSpace(a.Tekst)) { <span>@a.Tekst</span> }</div><time>@a.Tidspunkt.ToString("HH:mm")</time></li>
                     }
                 </ul>
-                @if (featured.Breddegrad is not null && featured.Lengdegrad is not null)
-                {
-                    <div class="hx-minimap" id="hxMap" data-lat="@featured.Breddegrad.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-lng="@featured.Lengdegrad.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"></div>
-                    <a class="hx-openmap" asp-controller="Home" asp-action="Map" asp-route-sted="@featured.Område">Åpne i kart</a>
-                }
             </div>
         </article>
     }
-
     <section class="hx-others">
         <div class="hx-others-head">
             <h2>Andre hendelser (<span id="hxCount">@andre.Count</span>)</h2>
@@ -103,25 +114,27 @@
         {
             var k = kort.GetValueOrDefault(h.HendelseID) ?? new HendelseKort(0, 0, 0, 0, 0, 0);
             <article class="hx-row @StatusKlasse(h.Status)" data-status="@h.Status" data-time="@h.Starttidspunkt.Ticks">
-                <i class="hx-tile"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></svg></i>
-                <div class="hx-row-name"><strong>@h.Navn</strong><span>@h.Område · Opprettet @Stamp(h.Starttidspunkt)</span></div>
-                <span class="hx-chip @StatusKlasse(h.Status)">@Statuser.Hendelse.Etikett(h.Status)</span>
-                <span class="hx-chip @PrioKlasse(h.Prioritet)">@PrioIkon(h.Prioritet) @PrioTekst(h.Prioritet)</span>
-                <div class="hx-num"><span>Tiltak</span><b>@k.TiltakFerdig / @k.Tiltak</b></div>
-                <div class="hx-num"><span>Ressurser</span><b>@k.Ressurser</b></div>
+                <i class="hx-tile"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@Html.Raw(TypeIkon(h))</svg></i>
+                <div class="hx-row-name"><strong>@h.Navn</strong><span>@h.Område &nbsp;|&nbsp; @Stamp(h.Starttidspunkt)</span></div>
+                <div class="hx-row-chips"><span class="hx-chip @StatusKlasse(h.Status)">@Statuser.Hendelse.Etikett(h.Status)</span><span class="hx-chip @PrioKlasse(h.Prioritet)">@PrioIkon(h.Prioritet) @PrioTekst(h.Prioritet)</span></div>
+                <div class="hx-row-progress">
+                    @if (h.Status == Statuser.Hendelse.Aktiv)
+                    {
+                        <div class="hx-bar"><div class="hx-bar-track"><span style="width:@k.Prosent%"></span></div><b>@k.Prosent %</b></div>
+                    }
+                </div>
                 <div class="hx-row-actions">
                     @if (h.Status == Statuser.Hendelse.Aktiv)
                     {
                         <form asp-action="Hovedhendelse" asp-route-id="@h.HendelseID" method="post"><button type="submit" class="hx-main-btn" title="Vis denne øverst">☆ Gjør til hovedhendelse</button></form>
                     }
-                    <a class="btn-secondary" asp-action="Arbeidsrom" asp-route-id="@h.HendelseID">Se detaljer →</a>
                     @if (kriseledelse) { @await Html.PartialAsync("_HendelseKontroll", h) }
+                    <a class="hx-chevron" asp-action="Arbeidsrom" asp-route-id="@h.HendelseID" aria-label="Åpne @h.Navn">›</a>
                 </div>
             </article>
         }
         </div>
     </section>
-
     @if (kriseledelse)
     {
     <details class="hx-create" id="ny-hendelse" open="@(hendelser.Count == 0 || !ViewData.ModelState.IsValid)">
@@ -167,13 +180,6 @@
 <script src="~/lib/leaflet/leaflet.js"></script>
 <script>
 (function () {
-    var m = document.getElementById('hxMap');
-    if (m && window.L) {
-        var lat = parseFloat(m.dataset.lat), lng = parseFloat(m.dataset.lng);
-        var map = L.map(m, { zoomControl: false, attributionControl: false, scrollWheelZoom: false }).setView([lat, lng], 9);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
-        L.marker([lat, lng], { icon: L.divIcon({ className: 'hx-pin-wrap', html: '<span class="hx-pin">!</span>', iconSize: [34, 34], iconAnchor: [17, 30] }) }).addTo(map);
-    }
     var list = document.getElementById('hxList'); if (!list) return;
     var filter = 'alle';
     function apply() {

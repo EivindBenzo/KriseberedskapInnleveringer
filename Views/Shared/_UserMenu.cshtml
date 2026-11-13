@@ -13,7 +13,7 @@
             @if (shell.AntallUlest > 0) { <span class="um-dot" aria-hidden="true">@(shell.AntallUlest > 9 ? "9+" : shell.AntallUlest.ToString())</span> }
         </summary>
         <div class="um-panel um-notifications">
-            <div class="um-panel-head"><strong>Varsler</strong><a asp-controller="Account" asp-action="Profile" asp-fragment="varsler">Innstillinger</a></div>
+            <div class="um-panel-head"><strong>Varsler</strong><span class="um-head-links">@if (shell.AntallUlest > 0) { <button type="button" class="um-markall" data-mark-all>Marker alle som lest</button> }<a asp-controller="Account" asp-action="Profile" asp-fragment="varsler">Innstillinger</a></span></div>
             @if (shell.Varsler.Count == 0)
             {
                 <p class="um-empty">Ingen nye varsler akkurat nå.</p>
@@ -23,7 +23,7 @@
                 <ul>
                     @foreach (var v in shell.Varsler)
                     {
-                        <li><a asp-controller="@v.Controller" asp-action="@v.Action" class="is-@v.Kategori"><strong>@v.Tekst</strong>@if (v.Detalj.Length > 0) { <span>@v.Detalj</span> }</a></li>
+                        <li class="@(shell.Sett.Contains(ShellService.Nøkkel(v)) ? "is-read" : "")"><a asp-controller="@v.Controller" asp-action="@v.Action" data-notif-key="@ShellService.Nøkkel(v)" class="is-@v.Kategori"><strong>@v.Tekst</strong>@if (v.Detalj.Length > 0) { <span>@v.Detalj</span> }</a></li>
                     }
                 </ul>
             }

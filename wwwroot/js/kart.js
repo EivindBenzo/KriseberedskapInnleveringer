@@ -121,6 +121,8 @@
     const panelBody = document.getElementById('mapPanelBody');
     const markorPerRessurs = {};
     let valgtMarkor = null;
+    let forrigeVisning = null;
+    let forrigeVisning = null;
 
     function avstandTekst(lat, lng) {
         const km = brukerPosisjon.distanceTo(L.latLng(lat, lng)) / 1000;
@@ -142,6 +144,7 @@
     }
     function lukkPanel() {
         if (!panel) return;
+        forrigeVisning = null;
         panel.hidden = true;
         valgtMarkor = null;
         velgKort(null);
@@ -204,6 +207,13 @@
         kort.addEventListener('click', function () {
             const markor = markorPerRessurs[kort.dataset.res];
             if (!markor) return;
+            if (kort.classList.contains('is-selected')) {
+                const tilbake = forrigeVisning;
+                lukkPanel();
+                if (tilbake) kart.setView(tilbake.senter, tilbake.zoom);
+                return;
+            }
+            if (!forrigeVisning) forrigeVisning = { senter: kart.getCenter(), zoom: kart.getZoom() };
             const vis = function () { kart.setView(markor.getLatLng(), Math.max(kart.getZoom(), 14)); visPanel(markor.kartdata, markor); };
             if (harGruppering) gruppe.zoomToShowLayer(markor, vis); else vis();
             if (window.innerWidth <= 860) settRail(true);
