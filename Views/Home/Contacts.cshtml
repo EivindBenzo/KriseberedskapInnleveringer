@@ -2,13 +2,30 @@
 @model IReadOnlyList<HeimevernetInnlevering1.ViewModels.ContactDirectoryEntry>
 @{
     ViewData["Title"] = "Kontaktliste";
+    var meg = HeimevernetInnlevering1.Models.ResourcePermissions.BrukerId(User);
+    string Initialer(string navn) => string.Concat(navn.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(d => char.ToUpperInvariant(d[0])));
+    var roller = Model.Select(c => AppRoles.Label(c.Role)).Distinct().OrderBy(x => x).ToList();
+    var organisasjoner = Model.Select(c => c.Organization).Where(o => !string.IsNullOrWhiteSpace(o)).Distinct().OrderBy(x => x).ToList();
+    var steder = Model.Select(c => c.Place).Where(o => !string.IsNullOrWhiteSpace(o)).Distinct().OrderBy(x => x).ToList();
 }
-<section class="operations-workspace contacts-page" aria-labelledby="contacts-heading">
-    <div class="page-heading">
-        <div><span class="eyebrow">SAMARBEID OG ANSVAR</span><h1 id="contacts-heading">Kontaktliste</h1></div>
-        <a asp-action="Dashboard" class="btn-submit">Åpne oversikt</a>
+<section class="operations-workspace contacts-page kl" aria-labelledby="contacts-heading">
+    <div class="kl-hero">
+        <div>
+            <span class="eyebrow">SAMARBEID OG ANSVAR</span>
+            <h1 id="contacts-heading">Kontaktliste</h1>
+            <p>Finn riktig kontakt på tvers av roller før du registrerer, verifiserer eller koordinerer en ressurs.</p>
+        </div>
+        <svg class="kl-art" viewBox="0 0 420 180" aria-hidden="true" focusable="false">
+            <circle cx="300" cy="86" r="74" fill="none" stroke="#f9d9b4" stroke-width="2" opacity=".6"/>
+            <circle cx="300" cy="86" r="52" fill="none" stroke="#f7c993" stroke-width="2" opacity=".8"/>
+            <circle cx="300" cy="86" r="30" fill="#fbe3c6" opacity=".9"/>
+            <path d="M0 180V132l62-62 44 40 52-72 70 94 54-46 74 60 64-36v70z" fill="#cfe7e6"/>
+            <path d="M0 180v-30l70-50 50 42 60-62 80 76 60-40 100 64z" fill="#b6d9da"/>
+            <g fill="#8fc3c4"><path d="M40 180l14-44 14 44z"/><path d="M70 180l12-36 12 36z"/><path d="M350 180l14-46 14 46z"/><path d="M380 180l10-30 10 30z"/><path d="M118 180l12-34 12 34z"/></g>
+            <path d="M300 128c-20-26-28-40-28-54a28 28 0 1 1 56 0c0 14-8 28-28 54z" fill="#f08a1c"/>
+            <circle cx="300" cy="74" r="11" fill="#fff"/>
+        </svg>
     </div>
-    <p class="contacts-intro">Finn riktig kontakt på tvers av roller før du registrerer, verifiserer eller koordinerer en ressurs.</p>
     @if (TempData["MessageError"] is string error)
     {
         <p class="workspace-alert" role="alert">@error</p>
@@ -17,34 +34,85 @@
     {
         <p class="notice" role="status">@success</p>
     }
-    <div class="contact-grid">
-    @foreach (var contact in Model)
-    {
-        <article class="contact-card">
-            <span class="status-badge">@AppRoles.Label(contact.Role)</span>
-            <h2>@contact.Name</h2>
-            @if (!string.IsNullOrWhiteSpace(contact.Organization))
+    <form class="kl-filters" onsubmit="return false" role="search">
+        <label class="kl-search">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.500-3.500"/></svg>
+            <input type="search" id="klSearch" placeholder="Søk etter navn, rolle, organisasjon eller kompetanse …" aria-label="Søk i kontakter" autocomplete="off" />
+        </label>
+        <label class="kl-select">Rolle<select id="klRole"><option value="">Alle roller</option>@foreach (var r in roller) { <option>@r</option> }</select></label>
+        <label class="kl-select">Organisasjon<select id="klOrg"><option value="">Alle organisasjoner</option>@foreach (var o in organisasjoner) { <option>@o</option> }</select></label>
+        <label class="kl-select">Sted<select id="klPlace"><option value="">Alle steder</option>@foreach (var s in steder) { <option>@s</option> }</select></label>
+        <button type="reset" class="kl-reset" id="klReset">Nullstill filtre</button>
+    </form>
+    <div class="kl-layout">
+        <section class="kl-list-card" aria-label="Kontakter">
+            <div class="kl-list-head">
+                <h2>Kontakter <span class="count-badge" id="klCount">@Model.Count</span></h2>
+                <label>Sorter: <select id="klSort"><option value="name">Navn (A–Å)</option><option value="role">Rolle</option></select></label>
+            </div>
+            <ul class="kl-list" id="klList">
+            @foreach (var c in Model)
             {
-                <p class="resource-meta">@contact.Organization</p>
-            }
-            <dl>
-                <div><dt>E-post</dt><dd><a href="mailto:@contact.Email">@contact.Email</a></dd></div>
-                @if (!string.IsNullOrWhiteSpace(contact.PhoneNumber))
+                var rolle = AppRoles.Label(c.Role);
+                var json = System.Text.Json.JsonSerializer.Serialize(new
                 {
-                    <div><dt>Telefon</dt><dd><a href="tel:@contact.PhoneNumber">@contact.PhoneNumber</a></dd></div>
-                }
-            </dl>
-            @if (contact.UserId != HeimevernetInnlevering1.Models.ResourcePermissions.BrukerId(User))
-            {
-                <button type="button" class="btn-submit contact-message-button" data-contact-name="@contact.Name" data-recipient-id="@contact.UserId">Send melding</button>
+                    id = c.UserId, name = c.Name, initials = Initialer(c.Name), role = rolle, org = c.Organization, place = c.Place,
+                    phone = c.PhoneNumber, email = c.Email, resources = c.Resources ?? [],
+                    activity = (c.Activity ?? []).Select(a => new { text = a.Text, when = a.When.ToLocalTime().ToString("dd.MM.yyyy HH:mm") }),
+                    self = c.UserId == meg
+                });
+                <li class="kl-row" tabindex="0" role="button" aria-pressed="false" data-contact="@json" data-search="@($"{c.Name} {rolle} {c.Organization} {c.Place}".ToLowerInvariant())" data-name="@c.Name" data-role="@rolle" data-org="@c.Organization" data-place="@c.Place">
+                    <span class="kl-avatar">@Initialer(c.Name)</span>
+                    <div class="kl-main">
+                        <strong>@c.Name</strong>
+                        <span class="kl-role">@rolle</span>
+                        @if (!string.IsNullOrWhiteSpace(c.Organization)) { <small>@c.Organization</small> }
+                    </div>
+                    <div class="kl-meta">
+                        @if (!string.IsNullOrWhiteSpace(c.Place)) { <span><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.500A2.500 2.500 0 1 1 12 6.500a2.500 2.500 0 0 1 0 5z"/></svg>@c.Place</span> }
+                        @if (!string.IsNullOrWhiteSpace(c.PhoneNumber)) { <a href="tel:@c.PhoneNumber" class="kl-phone" data-stop>@c.PhoneNumber</a> }
+                    </div>
+                    <div class="kl-btns">
+                        @if (!string.IsNullOrWhiteSpace(c.PhoneNumber)) { <a href="tel:@c.PhoneNumber" class="kl-btn" data-stop>Ring</a> }
+                        @if (c.UserId != meg) { <button type="button" class="kl-btn contact-message-button" data-stop data-contact-name="@c.Name" data-recipient-id="@c.UserId">Melding</button> }
+                    </div>
+                </li>
             }
-        </article>
-    }
+            </ul>
+            <p class="empty-state" id="klNone" @(Model.Count == 0 ? "" : "hidden")>Ingen kontakter funnet.</p>
+        </section>
+        <aside class="kl-detail" id="klDetail" aria-live="polite">
+            <div class="kl-empty" id="klEmpty">
+                <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.500" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+                <h2>Velg en kontakt</h2>
+                <p>Klikk på en kontakt i listen for å se detaljer, ressurser og nylig aktivitet.</p>
+            </div>
+            <div class="kl-card" id="klCard" hidden>
+                <div class="kl-card-top">
+                    <span class="kl-avatar is-lg" id="dAvatar"></span>
+                    <div><h2 id="dName"></h2><span class="kl-role" id="dRole"></span> <span class="kl-chip-ok">Tilgjengelig</span></div>
+                </div>
+                <dl class="kl-facts">
+                    <div><dt>Organisasjon</dt><dd id="dOrg"></dd></div>
+                    <div><dt>Kommune/region</dt><dd id="dPlace"></dd></div>
+                    <div><dt>Ansvarsområde</dt><dd id="dArea"></dd></div>
+                    <div><dt>Telefon</dt><dd id="dPhone"></dd></div>
+                    <div><dt>E-post</dt><dd id="dEmail"></dd></div>
+                    <div><dt>Tilgjengelighet</dt><dd>Svarer til vanlig arbeidstid og ved hendelser</dd></div>
+                </dl>
+                <div class="kl-actions">
+                    <a class="kl-btn is-solid" id="dCall" href="#">Ring</a>
+                    <button type="button" class="kl-btn contact-message-button" id="dMsg" data-contact-name="" data-recipient-id="">Send melding</button>
+                    <a class="kl-btn" asp-action="Resources">Se ressurser</a>
+                    <a class="kl-btn" asp-controller="Operations" asp-action="Index">Se hendelser</a>
+                </div>
+                <h3>Tilknyttede ressurser <span class="count-badge" id="dResCount">0</span></h3>
+                <div class="kl-chips" id="dRes"></div>
+                <h3>Nylig aktivitet</h3>
+                <ul class="kl-activity" id="dAct"></ul>
+            </div>
+        </aside>
     </div>
-    @if (Model.Count == 0)
-    {
-        <p class="empty-state">Ingen brukere med en operativ rolle er registrert ennå.</p>
-    }
 </section>
 <dialog id="messageComposer" class="message-composer" aria-labelledby="messageComposerHeading">
     <form asp-controller="Messages" asp-action="Send" method="post">
@@ -61,3 +129,4 @@
     </form>
 </dialog>
 <script src="~/js/messages.js" asp-append-version="true"></script>
+<script src="~/js/contacts.js" asp-append-version="true"></script>

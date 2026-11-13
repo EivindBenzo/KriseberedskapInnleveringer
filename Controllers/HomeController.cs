@@ -36,6 +36,19 @@ public class HomeController(AppDbContext db, IPlaceGeocoder geocoder, WorkflowSe
                               select new ContactDirectoryEntry(
                                   user.Id, user.FulltNavn, role.Name!, user.Organisasjon, user.Email ?? user.UserName ?? "Ikke oppgitt",
                                   user.PhoneNumber)).ToListAsync();
+        var ids = contacts.Select(c => c.UserId).ToList();
+        var ressurser = await db.Ressurser.AsNoTracking().Where(r => ids.Contains(r.EierID))
+            .Select(r => new { r.EierID, r.Navn, r.Stedsnavn, r.Breddegrad, r.Lengdegrad }).ToListAsync();
+        var logg = await db.Hendelseslogg.AsNoTracking().Where(l => ids.Contains(l.UtførtAvID))
+            .OrderByDescending(l => l.Tidspunkt).Select(l => new { l.UtførtAvID, l.Handling, l.Tidspunkt }).Take(400).ToListAsync();
+        contacts = contacts.Select(c =>
+        {
+            var egne = ressurser.Where(r => r.EierID == c.UserId).ToList();
+            var sted = egne.Select(r => NorwegianPlaces.Display(r.Stedsnavn, r.Breddegrad, r.Lengdegrad)).FirstOrDefault();
+            var aktivitet = logg.Where(l => l.UtførtAvID == c.UserId).Take(3)
+                .Select(l => new ContactActivity(Services.ShellService.Menneskelig(l.Handling), l.Tidspunkt)).ToList();
+            return c with { Place = sted, Resources = egne.Select(r => r.Navn).Take(8).ToList(), Activity = aktivitet };
+        }).ToList();
         return View(contacts);
     }
 

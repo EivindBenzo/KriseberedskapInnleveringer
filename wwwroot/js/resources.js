@@ -75,7 +75,7 @@
         var åpen = detalj.hidden;
         detalj.hidden = !åpen;
         kort.classList.toggle('is-open', åpen);
-        knapp.setAttribute('aria-expanded', String(åpen));
+        kort.querySelectorAll('[data-rc-toggle]').forEach(function (k) { k.setAttribute('aria-expanded', String(åpen)); });
         if (åpen) {
             var kartEl = detalj.querySelector('.rc-map');
             if (kartEl) lagKart(kartEl);

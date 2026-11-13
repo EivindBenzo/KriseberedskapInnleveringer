@@ -19,7 +19,7 @@
     var opptattIGår = Model.Ressurser.Count(x => Statuser.Ressurs.Opptatt.Contains(x.Status) && x.Registrert >= iGår);
 }
 <section class="data-container resource-overview">
-    <header class="res-hero">
+    <div class="res-hero">
         <div class="res-hero-top">
             <h1>Ressurser</h1>
             <p>Registrer, forvalt og følg opp beredskapsressurser i ditt område.</p>
@@ -50,7 +50,7 @@
                 <i class="res-kpi-info" title="Tallene er hentet da siden ble lastet. Endring viser siste 24 timer." aria-label="Tallene er hentet da siden ble lastet. Endring viser siste 24 timer.">i</i>
             </div>
         </div>
-    </header>    @if (TempData["MapSuccess"] is string success)
+    </div>    @if (TempData["MapSuccess"] is string success)
     {
         <p class="info" role="status">@success</p>
     }
