@@ -85,7 +85,7 @@
                 </div>
             </article>
 
-            <article class="ph-card" id="varsler">
+            <article class="ph-card" id="varsler" tabindex="-1">
                 <h3>Varsler og preferanser</h3>
                 <ul class="ph-toggles">
                     @foreach (var (nøkkel, tittel, beskrivelse) in ShellService.Kategorier)
@@ -118,3 +118,4 @@
         <div class="ph-save"><button type="submit" class="ph-save-btn">Lagre endringer</button></div>
     </form>
 </section>
+<script>(function(){if(location.hash!=='#varsler')return;var c=document.getElementById('varsler');if(!c)return;c.scrollIntoView({block:'center'});c.classList.add('ph-flash');setTimeout(function(){c.classList.remove('ph-flash');},2200);})();</script>

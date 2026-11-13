@@ -18,6 +18,7 @@
     };
     string Stamp(DateTime value) => value.ToString("dd.MM.yyyy HH:mm") + " UTC";
     string Tittel(Behov b) => $"{b.Behovstype?.Navn} · {b.Stedsnavn}";
+    string TypeIkon(string? n) { var t = (n ?? "").ToLowerInvariant(); return t.Contains("brann") ? "🔥" : t.Contains("flom") || t.Contains("vann") || t.Contains("nedbør") ? "🌊" : t.Contains("strøm") || t.Contains("generator") ? "⚡" : t.Contains("mannskap") || t.Contains("personell") ? "👥" : t.Contains("transport") || t.Contains("kjøretøy") ? "🚗" : t.Contains("søk") ? "🔍" : t.Contains("drone") ? "🛸" : t.Contains("maskin") ? "🚜" : t.Contains("mat") || t.Contains("nødhjelp") ? "🥫" : "📦"; }
     var providerAttention = Model.OwnResources.Count(r => r.Status is Statuser.Ressurs.VenterPåVerifisering or Statuser.Ressurs.Avvist);
     var pendingIncoming = Model.IncomingRequests.Count(f => f.Svar == Statuser.Svar.Venter);
     var pendingDispatch = Model.Requests.Count(f => f.Svar == Statuser.Svar.Venter) + Model.VerificationQueue.Count;
@@ -131,36 +132,61 @@ else
 
 @if (provider)
 {
-    <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
-    <h2 id="mine-foresporsler">Forespørsler til meg <span class="count-badge">@pendingIncoming</span></h2>
-    @if (Model.IncomingRequests.Count == 0)
+    <section class="dashboard-panel dc-panel" data-dashboard-panel="requests" hidden>
+    <div class="dc-head"><h2 id="mine-foresporsler">Forespørsler til meg <span class="count-badge">@pendingIncoming</span></h2></div>
+    @if (pendingIncoming == 0)
     {
-        <p class="empty-state">Ingen forespørsler om dine ressurser.</p>
+        <p class="empty-state">Ingen forespørsler venter på ditt svar.</p>
     }
-    @foreach (var request in Model.IncomingRequests)
+    <div class="dc-grid">
+    @foreach (var request in Model.IncomingRequests.Where(f => f.Svar == Statuser.Svar.Venter))
     {
         var behov = request.Behov!;
-        <article id="innkommende-@request.ForespørselID" class="workflow-item @(request.Svar == Statuser.Svar.Venter ? "workflow-item-highlight" : "")">
-            <div class="results-heading">
-                <h3>@request.Ressurs!.Navn</h3>
-                <span class="status-badge @(request.Svar == Statuser.Svar.Venter ? "status-warning" : "")">@Statuser.Visning(request.Svar)</span>
-            </div>
-            <p>@Tittel(behov) · <span class="status-badge @PriorityChip(behov.Prioritet)">@Statuser.Visning(behov.Prioritet)</span>
-                @if (behov.Frist is DateTime frist) { <span class="resource-meta"> · frist @Stamp(frist)</span> }</p>
-            <p>@behov.Beskrivelse</p>
-            @if (request.Svar == Statuser.Svar.Venter)
-            {
-                <form asp-controller="Operations" asp-action="Respond" method="post" class="inline-form">
-                    <input type="hidden" name="id" value="@request.ForespørselID" />
-                    <input type="hidden" name="returnUrl" value="@Tilbake("innkommende-" + request.ForespørselID)" />
-                    <label>Kommentar (valgfritt) <input name="reason" maxlength="1000" /></label>
-                    <button name="accept" value="true" type="submit" class="btn-submit">Godta</button>
-                    <button name="accept" value="false" type="submit">Avslå</button>
-                </form>
-            }
-            @await Html.PartialAsync("_Timeline", Model.RequestTimeline.GetValueOrDefault(request.ForespørselID))
+        <article id="innkommende-@request.ForespørselID" class="dc-card dc-assign is-orange">
+            <form asp-controller="Operations" asp-action="Respond" method="post" class="dc-verify">
+                <input type="hidden" name="id" value="@request.ForespørselID" />
+                <input type="hidden" name="returnUrl" value="@Tilbake("innkommende-" + request.ForespørselID)" />
+                <div class="dc-top">
+                    <i class="dc-ico" aria-hidden="true">@TypeIkon(behov.Behovstype?.Navn)</i>
+                    <div class="dc-title"><strong>@request.Ressurs!.Navn</strong><span>📍 @Tittel(behov)</span></div>
+                    <div class="dc-btns">
+                        <button name="accept" value="true" type="submit" class="dc-primary">Godta</button>
+                        <button name="accept" value="false" type="submit" class="dc-ghost">Avslå</button>
+                    </div>
+                </div>
+                <div class="dc-chips"><span class="status-badge @PriorityChip(behov.Prioritet)">@Statuser.Visning(behov.Prioritet)</span>@if (behov.Frist is DateTime frist) { <span class="status-badge">Frist @Stamp(frist)</span> }</div>
+                <p class="dc-desc">@behov.Beskrivelse</p>
+                <input name="reason" maxlength="1000" class="dc-reason" placeholder="Kommentar (valgfritt)" aria-label="Kommentar" />
+            </form>
+            <button type="button" class="dc-ghost dc-histbtn" data-dc-toggle>Historikk</button>
+            <div class="dc-more" hidden>@await Html.PartialAsync("_Timeline", Model.RequestTimeline.GetValueOrDefault(request.ForespørselID))</div>
         </article>
     }
+    </div>
+
+    @{ var besvarte = Model.IncomingRequests.Where(f => f.Svar != Statuser.Svar.Venter).ToList(); }
+    <div class="dc-head dc-sub"><h2 id="besvarte-foresporsler">Fullførte og besvarte forespørsler <span class="count-badge">@besvarte.Count</span></h2></div>
+    @if (besvarte.Count == 0)
+    {
+        <p class="empty-state">Ingen besvarte forespørsler ennå.</p>
+    }
+    <div class="dc-grid">
+    @foreach (var request in besvarte)
+    {
+        var behov = request.Behov!;
+        var ok = request.Svar == Statuser.Svar.Godtatt;
+        <article id="innkommende-@request.ForespørselID" class="dc-card dc-assign dc-done @(ok ? "is-green" : "is-red")">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@(ok ? "✓" : "✕")</i>
+                <div class="dc-title"><strong>@request.Ressurs!.Navn</strong><span>📍 @Tittel(behov)</span></div>
+                <div class="dc-btns"><button type="button" class="dc-ghost" data-dc-toggle>Historikk</button></div>
+            </div>
+            <div class="dc-chips"><span class="status-badge @(ok ? "status-positive" : "status-critical")">✓ @Statuser.Visning(request.Svar)</span><span class="status-badge @PriorityChip(behov.Prioritet)">@Statuser.Visning(behov.Prioritet)</span></div>
+            <p class="dc-desc">@behov.Beskrivelse</p>
+            <div class="dc-more" hidden>@await Html.PartialAsync("_Timeline", Model.RequestTimeline.GetValueOrDefault(request.ForespørselID))</div>
+        </article>
+    }
+    </div>
     </section>
 
     <section class="dashboard-panel dc-panel" data-dashboard-panel="confirmed" hidden>
@@ -226,33 +252,36 @@ else
 
 @if (provider)
 {
-    <section class="dashboard-panel" data-dashboard-panel="urgent" hidden>
-    <h2 id="ressurser-oppfolging">Ressurser som trenger oppfølging <span class="count-badge">@providerAttention</span></h2>
+    <section class="dashboard-panel dc-panel" data-dashboard-panel="urgent" hidden>
+    <div class="dc-head"><h2 id="ressurser-oppfolging">Ressurser som trenger oppfølging <span class="count-badge">@providerAttention</span></h2></div>
     @if (providerAttention == 0)
     {
         <p class="empty-state">Alle ressursene dine er enten klare eller har et aktivt oppdrag.</p>
     }
+    <div class="dc-grid">
     @foreach (var resource in Model.OwnResources.Where(r => r.Status is Statuser.Ressurs.VenterPåVerifisering or Statuser.Ressurs.Avvist))
     {
-        <article class="workflow-item @(resource.Status == Statuser.Ressurs.Avvist ? "workflow-item-critical" : "")">
-            <div class="results-heading">
-                <h3>@resource.Navn</h3>
-                <span class="status-badge @(resource.Status == Statuser.Ressurs.Avvist ? "status-critical" : "status-warning")">@Statuser.Visning(resource.Status)</span>
+        <article class="dc-card dc-assign @(resource.Status == Statuser.Ressurs.Avvist ? "is-red" : "is-orange")">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@TypeIkon(resource.Ressurstype?.Navn)</i>
+                <div class="dc-title"><strong>@resource.Navn</strong><span>📍 @resource.Ressurstype?.Navn · @resource.Stedsnavn</span></div>
+                <div class="dc-btns"><a asp-action="Edit" asp-route-id="@resource.RessursID" class="dc-primary dc-link-btn">Åpne ressurs</a></div>
             </div>
-            <p class="resource-meta">@resource.Ressurstype?.Navn · @resource.Stedsnavn</p>
-            <p>@(resource.Status == Statuser.Ressurs.VenterPåVerifisering
+            <div class="dc-chips"><span class="status-badge @(resource.Status == Statuser.Ressurs.Avvist ? "status-critical" : "status-warning")">@Statuser.Visning(resource.Status)</span></div>
+            <p class="dc-desc">@(resource.Status == Statuser.Ressurs.VenterPåVerifisering
                 ? "Dispatch må verifisere ressursen før den kan forespørres."
                 : "Kontroller opplysningene og rediger ressursen før den sendes inn på nytt.")</p>
-            <a asp-action="Edit" asp-route-id="@resource.RessursID" class="btn-secondary">Åpne ressurs</a>
         </article>
     }
+    </div>
     </section>
 }
 
 @if (dispatch)
 {
     <section class="dashboard-panel dc-panel" data-dashboard-panel="requests" hidden>
-    <div class="dc-head"><h2 id="verifiseringskoe">Venter på verifisering <span class="count-badge">@Model.VerificationQueue.Count</span></h2></div>
+    <div class="dc-head"><h2 id="verifiseringskoe">Venter på verifisering <span class="count-badge">@Model.VerificationQueue.Count</span></h2>
+</div>
     @if (Model.VerificationQueue.Count == 0)
     {
         <p class="empty-state">Ingen ressurser venter på verifisering.</p>
@@ -283,95 +312,104 @@ else
 
 @if (dispatch)
 {
-    <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
-
-    <h2 id="apne-behov">Åpne behov <span class="count-badge">@Model.OpenNeeds.Count</span></h2>
+    <section class="dashboard-panel dc-panel" data-dashboard-panel="requests" hidden>
+    <div class="dc-head"><h2 id="apne-behov">Åpne behov <span class="count-badge">@Model.OpenNeeds.Count</span></h2></div>
     @if (Model.OpenNeeds.Count == 0)
     {
         <p class="empty-state">Ingen åpne behov.</p>
     }
+    <div class="dc-grid">
     @foreach (var need in Model.OpenNeeds)
     {
-        // Ressurstypene som passer behovstypen, fra koblingstabellen BehovstypeRessurstype.
         var passendeTyper = need.Behovstype?.PassendeRessurstyper.Select(k => k.RessurstypeID).ToHashSet() ?? [];
         var matches = Model.MatchingResources
             .Where(r => passendeTyper.Contains(r.RessurstypeID))
             .OrderByDescending(r => string.Equals(ResourceCity.FromLocation(r.Stedsnavn), ResourceCity.FromLocation(need.Stedsnavn), StringComparison.OrdinalIgnoreCase))
             .ToList();
-        <article id="behov-@need.BehovID" class="workflow-item">
-            <div class="results-heading">
-                <h3>@Tittel(need)</h3>
-                <div>
-                    <span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span>
-                    <span class="status-badge">@Statuser.Visning(need.Status)</span>
+        <article id="behov-@need.BehovID" class="dc-card dc-assign is-orange">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
+                <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
+                <div class="dc-btns">
+                    @if (need.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes)
+                    {
+                        <button type="button" class="dc-primary" data-dc-toggle>Tildel ressurs (@matches.Count)</button>
+                    }
                 </div>
             </div>
-            <p>@need.Beskrivelse</p>
-            <p class="resource-meta">Antall: @need.Antall@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")@(need.Hendelse is Hendelse h ? " · " + h.Navn : "") · Kontakt: @need.Kontaktperson, @need.Kontakttelefon</p>
-            @if (need.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes)
-            {
-                <details>
-                    <summary>Passende verifiserte ressurser <span class="count-badge">@matches.Count</span></summary>
-                    @if (matches.Count == 0)
-                    {
-                        <p class="empty-state">Ingen tilgjengelige ressurser av riktig type.</p>
-                    }
-                    @foreach (var resource in matches)
-                    {
-                        <form asp-controller="Operations" asp-action="CreateRequest" method="post" class="inline-form">
-                            <input type="hidden" name="needId" value="@need.BehovID" />
-                            <input type="hidden" name="resourceId" value="@resource.RessursID" />
-                            <input type="hidden" name="returnUrl" value="@Tilbake("behov-" + need.BehovID)" />
-                            <span><strong>@resource.Navn</strong> · @resource.Ressurstype?.Navn · @resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet tilgjengelig</span>
-                            @{ var maksAntall = Math.Min(need.Mangler, resource.TilgjengeligAntall).ToString(System.Globalization.CultureInfo.InvariantCulture); }<label>Antall <input type="number" name="quantity" min="0.01" max="@maksAntall" step="0.01" value="@maksAntall" required /></label>
-                            <button type="submit">Send forespørsel</button>
-                        </form>
-                    }
-                </details>
-            }
+            <div class="dc-chips"><span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
+            <p class="dc-desc">@need.Beskrivelse</p>
+            <div class="dc-meta dc-col"><span>👤 @need.Kontaktperson · 📞 @need.Kontakttelefon</span><span>Antall: @need.Antall@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")@(need.Hendelse is Hendelse h ? " · " + h.Navn : "")</span></div>
+            <div class="dc-more" hidden>
+                @if (matches.Count == 0)
+                {
+                    <p class="empty-state">Ingen tilgjengelige ressurser av riktig type.</p>
+                }
+                @foreach (var resource in matches)
+                {
+                    <form asp-controller="Operations" asp-action="CreateRequest" method="post" class="inline-form">
+                        <input type="hidden" name="needId" value="@need.BehovID" />
+                        <input type="hidden" name="resourceId" value="@resource.RessursID" />
+                        <input type="hidden" name="returnUrl" value="@Tilbake("behov-" + need.BehovID)" />
+                        <span><strong>@resource.Navn</strong> · @resource.Ressurstype?.Navn · @resource.TilgjengeligAntall.ToString("0.##") @resource.Enhet tilgjengelig</span>
+                        @{ var maksAntall = Math.Min(need.Mangler, resource.TilgjengeligAntall).ToString(System.Globalization.CultureInfo.InvariantCulture); }<label>Antall <input type="number" name="quantity" min="0.01" max="@maksAntall" step="0.01" value="@maksAntall" required /></label>
+                        <button type="submit" class="dc-primary">Send forespørsel</button>
+                    </form>
+                }
+            </div>
         </article>
     }
+    </div>
 
-    <h2 id="foresporsler">Forespørsler <span class="count-badge">@Model.Requests.Count</span></h2>
+    <div class="dc-head"><h2 id="foresporsler">Forespørsler <span class="count-badge">@Model.Requests.Count</span></h2></div>
     @if (Model.Requests.Count == 0)
     {
         <p class="empty-state">Ingen forespørsler venter på svar eller tildeling.</p>
     }
+    <div class="dc-grid">
     @foreach (var request in Model.Requests)
     {
-        <article id="foresporsel-@request.ForespørselID" class="workflow-item">
-            <div class="results-heading">
-                <h3>@request.Ressurs!.Navn → @request.Behov!.Stedsnavn</h3>
-                <span class="status-badge @(request.Svar == Statuser.Svar.Venter ? "status-warning" : "status-positive")">@Statuser.Visning(request.Svar)</span>
+        <article id="foresporsel-@request.ForespørselID" class="dc-card dc-assign @(request.Svar == Statuser.Svar.Venter ? "is-orange" : "is-green")">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@TypeIkon(request.Ressurs!.Ressurstype?.Navn)</i>
+                <div class="dc-title"><strong>@request.Ressurs!.Navn</strong><span>📍 → @request.Behov!.Stedsnavn</span></div>
+                <div class="dc-btns">
+                    @if (request.Svar == Statuser.Svar.Godtatt)
+                    {
+                        <button type="submit" form="al-@request.ForespørselID" class="dc-primary">Opprett tildeling</button>
+                    }
+                    <button type="button" class="dc-ghost" data-dc-toggle>Detaljer</button>
+                </div>
             </div>
-            <p class="resource-meta">@request.Antall.ToString("0.##") @request.Ressurs!.Enhet · sendt @Stamp(request.Sendt)</p>
+            <div class="dc-chips"><span class="status-badge @(request.Svar == Statuser.Svar.Venter ? "status-warning" : "status-positive")">@Statuser.Visning(request.Svar)</span></div>
+            <div class="dc-foot"><span><strong>@request.Antall.ToString("0.##") @request.Ressurs!.Enhet</strong></span><span>Sendt @Stamp(request.Sendt)</span></div>
             @if (request.Svar == Statuser.Svar.Godtatt)
             {
-                <form asp-controller="Operations" asp-action="Allocate" method="post" class="inline-form">
+                <form id="al-@request.ForespørselID" asp-controller="Operations" asp-action="Allocate" method="post" hidden>
                     <input type="hidden" name="id" value="@request.ForespørselID" />
                     <input type="hidden" name="returnUrl" value="@Tilbake("foresporsel-" + request.ForespørselID)" />
-                    <button type="submit" class="btn-submit">Opprett tildeling</button>
                 </form>
             }
-            <details>
-                <summary>Avbryt forespørsel</summary>
+            <div class="dc-more" hidden>
                 <form asp-controller="Operations" asp-action="Cancel" method="post" class="inline-form">
                     <input type="hidden" name="id" value="@request.ForespørselID" />
                     <input type="hidden" name="returnUrl" value="@Tilbake("foresporsel-" + request.ForespørselID)" />
-                    <label>Begrunnelse <input name="reason" required maxlength="1000" /></label>
-                    <button type="submit" class="btn-danger">Avbryt</button>
+                    <label>Avbryt forespørsel – begrunnelse <input name="reason" required maxlength="1000" /></label>
+                    <button type="submit" class="dc-ghost">Avbryt</button>
                 </form>
-            </details>
-            @await Html.PartialAsync("_Timeline", Model.RequestTimeline.GetValueOrDefault(request.ForespørselID))
+                @await Html.PartialAsync("_Timeline", Model.RequestTimeline.GetValueOrDefault(request.ForespørselID))
+            </div>
         </article>
     }
+    </div>
     </section>
 }
 
 @if (dispatch)
 {
     <section class="dashboard-panel dashboard-urgent-panel dc-panel" data-dashboard-panel="urgent" hidden>
-    <div class="dc-head"><h2 id="akutte-behov">Akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2></div>
+    <div class="dc-head"><h2 id="akutte-behov">Akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2>
+</div>
     @if (Model.UrgentNeeds.Count == 0)
     {
         <p class="empty-state">Ingen akutte behov akkurat nå.</p>
@@ -478,169 +516,158 @@ else
 
 @if (leader)
 {
-    <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
-    <div class="results-heading section-head">
-        <h2 id="dispatch-koe">Dispatch-kø <span class="count-badge">@Model.DispatchQueue.Count</span></h2>
-        <a asp-controller="Home" asp-action="Dashboard" class="btn-secondary">Åpne operasjoner</a>
-    </div>
+    <section class="dashboard-panel dc-panel" data-dashboard-panel="requests" hidden>
+    <div class="dc-head"><h2 id="dispatch-koe">Dispatch-kø <span class="count-badge">@Model.DispatchQueue.Count</span></h2>
+        <a asp-controller="Home" asp-action="Dashboard" class="dc-ghost dc-link-btn">Åpne operasjoner</a></div>
     @if (Model.DispatchQueue.Count == 0)
     {
         <p class="empty-state">Ingen oppgaver krever handling akkurat nå.</p>
     }
-    else
+    <div class="dc-grid">
+    @foreach (var item in Model.DispatchQueue)
     {
-        <div class="dispatch-queue">
-        @foreach (var item in Model.DispatchQueue)
-        {
-            <a href="@item.Target" class="workflow-item dispatch-queue-item @(item.Priority == 1 ? "workflow-item-critical" : "")">
-                <span class="eyebrow">@item.Category</span>
-                <strong>@item.Title</strong>
-                <span>@item.Details</span>
-            </a>
-        }
-        </div>
+        <a href="@item.Target" class="dc-card dc-assign @(item.Priority == 1 ? "is-red" : "is-orange") dc-linkcard">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@(item.Priority == 1 ? "🚨" : "📋")</i>
+                <div class="dc-title"><strong>@item.Title</strong><span>@item.Category</span></div>
+            </div>
+            <p class="dc-desc">@item.Details</p>
+        </a>
     }
-
-    <div class="results-heading section-head">
-        <h2 id="situasjonsbilde">Situasjonsbilde</h2>
-        <a asp-controller="Home" asp-action="Dashboard" class="btn-secondary">Åpne styring</a>
     </div>
+    </section>
+
+    <section class="dashboard-panel dc-panel" data-dashboard-panel="confirmed" hidden>
+    <div class="dc-head"><h2 id="situasjonsbilde">Situasjonsbilde</h2>
+        <a asp-controller="Home" asp-action="Dashboard" class="dc-ghost dc-link-btn">Åpne styring</a></div>
     <div class="dashboard-stats">
         <div><strong>@Model.ActiveIncidents.Count</strong><span>aktive hendelser</span></div>
         <div><strong>@Model.OpenNeeds.Count</strong><span>ordinære behov</span></div>
         <div><strong>@Model.Requests.Count(f => f.Svar == Statuser.Svar.Venter)</strong><span>venter på svar</span></div>
         <div><strong>@Model.Assignments.Count</strong><span>aktive tildelinger</span></div>
     </div>
-    @foreach (var hendelse in Model.ActiveIncidents)
-    {
-        <article class="workflow-item">
-            <div class="results-heading"><h3>@hendelse.Navn</h3><span class="status-badge status-warning">Aktiv hendelse</span></div>
-            <p>@hendelse.Område · startet @Stamp(hendelse.Starttidspunkt)</p>
-            <p>@hendelse.Beskrivelse</p>
-        </article>
-    }
-    </section>
-
-    <section class="dashboard-panel" data-dashboard-panel="urgent" hidden>
-    <div class="dashboard-stats">
-        <div><strong>@Model.Needs.Count</strong><span>Åpne behov</span></div>
-        <div><strong>@Model.Needs.Count(n => n.Prioritet == Statuser.Prioritet.Akutt)</strong><span>Akutte</span></div>
-        <div><strong>@Model.Requests.Count(f => f.Svar == Statuser.Svar.Venter)</strong><span>Venter på svar</span></div>
-        <div><strong>@Model.Assignments.Count</strong><span>Aktive tildelinger</span></div>
-    </div>
-    <div class="results-heading section-head">
-        <h2 id="hendelser">Aktive hendelser <span class="count-badge">@Model.ActiveIncidents.Count</span></h2>
-        <a asp-controller="Hendelse" asp-action="Index" class="btn-secondary">Opprett og avslutt hendelser</a>
-    </div>
+    <div class="dc-head"><h2 id="hendelser">Aktive hendelser <span class="count-badge">@Model.ActiveIncidents.Count</span></h2>
+        <a asp-controller="Hendelse" asp-action="Index" class="dc-ghost dc-link-btn">Opprett og avslutt hendelser</a></div>
     @if (Model.ActiveIncidents.Count == 0)
     {
         <p class="empty-state">Ingen aktive hendelser.</p>
     }
+    <div class="dc-grid">
     @foreach (var hendelse in Model.ActiveIncidents)
     {
-        <p><strong>@hendelse.Navn</strong> · @hendelse.Område · startet @Stamp(hendelse.Starttidspunkt)</p>
-    }
-    <div class="results-heading section-head">
-        <h2 id="behov-prioritet">Behov etter prioritet</h2>
-        <a asp-controller="Home" asp-action="Dashboard" class="btn-secondary">Prioriter og endre status</a>
-    </div>
-    @if (Model.Needs.Count == 0)
-    {
-        <p class="empty-state">Ingen åpne behov.</p>
-    }
-    @foreach (var need in Model.UrgentNeeds)
-    {
-        <article class="workflow-item">
-            <div class="results-heading">
-                <h3>@Tittel(need)</h3>
-                <div>
-                    <span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span>
-                    <span class="status-badge">@Statuser.Visning(need.Status)</span>
-                </div>
+        <article class="dc-card dc-assign">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@TypeIkon(hendelse.Navn)</i>
+                <div class="dc-title"><strong>@hendelse.Navn</strong><span>📍 @hendelse.Område</span></div>
             </div>
-            <p>@need.Beskrivelse</p>
-            <p class="resource-meta">Antall: @need.Antall · registrert @Stamp(need.Registrert)@(need.Hendelse is Hendelse h ? " · " + h.Navn : "")</p>
+            <div class="dc-chips"><span class="status-badge status-warning">Aktiv hendelse</span></div>
+            <p class="dc-desc">@hendelse.Beskrivelse</p>
+            <div class="dc-foot"><span>Startet @Stamp(hendelse.Starttidspunkt)</span></div>
         </article>
     }
-    <div class="results-heading section-head">
-        <h2 id="brukere">Brukere og roller</h2>
-        <a asp-controller="Admin" asp-action="Index" class="btn-secondary">Administrer brukere</a>
     </div>
-    <p>
+    </section>
+
+    <section class="dashboard-panel dc-panel" data-dashboard-panel="urgent" hidden>
+    <div class="dc-head"><h2 id="behov-prioritet">Akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2>
+        <a asp-controller="Home" asp-action="Dashboard" class="dc-ghost dc-link-btn">Prioriter og endre status</a></div>
+    @if (Model.UrgentNeeds.Count == 0)
+    {
+        <p class="empty-state">Ingen akutte behov akkurat nå.</p>
+    }
+    <div class="dc-grid">
+    @foreach (var need in Model.UrgentNeeds)
+    {
+        <article class="dc-card dc-assign is-red">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
+                <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
+            </div>
+            <div class="dc-chips"><span class="status-badge status-critical">Akutt</span><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
+            <p class="dc-desc">@need.Beskrivelse</p>
+            <div class="dc-foot"><span><strong>Antall: @need.Antall</strong></span><span>Registrert @Stamp(need.Registrert)@(need.Hendelse is Hendelse h ? " · " + h.Navn : "")</span></div>
+        </article>
+    }
+    </div>
+    <div class="dc-head"><h2 id="brukere">Brukere og roller</h2>
+        <a asp-controller="Admin" asp-action="Index" class="dc-ghost dc-link-btn">Administrer brukere</a></div>
+    <div class="dc-chips">
         @foreach (var (role, count) in Model.RoleCounts)
         {
             <span class="status-badge">@AppRoles.Label(role): @count</span>
         }
-    </p>
+    </div>
     </section>
 }
 
 @if (publicActor)
 {
-    <section class="dashboard-panel" data-dashboard-panel="confirmed" hidden>
-    <div class="results-heading section-head">
-        <h2 id="mine-behov">Mine behov <span class="count-badge">@Model.Needs.Count</span></h2>
-        <a asp-controller="Behov" asp-action="Registrer" class="btn-submit">Meld nytt behov</a>
-    </div>
+    <section class="dashboard-panel dc-panel" data-dashboard-panel="confirmed" hidden>
+    <div class="dc-head"><h2 id="mine-behov">Mine behov <span class="count-badge">@Model.Needs.Count</span></h2>
+        <a asp-controller="Behov" asp-action="Registrer" class="dc-primary dc-link-btn">Meld nytt behov</a></div>
     @if (Model.Needs.Count == 0)
     {
         <p class="empty-state">Du har ikke meldt inn noen behov.</p>
     }
+    <div class="dc-grid">
     @foreach (var need in Model.Needs)
     {
-        <article class="workflow-item">
-            <div class="results-heading">
-                <h3>@Tittel(need)</h3>
-                <div>
-                    <span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span>
-                    <span class="status-badge">@Statuser.Visning(need.Status)</span>
-                </div>
+        <article class="dc-card dc-assign">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
+                <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
             </div>
-            <p>@need.Beskrivelse</p>
-            <p class="resource-meta">Antall: @need.Antall · registrert @Stamp(need.Registrert)@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")</p>
+            <div class="dc-chips"><span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
+            <p class="dc-desc">@need.Beskrivelse</p>
+            <div class="dc-foot"><span><strong>Antall: @need.Antall</strong></span><span>Registrert @Stamp(need.Registrert)@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")</span></div>
         </article>
     }
+    </div>
     </section>
 
-    <section class="dashboard-panel" data-dashboard-panel="requests" hidden>
-    <h2 id="behov-under-behandling">Behov under behandling <span class="count-badge">@publicInProgress</span></h2>
+    <section class="dashboard-panel dc-panel" data-dashboard-panel="requests" hidden>
+    <div class="dc-head"><h2 id="behov-under-behandling">Behov under behandling <span class="count-badge">@publicInProgress</span></h2></div>
     @if (publicInProgress == 0)
     {
         <p class="empty-state">Ingen av behovene dine venter på vurdering akkurat nå.</p>
     }
+    <div class="dc-grid">
     @foreach (var need in Model.Needs.Where(n => n.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes))
     {
-        <article class="workflow-item">
-            <div class="results-heading">
-                <h3>@Tittel(need)</h3>
-                <span class="status-badge status-warning">@Statuser.Visning(need.Status)</span>
+        <article class="dc-card dc-assign is-orange">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
+                <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
             </div>
-            <p>@need.Beskrivelse</p>
-            <p class="resource-meta">Registrert @Stamp(need.Registrert)@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")</p>
+            <div class="dc-chips"><span class="status-badge status-warning">@Statuser.Visning(need.Status)</span></div>
+            <p class="dc-desc">@need.Beskrivelse</p>
+            <div class="dc-foot"><span><strong>Antall: @need.Antall</strong></span><span>Registrert @Stamp(need.Registrert)@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")</span></div>
         </article>
     }
+    </div>
     </section>
 
-    <section class="dashboard-panel dashboard-urgent-panel" data-dashboard-panel="urgent" hidden>
-    <div class="results-heading section-head">
-        <h2 id="mine-akutte-behov">Mine akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2>
-        <a asp-controller="Behov" asp-action="Registrer" class="btn-danger">Meld akutt behov</a>
-    </div>
+    <section class="dashboard-panel dc-panel dashboard-urgent-panel" data-dashboard-panel="urgent" hidden>
+    <div class="dc-head"><h2 id="mine-akutte-behov">Mine akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2>
+        <a asp-controller="Behov" asp-action="Registrer" class="dc-primary dc-danger dc-link-btn">Meld akutt behov</a></div>
     @if (Model.UrgentNeeds.Count == 0)
     {
         <p class="empty-state">Du har ikke meldt inn noen akutte behov.</p>
     }
+    <div class="dc-grid">
     @foreach (var need in Model.UrgentNeeds)
     {
-        <article class="workflow-item workflow-item-critical">
-            <div class="results-heading">
-                <h3>@Tittel(need)</h3>
-                <div><span class="status-badge status-critical">Akutt</span><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
+        <article class="dc-card dc-assign is-red">
+            <div class="dc-top">
+                <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
+                <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
             </div>
-            <p>@need.Beskrivelse</p>
-            <p class="resource-meta">Registrert @Stamp(need.Registrert)@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")</p>
+            <div class="dc-chips"><span class="status-badge status-critical">Akutt</span><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
+            <p class="dc-desc">@need.Beskrivelse</p>
+            <div class="dc-foot"><span><strong>Antall: @need.Antall</strong></span><span>Registrert @Stamp(need.Registrert)@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")</span></div>
         </article>
     }
+    </div>
     </section>
 }
 </section>
