@@ -1753,3 +1753,25 @@ body.dark .hx-pincount,[data-theme=dark] .hx-pincount{background:#14532d;color:#
 :root[data-theme="dark"] .as-qtybox .dc-unit,:root[data-theme="dark"] .as-qty-row .dc-unit{background:#134e4a;color:#99f6e4}
 :root[data-theme="dark"] .as-foot .dc-primary{background:#14b8a6;border-color:#14b8a6;color:#04201d}
 :root[data-theme="dark"] .as-foot .dc-ghost{background:transparent;color:#7ff3ee;border-color:#2f8f8a}
+
+/* Round 27: assign dialog 80% */
+dialog.as-dialog[open]{position:fixed;inset:0;margin:auto;width:80vw;height:80vh;max-width:none;max-height:none;overflow:hidden;display:block}
+.as-dialog .as-form{height:100%;display:flex;flex-direction:column}
+.as-dialog .as-head{flex:none}
+.as-dialog .as-body{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;gap:.8rem;padding:.6rem 2rem 1.2rem;max-width:960px;width:100%;margin:0 auto;box-sizing:border-box}
+.as-dialog .as-body>*{flex:none}
+.as-dialog label{display:block;margin:0;height:auto;font-size:1rem;color:inherit}
+.as-dialog .as-label{margin-top:.4rem}
+.as-dialog .as-head{padding:1.4rem 2rem .8rem}
+.as-dialog .as-x{width:40px;height:40px;border:1px solid #cbd5d9;border-radius:10px;background:transparent;font-size:1.6rem;display:grid;place-items:center;padding:0}
+.as-dialog .as-select{width:100%;height:auto;margin:0}
+.as-dialog .as-foot{flex:none;padding:1rem 2rem}
+.as-dialog .as-qty-row{align-items:center}
+.as-after{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem 1rem;padding:.9rem 1rem;border-radius:12px;background:#fff1f0;color:#7a2a24;border:1px solid #f3c9c5}
+.as-after strong{font-size:1.6rem;color:#b42318;margin-left:auto}
+.as-after small{flex-basis:100%;color:#7a2a24}
+.as-after.is-done{background:#e8f5ec;border-color:#b7e1c4;color:#166534}.as-after.is-done strong,.as-after.is-done small{color:#166534}
+:root[data-theme="dark"] .as-after{background:#33191b;border-color:#5b2327;color:#f3c0bc}
+:root[data-theme="dark"] .as-after strong,:root[data-theme="dark"] .as-after small{color:#fca5a5}
+:root[data-theme="dark"] .as-after.is-done{background:#10301f;border-color:#22c55e;color:#bbf7d0}
+:root[data-theme="dark"] .as-after.is-done strong,:root[data-theme="dark"] .as-after.is-done small{color:#bbf7d0}

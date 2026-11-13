@@ -18,7 +18,7 @@
     var id = "assign-" + need.BehovID;
 }
 <dialog id="@id" class="dc-dialog as-dialog">
-    <form asp-controller="Operations" asp-action="CreateRequest" method="post" class="as-form" data-as-form>
+    <form asp-controller="Operations" asp-action="CreateRequest" method="post" class="as-form" data-as-form data-mangler="@need.Mangler.ToString(inv)">
         <input type="hidden" name="needId" value="@need.BehovID" />
         <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
         <header class="as-head">
@@ -50,6 +50,7 @@
                     <em class="dc-unit" data-as-unit>@førsteEnhet</em>
                     <span class="as-avail">Tilgjengelig: <b data-as-avail></b> <span data-as-unit>@førsteEnhet</span> · <b data-as-km></b> km unna</span>
                 </div>
+                <div class="as-after" data-as-after><span>Etter denne tildelingen mangler behovet fortsatt</span><strong><b data-as-rest></b> <span data-as-unit>@førsteEnhet</span></strong><small data-as-note></small></div>
             }
         </div>
         <footer class="as-foot">

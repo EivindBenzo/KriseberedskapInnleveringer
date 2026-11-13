@@ -104,12 +104,20 @@ document.addEventListener('click', function (e) {
         var km = /· (\d+) km/.exec(o.textContent); form.querySelector('[data-as-km]').textContent = km ? km[1] : '–';
         q.max = o.dataset.max;
         if (resetQty || Number(q.value) > Number(q.max)) q.value = o.dataset.max;
+        rest(form);
+    }
+    function rest(form) {
+        var q = form.querySelector('[data-as-qty]'), r = form.querySelector('[data-as-rest]'); if (!q || !r) return;
+        var left = Math.max(0, Math.round((Number(form.dataset.mangler) - Number(q.value || 0)) * 100) / 100);
+        r.textContent = left;
+        var box = form.querySelector('[data-as-after]'); box.classList.toggle('is-done', left === 0);
+        form.querySelector('[data-as-note]').textContent = left === 0 ? 'Behovet blir fullt dekket' : 'av ' + form.dataset.mangler + ' som mangler nå';
     }
     document.querySelectorAll('[data-as-form]').forEach(function (f) {
         sync(f, true);
         var sel = f.querySelector('[data-as-select]'); if (sel) sel.addEventListener('change', function () { sync(f, true); });
-        var q = f.querySelector('[data-as-qty]'); if (!q) return;
-        var step = function (d) { var v = Number(q.value || 0) + d; v = Math.max(Number(q.min), Math.min(Number(q.max), v)); q.value = Math.round(v * 100) / 100; };
+        var q = f.querySelector('[data-as-qty]'); if (!q) return; q.addEventListener('input', function () { rest(f); });
+        var step = function (d) { var v = Number(q.value || 0) + d; v = Math.max(Number(q.min), Math.min(Number(q.max), v)); q.value = Math.round(v * 100) / 100; rest(f); };
         f.querySelector('[data-as-dec]').addEventListener('click', function () { step(-1); });
         f.querySelector('[data-as-inc]').addEventListener('click', function () { step(1); });
     });
