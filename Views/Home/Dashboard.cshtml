@@ -444,15 +444,15 @@ else
         var mangler = need.Mangler;
         <article id="behov-@need.BehovID" class="dc-card is-red dc-urgent">
             <div class="dc-top">
-                <i class="dc-ico" aria-hidden="true">!</i>
-                <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>@need.Stedsnavn</span></div>
+                <i class="dc-ico dc-ico-alert" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)<b class="dc-bang">!</b></i>
+                <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
                 <span class="dc-pill">Akutt</span>
-                <div class="dc-qty"><b>@mangler.ToString("0.##")</b><small>mangler av @need.Antall</small></div>
+                <div class="dc-qty"><span>Behov: <b class="dc-q-name">@need.Behovstype?.Navn</b></span><span class="dc-q-sep"></span><span>Mangler: <b class="dc-q-num">@mangler.ToString("0.##")</b> <em class="dc-unit">@enhet</em> <small>av @need.Antall @enhet</small></span></div>
             </div>
             <p class="dc-desc">@need.Beskrivelse</p>
             <div class="dc-meta"><span>👤 @need.Kontaktperson</span><span>📞 @need.Kontakttelefon</span>@if (need.Frist is DateTime frist) { <span>⏱ frist @Stamp(frist)</span> }</div>
             <div class="dc-actions">
-                <button type="button" class="dc-primary" data-dc-toggle>Tildel ressurs (@passende.Count)</button>
+                <button type="button" class="dc-primary" data-dc-toggle>📦 Tildel ressurser (@passende.Count)</button>
             </div>
             <div class="dc-more" hidden>
                 @if (passende.Count == 0)

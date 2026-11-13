@@ -1697,3 +1697,20 @@ body.dark .hx-pincount,[data-theme=dark] .hx-pincount{background:#14532d;color:#
 :root[data-theme="dark"] .dc-urgent .dc-qty{background:#33191b}
 :root[data-theme="dark"] .dc-urgent .dc-qty b{color:#fca5a5}
 :root[data-theme="dark"] .dc-urgent .dc-qty small{color:#f3c0bc}
+
+/* Round 25: akutt card redesign */
+.dc-urgent .dc-ico-alert{position:relative;width:56px;height:56px;display:grid;place-items:center;font-size:1.7rem;background:#fdebd8;border-radius:14px;font-style:normal}
+.dc-urgent .dc-bang{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:#d92d20;color:#fff;font-size:.8rem;display:grid;place-items:center;border:2px solid #fff}
+.dc-urgent .dc-qty{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .9rem;background:#fbf4ef;padding:.65rem .9rem;color:#5b6b73;font-size:.9rem}
+.dc-urgent .dc-q-name{font-size:1.05rem;color:#12303a}
+.dc-urgent .dc-q-num{font-size:1.5rem;color:#2b1608}
+.dc-urgent .dc-q-sep{width:1px;height:1.6rem;background:#d9cfc8}
+.dc-urgent .dc-unit{font-style:normal;font-weight:700;background:#cfe9e6;color:#0f3d3a;border-radius:999px;padding:.15rem .7rem;font-size:.95rem}
+.dc-urgent .dc-actions .dc-primary{background:#0f5f5a;border-color:#0f5f5a}
+.dc-card.dc-urgent{border-left-color:#f07a14}
+:root[data-theme="dark"] .dc-urgent .dc-ico-alert{background:#4a2c12}
+:root[data-theme="dark"] .dc-urgent .dc-bang{border-color:#1d1517}
+:root[data-theme="dark"] .dc-urgent .dc-qty{background:#2a1f1a;color:#cfe3e8}
+:root[data-theme="dark"] .dc-urgent .dc-q-name,:root[data-theme="dark"] .dc-urgent .dc-q-num{color:#f1f7f8}
+:root[data-theme="dark"] .dc-urgent .dc-unit{background:#134e4a;color:#99f6e4}
+:root[data-theme="dark"] .dc-urgent .dc-actions .dc-primary{background:#14b8a6;border-color:#14b8a6;color:#04201d}
