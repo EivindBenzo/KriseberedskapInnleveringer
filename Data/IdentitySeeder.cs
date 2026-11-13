@@ -42,8 +42,13 @@ public static class IdentitySeeder
         ("energi@gmail.com", AppRoles.Ressursleverandor, "Terje", "Støtte", "Innlandet Energi AS", "400 10 107"),
         ("transport@gmail.com", AppRoles.Ressursleverandor, "Monica", "Løft", "Innlandet Transport AS", "400 10 108"),
         ("kommune@gmail.com", AppRoles.Kriseledelse, "Håkon", "Kommune", "Lillehammer kommune", "400 10 109"),
-        ("samband@gmail.com", AppRoles.DispatchTeam, "Anne", "Samband", "Røde Kors Innlandet", "400 10 110")
-    ];
+        ("samband@gmail.com", AppRoles.DispatchTeam, "Anne", "Samband",         "Røde Kors Innlandet", "400 10 110"),
+                ("bergen@gmail.com", AppRoles.OffentligAktor, "Bjørg", "Bergen", "Bergen kommune", "400 10 111"),
+                ("tromso@gmail.com", AppRoles.OffentligAktor, "Tor", "Tromsø", "Tromsø kommune", "400 10 112"),
+                ("trondheim@gmail.com", AppRoles.OffentligAktor, "Tuva", "Trondheim", "Trondheim kommune", "400 10 113"),
+                ("stavanger@gmail.com", AppRoles.OffentligAktor, "Sander", "Stavanger", "Stavanger kommune", "400 10 114"),
+                ("vest@gmail.com", AppRoles.Ressursleverandor, "Vegard", "Vest", "Vestland Beredskap AS", "400 10 115"),
+                ("nord@gmail.com", AppRoles.Ressursleverandor, "Nina", "Nord", "Nordnorsk Maskin AS", "400 10 116")    ];
 
     private static async Task MergeVerificationIntoDispatchAsync(RoleManager<Rolle> roles, UserManager<Bruker> users)
     {

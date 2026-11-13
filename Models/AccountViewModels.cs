@@ -53,6 +53,8 @@ public class RegisterViewModel
 
 public record AdminUserViewModel(int Id, string Navn, string Email, string? Organisasjon, string? Role, bool Active = true, DateTime? LastActive = null);
 
+public record ProfilKontakt(int Id, string Navn, string Rolle, string? Organisasjon, string Epost, string? Telefon);
+
 public class ProfileViewModel
 {
     public string Name { get; init; } = string.Empty;
@@ -65,6 +67,7 @@ public class ProfileViewModel
     public IReadOnlyList<string> Roles { get; init; } = [];
     public List<(string Label, string Description, string Controller, string Action)> Shortcuts { get; } = [];
     public List<(string Label, int Value)> Stats { get; } = [];
+    public List<ProfilKontakt> Kontakter { get; } = [];
     public string Ansvar { get; init; } = string.Empty;
     public string Vakt { get; init; } = "pa";
     public Dictionary<string, bool> Varselvalg { get; init; } = [];

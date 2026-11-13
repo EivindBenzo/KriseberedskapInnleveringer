@@ -1,0 +1,33 @@
+@{
+    var toasts = new List<(string Kind, string Text)>();
+    foreach (var key in new[] { "WorkflowSuccess", "MessageSuccess" })
+        if (TempData[key] is string ok) toasts.Add(("success", ok));
+    foreach (var key in new[] { "WorkflowError", "MessageError" })
+        if (TempData[key] is string err) toasts.Add(("error", err));
+}
+<div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false">
+    @foreach (var (kind, text) in toasts)
+    {
+        <div class="toast toast-@kind" role="@(kind == "error" ? "alert" : "status")" data-toast data-kind="@kind">
+            <span class="toast-ico" aria-hidden="true">
+                @if (kind == "success")
+                {
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>
+                }
+                else
+                {
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                }
+            </span>
+            <div class="toast-body">
+                <strong>@(kind == "success" ? "Lagret" : "Kunne ikke lagre endringen")</strong>
+                <span>@text</span>
+                @if (kind == "error") { <button type="button" class="toast-act" data-toast-retry>Prøv igjen</button> }
+            </div>
+            <time>@DateTime.Now.ToString("HH:mm")</time>
+            <button type="button" class="toast-x" data-toast-close aria-label="Lukk varsel">×</button>
+            <i class="toast-bar" aria-hidden="true"></i>
+        </div>
+    }
+</div>
+<script src="~/js/toast.js" asp-append-version="true"></script>

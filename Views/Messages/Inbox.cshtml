@@ -8,8 +8,6 @@
         <div><span class="eyebrow">SAMARBEID OG ANSVAR</span><h1 id="messages-heading">Meldinger</h1></div>
         <a asp-controller="Home" asp-action="Contacts" class="btn-submit">Åpne kontaktliste</a>
     </div>
-    @if (TempData["MessageSuccess"] is string ok) { <p class="notice" role="status">@ok</p> }
-    @if (TempData["MessageError"] is string err) { <p class="workspace-alert" role="alert">@err</p> }
     @if (Model.Threads.Count == 0)
     {
         <p class="empty-state">Du har ingen samtaler ennå. Start en fra kontaktlisten.</p>

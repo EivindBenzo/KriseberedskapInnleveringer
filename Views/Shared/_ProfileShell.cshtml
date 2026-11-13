@@ -1,0 +1,60 @@
+@using HeimevernetInnlevering1.Controllers
+@using HeimevernetInnlevering1.Models
+@using HeimevernetInnlevering1.Services
+@inject ShellService Shell
+@{
+    var shell = await Shell.HentAsync(User);
+    var tema = TemaController.Gjeldende(Context.Request);
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var driftsrolle = User.IsInRole(AppRoles.DispatchTeam) || User.IsInRole(AppRoles.Kriseledelse);
+    var kanForespørsler = driftsrolle || User.IsInRole(AppRoles.Ressursleverandor);
+    string? Aktiv(string c, string a) =>
+        string.Equals(controller, c, StringComparison.OrdinalIgnoreCase) && string.Equals(action, a, StringComparison.OrdinalIgnoreCase) ? "page" : null;
+    Microsoft.AspNetCore.Html.IHtmlContent Ikon(string sti) =>
+        new Microsoft.AspNetCore.Html.HtmlString($"<svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">{sti}</svg>");
+}
+<!DOCTYPE html>
+<html lang="no" data-theme="@tema">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Beredskapsportalen</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/workspace.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shell.css" asp-append-version="true" />
+</head>
+<body class="shell-body">
+    <a class="skip-link" href="#main">Hopp til innhold</a>
+    <div class="shell">
+        <aside class="shell-side" id="shellSide">
+            <a asp-controller="Home" asp-action="Dashboard" class="shell-brand" aria-label="Hjem">
+                <img src="~/images/forsvaret-logo.png" asp-append-version="true" alt="" width="588" height="721" />
+                <span>Beredskapsportalen<small>Studentprosjekt · prototype</small></span>
+            </a>
+            <nav class="shell-nav profile-nav" aria-label="Profilmeny">
+                <button type="button" class="pn-btn is-active" data-pn="profil" aria-current="page">@Ikon("<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c0-4.400 3.600-7 8-7s8 2.600 8 7\"/>")<span>Profil</span></button>
+                <button type="button" class="pn-btn" data-pn="kontakter">@Ikon("<path d=\"M5 4h4l2 5-2.500 1.500a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z\"/>")<span>Kontaktliste</span></button>
+                <button type="button" class="pn-btn" data-pn="varsler">@Ikon("<path d=\"M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9\"/><path d=\"M13.700 21a2 2 0 0 1-3.400 0\"/>")<span>Varsler</span></button>
+            </nav>
+            </aside>
+        <div class="shell-main">
+            <header class="shell-top">
+                <label for="shellMenu" class="shell-burger" aria-label="Meny"><span></span><span></span><span></span></label>
+                <input type="checkbox" id="shellMenu" class="shell-menu-check" />
+                <div class="shell-title">
+                    <span class="shell-title-icon" aria-hidden="true">@Ikon("<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c0-4.400 3.600-7 8-7s8 2.600 8 7\"/>")</span>
+                    <div><h1>@ViewData["PageTitle"]</h1><p>@ViewData["PageSubtitle"]</p></div>
+                </div>
+                <partial name="_UserMenu" />
+            </header>
+            <main id="main" class="shell-content" tabindex="-1">
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+    <partial name="_Toasts" />
+    <script src="~/js/profile.js" asp-append-version="true"></script>
+</body>
+</html>

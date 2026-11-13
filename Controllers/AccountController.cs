@@ -113,6 +113,23 @@ public class AccountController(UserManager<Bruker> users, SignInManager<Bruker> 
             model.Stats.Add(("Åpne behov", await db.Behov.AsNoTracking().CountAsync(b => b.Status != Statuser.Behov.Løst)));
             model.Stats.Add(("Akutte behov", await db.Behov.AsNoTracking().CountAsync(b => b.Prioritet == Statuser.Prioritet.Akutt && b.Status != Statuser.Behov.Løst)));
         }
+        if (roles.Contains(AppRoles.Ressursleverandor))
+            model.Stats.Add(("Aktive leveranser", await db.Tildelinger.AsNoTracking().CountAsync(t => t.Fullført == null && t.Forespørsel!.Ressurs!.EierID == user.Id)));
+        if (roles.Contains(AppRoles.OffentligAktor))
+            model.Stats.Add(("Løste behov", await db.Behov.AsNoTracking().CountAsync(b => b.RegistrertAvID == user.Id && b.Status == Statuser.Behov.Løst)));
+        if (roles.Contains(AppRoles.DispatchTeam) || roles.Contains(AppRoles.Kriseledelse))
+        {
+            model.Stats.Add(("Aktive tildelinger", await db.Tildelinger.AsNoTracking().CountAsync(t => t.Fullført == null)));
+            model.Stats.Add(("Aktive hendelser", await db.Hendelser.AsNoTracking().CountAsync(h => h.Status == Statuser.Hendelse.Aktiv)));
+            model.Stats.Add(("Venter på verifisering", await db.Ressurser.AsNoTracking().CountAsync(r => r.Status == Statuser.Ressurs.VenterPåVerifisering)));
+        }
+        var kontakter = await (from u in db.Users.AsNoTracking()
+                               join ur in db.UserRoles on u.Id equals ur.UserId
+                               join r in db.Roles on ur.RoleId equals r.Id
+                               where u.Id != user.Id && r.Name != null && AppRoles.All.Contains(r.Name) && u.Email != "verifisering@gmail.com"
+                               orderby u.Fornavn, u.Etternavn
+                               select new ProfilKontakt(u.Id, u.Fornavn + " " + u.Etternavn, r.Name!, u.Organisasjon, u.Email ?? u.UserName ?? "", u.PhoneNumber)).ToListAsync();
+        model.Kontakter.AddRange(kontakter);
         var logg = await db.Hendelseslogg.AsNoTracking().Where(l => l.UtførtAvID == user.Id)
             .OrderByDescending(l => l.Tidspunkt).Take(5).Select(l => new { l.Handling, l.Begrunnelse, l.Tidspunkt }).ToListAsync();
         model.Aktivitet.AddRange(logg.Select(l => (l.Handling, l.Begrunnelse, l.Tidspunkt)));

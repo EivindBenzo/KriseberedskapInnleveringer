@@ -5,63 +5,72 @@
     ViewData["Title"] = "Min profil";
     ViewData["PageTitle"] = "Operativ profil";
     ViewData["PageSubtitle"] = "Din rolle, tilgjengelighet og varsler";
-    Layout = "_AppShell";
+    Layout = "_ProfileShell";
     var rolle = Model.Roles.Count > 0 ? AppRoles.Label(Model.Roles[0]) : "Bruker";
     var navn = Model.Name.Length > 0 ? Model.Name : Model.Email;
-    string Ikon(string label) => label switch
-    {
-        "Oversikt" => "<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1.5\"/>",
-        "Kart" => "<path d=\"M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z\"/><circle cx=\"12\" cy=\"9\" r=\"2.5\"/>",
-        "Hendelser" => "<path d=\"M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z\"/><path d=\"M12 9v4M12 17h.01\"/>",
-        "Brukere" => "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2 20c0-3.5 3-6 7-6s7 2.5 7 6\"/>",
-        "Meld behov" => "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 8v8M8 12h8\"/>",
-        _ => "<path d=\"M21 8 12 3 3 8v8l9 5 9-5z\"/><path d=\"m3 8 9 5 9-5M12 13v8\"/>"
-    };
+    string Initialer(string n) => string.Concat(n.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(p => char.IsLetter(p[0])).Select(p => char.ToUpperInvariant(p[0])).Take(2));
+    var oversiktTittel = Model.Roles.Contains(AppRoles.Kriseledelse) ? "Krisesituasjonen akkurat nå"
+        : Model.Roles.Contains(AppRoles.DispatchTeam) ? "Koordineringen akkurat nå"
+        : Model.Roles.Contains(AppRoles.Ressursleverandor) ? "Dine ressurser og leveranser"
+        : "Dine behov og oppfølging";
+    var oppgaver = Model.Roles.Contains(AppRoles.Kriseledelse) ? new[] { "Følge hendelser og sette hovedhendelse", "Administrere brukere og roller", "Ha oversikt over behov, ressurser og tildelinger" }
+        : Model.Roles.Contains(AppRoles.DispatchTeam) ? new[] { "Verifisere nye ressurser", "Sende forespørsler og opprette tildelinger", "Følge leveranser til de er fullført" }
+        : Model.Roles.Contains(AppRoles.Ressursleverandor) ? new[] { "Registrere og vedlikeholde ressurser", "Svare på forespørsler fra dispatch", "Holde beholdning og tilgjengelighet oppdatert" }
+        : new[] { "Melde inn nye behov med sted og frist", "Følge status på innmeldte behov", "Bekrefte at leveranser er mottatt" };
 }
-
 <section class="profile-shell" aria-labelledby="profileTitle">
     @if (TempData["ProfileMessage"] is string ok) { <p class="profile-flash is-ok" role="status">@ok</p> }
     @if (TempData["ProfileError"] is string feil) { <p class="profile-flash is-error" role="alert">@feil</p> }
+    <form id="prefsForm" asp-action="SavePreferences" method="post"></form>
 
-    <div class="ph-hero">
-        <div class="ph-avatar-wrap">
-            <label class="ph-avatar" for="avatarFile" title="Bytt profilbilde">
-                <span aria-hidden="true">@Model.Initials</span>@if (Model.HasAvatar) { <img src="@Url.Action("Avatar", "Account", new { v = DateTime.UtcNow.Ticks })" alt="" data-avatar-img /> }
-                <span class="ph-avatar-edit" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
-            </label>
-            <input type="file" id="avatarFile" accept="image/*" hidden data-avatar-file />
-            <form asp-action="SetAvatar" method="post" data-avatar-form hidden><input type="hidden" name="bilde" data-avatar-data /></form>
-        </div>
-        <div class="ph-id">
-            <span class="ph-kicker">MIN PROFIL</span>
-            <h2 id="profileTitle">@navn</h2>
-            <div class="ph-meta">
-                <span class="ph-role">@rolle</span>
-                @if (!string.IsNullOrWhiteSpace(Model.Organisation)) { <span>@Model.Organisation</span> }
+    <div class="pp-panel" data-pp="profil">
+        <div class="ph-hero">
+            <div class="ph-avatar-wrap">
+                <label class="ph-avatar" for="avatarFile" title="Bytt profilbilde">
+                    <span aria-hidden="true">@Model.Initials</span>@if (Model.HasAvatar) { <img src="@Url.Action("Avatar", "Account", new { v = DateTime.UtcNow.Ticks })" alt="" data-avatar-img /> }
+                    <span class="ph-avatar-edit" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+                </label>
+                <input type="file" id="avatarFile" accept="image/*" hidden data-avatar-file />
+                <form asp-action="SetAvatar" method="post" data-avatar-form hidden><input type="hidden" name="bilde" data-avatar-data /></form>
             </div>
-            @if (Model.HasAvatar)
+            <div class="ph-id">
+                <span class="ph-kicker">MIN PROFIL</span>
+                <h2 id="profileTitle">@navn</h2>
+                <div class="ph-meta">
+                    <span class="ph-role">@rolle</span>
+                    @if (!string.IsNullOrWhiteSpace(Model.Organisation)) { <span>@Model.Organisation</span> }
+                </div>
+                @if (Model.HasAvatar)
+                {
+                    <form asp-action="RemoveAvatar" method="post" class="ph-remove"><button type="submit">Fjern profilbilde</button></form>
+                }
+            </div>
+            <dl class="ph-contact">
+                @if (!string.IsNullOrWhiteSpace(Model.Phone)) { <div><dt>Telefon</dt><dd>@Model.Phone</dd></div> }
+                <div><dt>E-post</dt><dd>@Model.Email</dd></div>
+            </dl>
+        </div>
+
+        <h3 class="pp-h">@oversiktTittel</h3>
+        <div class="pp-stats">
+            @foreach (var (label, value) in Model.Stats)
             {
-                <form asp-action="RemoveAvatar" method="post" class="ph-remove"><button type="submit">Fjern profilbilde</button></form>
+                <div class="pp-stat"><strong>@value</strong><span>@label</span></div>
             }
         </div>
-        <dl class="ph-contact">
-            @if (!string.IsNullOrWhiteSpace(Model.Phone)) { <div><dt>Telefon</dt><dd>@Model.Phone</dd></div> }
-            <div><dt>E-post</dt><dd>@Model.Email</dd></div>
-        </dl>
-    </div>
 
-    <form asp-action="SavePreferences" method="post" class="ph-form">
         <div class="ph-grid">
             <article class="ph-card">
                 <h3>Kontakt og ansvar</h3>
                 <dl class="ph-rows">
                     <div><dt>Telefon</dt><dd>@(string.IsNullOrWhiteSpace(Model.Phone) ? "Ikke oppgitt" : Model.Phone)</dd></div>
                     <div><dt>E-post</dt><dd>@Model.Email</dd></div>
+                    <div><dt>Organisasjon</dt><dd>@(string.IsNullOrWhiteSpace(Model.Organisation) ? "Ikke oppgitt" : Model.Organisation)</dd></div>
                     <div><dt>Ansvarsområde</dt><dd>@Model.Ansvar</dd></div>
-                    @if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.Kriseledelse) || User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.DispatchTeam))
+                    @if (User.IsInRole(AppRoles.Kriseledelse) || User.IsInRole(AppRoles.DispatchTeam))
                     {
                     <div><dt><label for="vakt">Vaktstatus</label></dt><dd>
-                        <select id="vakt" name="vakt" class="ph-select vakt-@Model.Vakt" data-vakt>
+                        <select id="vakt" name="vakt" form="prefsForm" class="ph-select vakt-@Model.Vakt" data-vakt>
                             @foreach (var (verdi, tekst) in ShellService.Vaktstatuser)
                             {
                                 <option value="@verdi" selected="@(Model.Vakt == verdi)">@tekst</option>
@@ -70,35 +79,13 @@
                     }
                 </dl>
             </article>
-
             <article class="ph-card">
-                <h3>Mine snarveier</h3>
-                <div class="ph-shortcuts">
-                    @foreach (var (label, desc, ctrl, act) in Model.Shortcuts.Take(4))
-                    {
-                        <a asp-controller="@ctrl" asp-action="@act" class="ph-shortcut">
-                            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">@Html.Raw(Ikon(label))</svg>
-                            <span><strong>@label</strong><small>@desc</small></span>
-                            <i aria-hidden="true">›</i>
-                        </a>
-                    }
-                </div>
-            </article>
-
-            <article class="ph-card" id="varsler" tabindex="-1">
-                <h3>Varsler og preferanser</h3>
-                <ul class="ph-toggles">
-                    @foreach (var (nøkkel, tittel, beskrivelse) in ShellService.Kategorier)
-                    {
-                        <li>
-                            <div><strong>@tittel</strong><span>@beskrivelse</span></div>
-                            <label class="ph-switch"><input type="checkbox" name="varsel" value="@nøkkel" checked="@Model.Varselvalg[nøkkel]" /><i aria-hidden="true"></i><span class="visually-hidden">@tittel</span></label>
-                        </li>
-                    }
+                <h3>Dine oppgaver som @rolle.ToLowerInvariant()</h3>
+                <ul class="pp-tasks">
+                    @foreach (var o in oppgaver) { <li><i aria-hidden="true">✓</i>@o</li> }
                 </ul>
             </article>
-
-            <article class="ph-card">
+            <article class="ph-card pp-wide">
                 <h3>Siste aktivitet</h3>
                 @if (Model.Aktivitet.Count == 0)
                 {
@@ -115,7 +102,55 @@
                 }
             </article>
         </div>
-        <div class="ph-save"><button type="submit" class="ph-save-btn">Lagre endringer</button></div>
-    </form>
+        <div class="ph-save"><button type="submit" form="prefsForm" class="ph-save-btn">Lagre endringer</button></div>
+    </div>
+
+    <div class="pp-panel" data-pp="kontakter" hidden>
+        <div class="pk-head">
+            <div><h2>Kontaktliste</h2><p>@Model.Kontakter.Count personer i beredskapsnettverket</p></div>
+            <label class="pk-search"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" placeholder="Søk etter navn, organisasjon eller telefon" data-pk-search aria-label="Søk i kontaktlisten" /></label>
+        </div>
+        <div class="pk-chips" role="group" aria-label="Filtrer på rolle">
+            <button type="button" class="is-on" data-pk-role="">Alle</button>
+            @foreach (var r in Model.Kontakter.Select(k => k.Rolle).Distinct())
+            {
+                <button type="button" data-pk-role="@r">@AppRoles.Label(r)</button>
+            }
+        </div>
+        <div class="pk-grid">
+            @foreach (var k in Model.Kontakter)
+            {
+                <article class="pk-card pk-r-@k.Rolle.Replace(" ", "").ToLowerInvariant()" data-pk-card data-role="@k.Rolle" data-text="@((k.Navn + " " + k.Organisasjon + " " + k.Telefon + " " + k.Epost).ToLowerInvariant())">
+                    <div class="pk-top"><span class="pk-av" aria-hidden="true">@Initialer(k.Navn)</span><div><strong>@k.Navn</strong><small>@k.Organisasjon</small></div></div>
+                    <span class="pk-role">@AppRoles.Label(k.Rolle)</span>
+                    <div class="pk-lines">
+                        @if (!string.IsNullOrWhiteSpace(k.Telefon)) { <span>📞 @k.Telefon</span> }
+                        <span>✉ @k.Epost</span>
+                    </div>
+                    <div class="pk-act">
+                        @if (!string.IsNullOrWhiteSpace(k.Telefon)) { <a class="pk-call" href="tel:@k.Telefon.Replace(" ", "")">Ring</a> }
+                        <a class="pk-msg" href="@Url.Action("Inbox", "Messages", new { with = k.Id })">Send melding</a>
+                    </div>
+                </article>
+            }
+        </div>
+        <p class="ph-empty" data-pk-empty hidden>Ingen kontakter passer søket.</p>
+    </div>
+
+    <div class="pp-panel" data-pp="varsler" id="varsler" hidden>
+        <article class="ph-card pp-narrow">
+            <h3>Varsler og preferanser</h3>
+            <ul class="ph-toggles">
+                @foreach (var (nøkkel, tittel, beskrivelse) in ShellService.Kategorier)
+                {
+                    <li>
+                        <div><strong>@tittel</strong><span>@beskrivelse</span></div>
+                        <label class="ph-switch"><input type="checkbox" name="varsel" value="@nøkkel" form="prefsForm" checked="@Model.Varselvalg[nøkkel]" /><i aria-hidden="true"></i><span class="visually-hidden">@tittel</span></label>
+                    </li>
+                }
+            </ul>
+            <div class="ph-save"><button type="submit" form="prefsForm" class="ph-save-btn">Lagre endringer</button></div>
+        </article>
+    </div>
 </section>
-<script>(function(){if(location.hash!=='#varsler')return;var c=document.getElementById('varsler');if(!c)return;c.scrollIntoView({block:'center'});c.classList.add('ph-flash');setTimeout(function(){c.classList.remove('ph-flash');},2200);})();</script>
+<script src="~/js/profile-area.js" asp-append-version="true"></script>

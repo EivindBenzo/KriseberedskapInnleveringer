@@ -19,6 +19,17 @@
     string Stamp(DateTime value) => value.ToString("dd.MM.yyyy HH:mm") + " UTC";
     string Tittel(Behov b) => $"{b.Behovstype?.Navn} · {b.Stedsnavn}";
     string TypeIkon(string? n) { var t = (n ?? "").ToLowerInvariant(); return t.Contains("brann") ? "🔥" : t.Contains("flom") || t.Contains("vann") || t.Contains("nedbør") ? "🌊" : t.Contains("strøm") || t.Contains("generator") ? "⚡" : t.Contains("mannskap") || t.Contains("personell") ? "👥" : t.Contains("transport") || t.Contains("kjøretøy") ? "🚗" : t.Contains("søk") ? "🔍" : t.Contains("drone") ? "🛸" : t.Contains("maskin") ? "🚜" : t.Contains("mat") || t.Contains("nødhjelp") ? "🥫" : "📦"; }
+    string StegIkon(int i)
+    {
+        var d = i switch
+        {
+            0 => "<rect x='8' y='2' width='8' height='4' rx='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/><path d='m9 14 2 2 4-4'/>",
+            1 => "<path d='M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2'/><path d='M15 18H9'/><path d='M19 18h2a1 1 0 0 0 1-1v-3.7a1 1 0 0 0-.2-.6l-3.3-4.2a1 1 0 0 0-.8-.4H14'/><circle cx='17' cy='18' r='2'/><circle cx='7' cy='18' r='2'/>",
+            2 => "<path d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z'/><circle cx='12' cy='10' r='3'/>",
+            _ => "<path d='M4 22V4'/><path d='M4 4h14l-2 4 2 4H4'/>"
+        };
+        return "<svg viewBox='0 0 24 24' width='14' height='14' fill='none' stroke='currentColor' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'>" + d + "</svg>";
+    }
     string ResIkon(string t)
     {
         var d = t.Contains("generator") || t.Contains("utstyr") ? "<path d='M13 2 3 14h9l-1 8 10-12h-9l1-8z'/>"
@@ -47,14 +58,6 @@
     <div><span class="eyebrow">@roles</span><h1 id="dashboard-heading">Oversikt</h1></div>
     <a asp-action="Map" class="btn-secondary">Åpne kartet</a>
 </div>
-@if (TempData["WorkflowError"] is string error)
-{
-    <p class="workspace-alert" role="alert">@error</p>
-}
-@if (TempData["WorkflowSuccess"] is string success)
-{
-    <p class="notice" role="status">@success</p>
-}
 <section class="dashboard-action-grid" aria-label="Arbeidsoversikt">
 @if (provider)
 {
@@ -511,7 +514,7 @@ else
             <ol class="dc-steps" aria-label="Fremdrift">
                 @for (var i = 0; i < Statuser.Fremdrift.Rekkefølge.Length; i++)
                 {
-                    <li class="@(i < steg ? "is-done" : i == steg ? "is-now" : "")"><b>@(i < steg ? "✓" : "")</b><span>@Statuser.Visning(Statuser.Fremdrift.Rekkefølge[i])</span></li>
+                    <li class="@(i < steg ? "is-done" : i == steg ? "is-now" : "")"><b>@if (i < steg) { <text>✓</text> } else if (i == steg) { @Html.Raw(StegIkon(i)) }</b><span>@Statuser.Visning(Statuser.Fremdrift.Rekkefølge[i])</span></li>
                 }
             </ol>
             <div class="dc-foot dc-facts">
