@@ -389,7 +389,7 @@ else
         <p class="empty-state">Ingen forespørsler venter på svar eller tildeling.</p>
     }
     <div class="dc-grid">
-    @foreach (var request in Model.Requests)
+    @foreach (var request in Model.Requests.OrderBy(r => r.Svar == Statuser.Svar.Godtatt ? 0 : 1))
     {
         <article id="foresporsel-@request.ForespørselID" class="dc-card dc-assign @(request.Svar == Statuser.Svar.Venter ? "is-orange" : "is-green")">
             <div class="dc-top">
@@ -442,7 +442,7 @@ else
         var passendeTyper = need.Behovstype?.PassendeRessurstyper.Select(k => k.RessurstypeID).ToHashSet() ?? [];
         var passende = Model.MatchingResources.Where(r => passendeTyper.Contains(r.RessurstypeID)).ToList();
         var mangler = need.Mangler;
-        <article id="behov-@need.BehovID" class="dc-card is-red">
+        <article id="behov-@need.BehovID" class="dc-card is-red dc-urgent">
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">!</i>
                 <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>@need.Stedsnavn</span></div>
@@ -694,7 +694,7 @@ else
 
     <section class="dashboard-panel dc-panel dashboard-urgent-panel" data-dashboard-panel="urgent" hidden>
     <div class="dc-head"><h2 id="mine-akutte-behov">Mine akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2>
-        <a asp-controller="Behov" asp-action="Registrer" class="dc-primary dc-danger dc-link-btn">Meld akutt behov</a></div>
+        <a asp-controller="Behov" asp-action="Registrer" asp-route-akutt="true" class="dc-primary dc-danger dc-link-btn">Meld akutt behov</a></div>
     @if (Model.UrgentNeeds.Count == 0)
     {
         <p class="empty-state">Du har ikke meldt inn noen akutte behov.</p>
