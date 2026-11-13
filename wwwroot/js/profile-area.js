@@ -11,6 +11,7 @@
         var titles = { profil: ['Operativ profil', 'Din rolle, tilgjengelighet og varsler'], oversikt: ['Oversikt', 'Din arbeidsflate med status og oppgaver'], kontakter: ['Kontaktliste', 'Personer i beredskapsnettverket'] };
         var hd = document.querySelector('.shell-title h1'); var tt = titles[name];
         if (hd && tt) { hd.textContent = tt[0]; if (hd.nextElementSibling) hd.nextElementSibling.textContent = tt[1]; }
+        var hero = document.querySelector('.ov-hero'); if (hero) hero.hidden = name === 'kontakter';
         try { history.replaceState(null, '', '#' + name); } catch (e) { }
         var t = document.getElementById('shellMenu'); if (t) t.checked = false;
     }

@@ -1788,3 +1788,7 @@ dialog.as-dialog[open]{position:fixed;inset:0;margin:auto;width:80vw;height:80vh
 /* Round 28 */
 .kl-title{padding:.2rem .2rem .6rem}.kl-title h1{margin:0 0 .2rem;font-size:1.9rem}.kl-title p{margin:0;color:var(--muted,#5b6b72)}
 .hx-bar-track span{transition:width .4s,background-color .4s}
+
+/* Round 29 */
+.ov-hero[hidden]{display:none}
+html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}

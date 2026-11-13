@@ -505,7 +505,7 @@ else
                     <label>Mottakskontakt <input name="receivingContact" maxlength="150" value="@assignment.Mottakskontakt" /></label>
                     @if (next == Statuser.Fremdrift.Fullført)
                     {
-                        <label>Levert antall <input type="number" name="deliveredQuantity" min="0.01" max="@assignment.Forespørsel.Antall.ToString(System.Globalization.CultureInfo.InvariantCulture)" step="0.01" value="@assignment.Forespørsel.Antall.ToString(System.Globalization.CultureInfo.InvariantCulture)" required /></label>
+                        <label>Levert antall <input type="number" name="deliveredQuantity" min="0.01" max="@assignment.Forespørsel.Antall.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" step="0.01" value="@assignment.Forespørsel.Antall.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)" required /></label>
                         <label>Avvik (valgfritt) <input name="deviation" maxlength="1000" /></label>
                     }
                     <label>Kommentar (valgfritt) <input name="reason" maxlength="1000" /></label>

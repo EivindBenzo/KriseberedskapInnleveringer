@@ -136,7 +136,7 @@
                     <dl>
                         <div><dt>Adresse</dt><dd>@sted</dd></div>
                         <div><dt>Eier</dt><dd>@(r.Eier?.FulltNavn ?? "Ukjent")</dd></div>
-                        <div><dt>Kapasitet</dt><dd>@r.Antall @r.Enhet@(r.ReservertAntall > 0 ? $" · {r.ReservertAntall} reservert" : "")</dd></div>
+                        <div><dt>Kapasitet</dt><dd>@r.Antall.ToString("0.##") @r.Enhet@(r.ReservertAntall > 0 ? $" · {r.ReservertAntall:0.##} reservert" : "")</dd></div>
                         <div><dt>Kontakt</dt><dd>@r.Kontaktperson, @r.Kontakttelefon</dd></div>
                         <div><dt>Verifisering</dt><dd>@verifisert@(godkjentTil.HasValue ? " · gjelder til " + godkjentTil.Value.ToString("dd.MM.yyyy") : "")</dd></div>
                         <div><dt>Registrert</dt><dd>@r.Registrert.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</dd></div>

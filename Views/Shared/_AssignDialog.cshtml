@@ -41,7 +41,7 @@
                     @foreach (var (r, km) in liste)
                     {
                         var maks = Math.Min(need.Mangler, r.TilgjengeligAntall);
-                        <option value="@r.RessursID" data-avail="@r.TilgjengeligAntall.ToString("0.##", inv)" data-max="@maks.ToString(inv)" data-unit="@Enh(r)">@r.Navn · @km.ToString("0") km · @r.TilgjengeligAntall.ToString("0.##") @Enh(r) ledig</option>
+                        <option value="@r.RessursID" data-avail="@r.TilgjengeligAntall.ToString("0.##", inv)" data-max="@maks.ToString("0.##", inv)" data-unit="@Enh(r)">@r.Navn · @km.ToString("0") km · @r.TilgjengeligAntall.ToString("0.##") @Enh(r) ledig</option>
                     }
                 </select>
                 <label class="as-label">Antall som tildeles</label>
