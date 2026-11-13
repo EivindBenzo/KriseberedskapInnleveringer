@@ -9,16 +9,48 @@
     var valgtBy = (string?)ViewBag.City ?? "";
     var typer = (ViewBag.Ressurstyper as List<string>) ?? HeimevernetInnlevering1.Data.SeedData.RessurstypeNavn.ToList();
     var antallTilgjengelig = Model.Ressurser.Count(x => x.Status == Statuser.Ressurs.Tilgjengelig);
+    var iGår = now.AddDays(-1);
+    var opptatt = Model.Ressurser.Count(x => Statuser.Ressurs.Opptatt.Contains(x.Status));
+    var oppfølging = Model.Ressurser.Count(x => !ResourceOperationalStatus.From(x, now).IsEligible && !Statuser.Ressurs.Opptatt.Contains(x.Status));
+    // Endring siden i går: nye tilgjengelige ressurser, og ressurser som er godkjent det siste døgnet (ferdig fulgt opp).
+    var nyeTilgjengelige = Model.Ressurser.Count(x => x.Status == Statuser.Ressurs.Tilgjengelig && x.Registrert >= iGår);
+    var ferdigFulgtOpp = Model.Ressurser.Count(x => x.Verifiseringer.Any(v => v.Resultat == Statuser.Resultat.Godkjent && v.Tidspunkt >= iGår));
+    string Endring(int n) => n > 0 ? $"↑ +{n} siden i går" : n < 0 ? $"↓ {n} siden i går" : "↔ Uendret";
+    var opptattIGår = Model.Ressurser.Count(x => Statuser.Ressurs.Opptatt.Contains(x.Status) && x.Registrert >= iGår);
 }
 <section class="data-container resource-overview">
-    <div class="page-heading">
-        <div><span class="eyebrow">Oversikt og administrasjon</span><h1>Ressurser</h1></div>
-        @if (User.IsInRole(AppRoles.Ressursleverandor))
-        {
-            <a asp-action="Map" asp-route-register="true" class="btn-submit">+ Registrer ressurs</a>
-        }
-    </div>
-    @if (TempData["MapSuccess"] is string success)
+    <header class="res-hero">
+        <div class="res-hero-top">
+            <h1>Ressurser</h1>
+            <p>Registrer, forvalt og følg opp beredskapsressurser i ditt område.</p>
+            <div class="res-hero-actions">
+                @if (User.IsInRole(AppRoles.Ressursleverandor))
+                {
+                    <a asp-action="Map" asp-route-register="true" class="res-btn is-solid"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Registrer ressurs</a>
+                }
+                <a asp-action="Map" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-mine="@(mine ? "true" : null)" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)" class="res-btn is-ghost"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Åpne kart</a>
+            </div>
+        </div>
+        <div class="res-kpis" aria-label="Sammendrag">
+            <div class="res-kpi is-good">
+                <span class="res-kpi-icon"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5M3 17.500l9 5 9-5"/></svg></span>
+                <div><small>Tilgjengelige nå</small><strong>@antallTilgjengelig</strong><em class="@(nyeTilgjengelige > 0 ? "is-up" : "")">@Endring(nyeTilgjengelige)</em></div>
+            </div>
+            <div class="res-kpi is-warn">
+                <span class="res-kpi-icon"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.300 3.900 1.800 18a2 2 0 0 0 1.700 3h17a2 2 0 0 0 1.700-3L13.700 3.900a2 2 0 0 0-3.400 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
+                <div><small>Trenger oppfølging</small><strong>@oppfølging</strong><em class="@(ferdigFulgtOpp > 0 ? "is-down" : "")">@Endring(-Math.Min(ferdigFulgtOpp, 99))</em></div>
+            </div>
+            <div class="res-kpi is-info">
+                <span class="res-kpi-icon"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h12v10H2zM14 9h4l4 4v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></span>
+                <div><small>På vei / i bruk</small><strong>@opptatt</strong><em>@Endring(opptattIGår)</em></div>
+            </div>
+            <div class="res-kpi">
+                <span class="res-kpi-icon"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span>
+                <div><small>Sist oppdatert</small><strong class="is-date">@now.ToLocalTime().ToString("dd.MM.yyyy 'kl.' HH:mm")</strong></div>
+                <i class="res-kpi-info" title="Tallene er hentet da siden ble lastet. Endring viser siste 24 timer." aria-label="Tallene er hentet da siden ble lastet. Endring viser siste 24 timer.">i</i>
+            </div>
+        </div>
+    </header>    @if (TempData["MapSuccess"] is string success)
     {
         <p class="info" role="status">@success</p>
     }
@@ -36,7 +68,6 @@
         {
             <a asp-action="Resources" asp-route-history="true" aria-current="@(history ? "page" : null)">Ressurshistorikk</a>
         }
-        <a asp-action="Map" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-mine="@(mine ? "true" : null)" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)">Åpne kart</a>
     </nav>
     @if (history)
     {
@@ -69,11 +100,6 @@
     else
     {
     <div>
-    <div class="resource-stats" aria-label="Sammendrag">
-        <div class="resource-stat"><strong>@Model.Ressurser.Count</strong><span>Ressurser i utvalget</span></div>
-        <div class="resource-stat is-good"><strong>@antallTilgjengelig</strong><span>Tilgjengelige</span></div>
-        <div class="resource-stat is-warn"><strong>@(Model.Ressurser.Count - antallTilgjengelig)</strong><span>Ikke tilgjengelige</span></div>
-    </div>
     <div class="type-chips" role="group" aria-label="Filtrer på ressurstype">
         <a asp-action="Resources" asp-route-mine="@(mine ? "true" : null)" asp-route-city="@ViewBag.City" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)" class="type-chip @(string.IsNullOrEmpty((string?)ViewBag.SelectedType) ? "is-active" : "")">Alle</a>
         @foreach (var typ in typer)
