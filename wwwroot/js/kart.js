@@ -138,7 +138,9 @@
         document.querySelectorAll('.rail-card').forEach(function (kort) {
             const aktiv = id != null && kort.dataset.res === String(id);
             kort.classList.toggle('is-selected', aktiv);
-            if (aktiv) kort.scrollIntoView({ block: 'nearest' });
+            // Ved skjult liste (mobil) ville scrollIntoView forskjøvet hele kartflaten.
+            const lukket = workspace && workspace.classList.contains('rail-collapsed');
+            if (aktiv && !lukket) kort.scrollIntoView({ block: 'nearest' });
         });
     }
     function lukkPanel() {
@@ -154,6 +156,8 @@
         valgtMarkor = markor;
         panelBody.innerHTML = m.popup;
         panel.hidden = false;
+        panel.scrollTop = 0;
+        panelBody.scrollTop = 0;
         panel.style.animation = 'none';
         void panel.offsetWidth;
         panel.style.animation = '';
@@ -202,6 +206,14 @@
     }
     if (railToggle) railToggle.addEventListener('click', function () { settRail(true); });
     if (railReopen) railReopen.addEventListener('click', function () { settRail(false); });
+    // Mobil: listen er en bunnskuff. Trykk på toppfeltet eller et sted i kartet lukker den.
+    const mobil = window.matchMedia('(max-width: 767px)');
+    if (railReopen) {
+        railReopen.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Vis ressurser</span>';
+    }
+    const railHead = document.querySelector('.rail-head');
+    if (railHead) railHead.addEventListener('click', function () { if (mobil.matches) settRail(true); });
+    kart.on('click', function () { if (mobil.matches && workspace && !workspace.classList.contains('rail-collapsed')) settRail(true); });
     document.querySelectorAll('.rail-card').forEach(function (kort) {
         kort.addEventListener('click', function () {
             const markor = markorPerRessurs[kort.dataset.res];
