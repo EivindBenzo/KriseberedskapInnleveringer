@@ -83,6 +83,18 @@
     });
     [search, role, org, place].forEach(function (el) { el.addEventListener('input', apply); });
     sort.addEventListener('change', order);
+    var close = $('klClose');
+    if (!close) {
+        close = document.createElement('button');
+        close.type = 'button'; close.id = 'klClose'; close.className = 'kl-close';
+        close.setAttribute('aria-label', 'Lukk kontakt'); close.innerHTML = '&times;';
+        $('klCard').insertBefore(close, $('klCard').firstChild);
+    }
+    close.addEventListener('click', function () {
+        rows.forEach(function (r) { r.classList.remove('is-selected'); r.setAttribute('aria-pressed', 'false'); });
+        $('klCard').hidden = true;
+        $('klEmpty').hidden = false;
+    });
     $('klReset').addEventListener('click', function () { setTimeout(apply, 0); });
     order();
 })();
