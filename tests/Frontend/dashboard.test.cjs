@@ -19,8 +19,8 @@ test('navigation shows Oversikt to every role and role-specific entries only to 
     const layout = read('Views/Shared/_Layout.cshtml');
     assert.match(layout, /asp-action="Dashboard" class="nav-link" aria-current="@Aktiv\("Home", "Dashboard"\)">Oversikt/);
     const operations = layout.slice(layout.indexOf('@if (canUseOperations)'), layout.indexOf('@if (User.IsInRole(HeimevernetInnlevering1.Models.AppRoles.OffentligAktor))'));
-    assert.match(layout, /AppRoles\.OffentligAktor\)\)\s*\{\s*<li><a asp-controller="Behov" asp-action="Registrer"/);
-    assert.match(layout, /AppRoles\.Kriseledelse\)\)\s*\{\s*<li><a asp-controller="Hendelse"/);
+    assert.match(layout, /AppRoles\.OffentligAktor\)\)\s*\{\s*<li(?: class="nav-primary")?><a asp-controller="Behov" asp-action="Registrer"/);
+    assert.match(layout, /AppRoles\.Kriseledelse\)\)\s*\{\s*<li(?: class="nav-primary")?><a asp-controller="Hendelse"/);
     for (const role of ['Ressursleverandor', 'DispatchTeam', 'Kriseledelse'])
         assert.ok(operations.includes(`AppRoles.${role}`), role);
     assert.doesNotMatch(operations, /AppRoles\.(OffentligAktor|Verifiseringsansvarlig)/);
