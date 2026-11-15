@@ -613,8 +613,10 @@
   html body .nb-acc { overflow: visible; }
   html body .nb-acc-body { overflow: visible; }
   html body .nb-two { display: grid; grid-template-columns: 1fr; gap: .8rem; }
-  html body .nb-mapwrap { height: auto !important; overflow: hidden; border-radius: 18px; }
-  html body .nb-mapwrap .need-map { height: 320px !important; }
+  html body .nb-mapwrap { flex: 0 0 auto !important; height: 340px !important; min-height: 340px !important; overflow: hidden; border-radius: 18px; }
+  html body .nb-mapwrap .need-map { height: 100% !important; min-height: 340px !important; }
+  html body .nb-mapwrap.is-full { position: fixed; inset: 0; height: 100dvh !important; border-radius: 0; }
+  html body .nb-mapwrap.is-full .need-map { min-height: 0 !important; }
   html body .nb-place { display: flex; flex-direction: column; align-items: stretch; gap: .8rem; padding: 1rem; overflow: visible; }
   html body .nb-place > div { min-width: 0; }
   html body .nb-place .btn-secondary { width: 100%; min-height: 48px; }
