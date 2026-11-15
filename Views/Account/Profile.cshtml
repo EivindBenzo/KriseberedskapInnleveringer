@@ -380,7 +380,7 @@
                     </div>
                     <div class="pk-act">
                         @if (!string.IsNullOrWhiteSpace(k.Telefon)) { <a class="pk-call" href="tel:@k.Telefon.Replace(" ", "")">Ring</a> }
-                        <a class="pk-msg" href="@Url.Action("Inbox", "Messages", new { with = k.Id })">Send melding</a>
+                        <button type="button" class="pk-msg" data-pk-msg data-id="@k.Id" data-name="@k.Navn">Send melding</button>
                     </div>
                 </article>
             }
@@ -389,6 +389,21 @@
     </div>
 
 </section>
+
+<dialog id="pkComposer" class="message-composer" aria-labelledby="pkComposerHeading">
+    <form asp-controller="Messages" asp-action="Send" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="recipientId" id="pkRecipientId" />
+        <input type="hidden" name="returnUrl" value="@(Context.Request.Path + "#kontakter")" />
+        <div class="message-composer-heading">
+            <div><span class="eyebrow">NY MELDING</span><h2 id="pkComposerHeading">Til kontakt</h2></div>
+            <button type="button" class="message-close" data-pk-close aria-label="Lukk">×</button>
+        </div>
+        <label>Emne <input name="subject" required maxlength="150" autocomplete="off" /></label>
+        <label>Melding <textarea name="body" required maxlength="2000"></textarea></label>
+        <button type="submit" class="btn-submit">Send melding</button>
+    </form>
+</dialog>
 
 <script>(function(){if(location.hash!=='#varsler')return;var c=document.getElementById('varsler');if(!c)return;c.scrollIntoView({block:'center'});c.classList.add('ph-flash');setTimeout(function(){c.classList.remove('ph-flash');},2200);})();</script>
 <script src="~/js/profile-area.js" asp-append-version="true"></script>

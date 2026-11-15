@@ -100,24 +100,12 @@ else
     <button type="button" class="dashboard-action dashboard-action-confirmed" data-dashboard-target="confirmed" aria-expanded="false">
         <span class="dashboard-action-icon" aria-hidden="true">✓</span><span><strong>Mine behov</strong><small>Alle meldinger du har sendt</small></span><span class="dashboard-action-count">@Model.Needs.Count</span>
     </button>
-    
-<div class="dashboard-action dashboard-action-requests dashboard-summary-static">
-    <span class="dashboard-action-icon" aria-hidden="true">↗</span>
-    <span>
-        <strong>Under behandling</strong>
-        <small>Venter på vurdering eller ressurs</small>
-    </span>
-    <span class="dashboard-action-count">@publicInProgress</span>
-</div>
-
-<div class="dashboard-action dashboard-action-urgent dashboard-summary-static">
-    <span class="dashboard-action-icon" aria-hidden="true">!</span>
-    <span>
-        <strong>Akutte behov</strong>
-        <small>Behov med høyeste prioritet</small>
-    </span>
-    <span class="dashboard-action-count">@Model.UrgentNeeds.Count</span>
-</div>
+    <button type="button" class="dashboard-action dashboard-action-requests" data-dashboard-target="requests" aria-expanded="false">
+        <span class="dashboard-action-icon" aria-hidden="true">↗</span><span><strong>Under behandling</strong><small>Venter på vurdering eller ressurs</small></span><span class="dashboard-action-count">@publicInProgress</span>
+    </button>
+    <button type="button" class="dashboard-action dashboard-action-urgent" data-dashboard-target="urgent" aria-expanded="false">
+        <span class="dashboard-action-icon" aria-hidden="true">!</span><span><strong>Akutte behov</strong><small>Behov med høyeste prioritet</small></span><span class="dashboard-action-count">@Model.Needs.Count(n => n.Prioritet == Statuser.Prioritet.Akutt && n.Status != Statuser.Behov.Løst)</span>
+    </button>
 
 }
 </section>
@@ -774,6 +762,42 @@ else
                 }
             </div>
         </section>
+
+        @foreach (var (panelKey, panelTitle, panelEmpty, panelNeeds) in new (string, string, string, List<Behov>)[] {
+            ("requests", "Under behandling", "Ingen av behovene dine er under behandling akkurat nå.", Model.Needs.Where(n => n.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes).ToList()),
+            ("urgent", "Akutte behov", "Du har ingen akutte behov som venter.", Model.Needs.Where(n => n.Prioritet == Statuser.Prioritet.Akutt && n.Status != Statuser.Behov.Løst).ToList()) })
+        {
+            <section class="dashboard-panel dc-panel" data-dashboard-panel="@panelKey" hidden>
+                <div class="dc-head"><h2>@panelTitle <span class="count-badge">@panelNeeds.Count</span></h2>
+                    <a asp-controller="Behov" asp-action="Registrer" class="dc-primary dc-link-btn">Meld nytt behov</a></div>
+                @if (panelNeeds.Count == 0)
+                {
+                    <p class="empty-state">@panelEmpty</p>
+                }
+                <div class="mb-list">
+                @foreach (var need in panelNeeds)
+                {
+                    var nk = NeedKey(need);
+                    var dekket = (int)Math.Min(need.Antall, Math.Floor(need.Dekket));
+                    var pct = need.Antall > 0 ? dekket * 100 / need.Antall : 0;
+                    <article class="mb-row mb-card @(need.Prioritet == Statuser.Prioritet.Akutt ? "mb-row-urgent" : "") mb-s-@nk">
+                        <i class="dc-ico mb-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
+                        <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
+                        <div class="mb-qty"><span>Behov</span><strong>@need.Antall stk</strong></div>
+                        <div class="mb-state"><span class="status-badge mb-pill mb-pill-@nk">@NeedLabel(nk)</span><small>@NeedDesc(nk)</small></div>
+                        <div class="mb-progress" title="@dekket av @need.Antall dekket"><div class="mb-bar"><i style="width:@(pct)%"></i></div><small>@dekket / @need.Antall stk</small></div>
+                        <div class="mb-sent"><span>Sendt inn</span><strong>@need.Registrert.ToString("dd.MM.yyyy")</strong></div>
+                        <button type="button" class="mb-detail" data-mb-toggle aria-expanded="false">Se detaljer <span aria-hidden="true">›</span></button>
+                        <div class="mb-more" hidden>
+                            <p>@need.Beskrivelse</p>
+                            <span>👤 @need.Kontaktperson · 📞 @need.Kontakttelefon</span>
+                            @if (need.Frist is DateTime nf) { <span>📅 Frist: @Stamp(nf)</span> }
+                        </div>
+                    </article>
+                }
+                </div>
+            </section>
+        }
     }
 
 

@@ -91,7 +91,7 @@ public static class DemoDataSeeder
             "To aggregater på tilhenger. Ett er i aktivt oppdrag.", Statuser.Ressurs.Tilgjengelig, 26, 2);
         var excavator = Resource("Beltegraver 14 tonn", "Maskin", "Kongsvinger", 60.1904m, 12.0014m,
             "Transport med trailer", Statuser.Ressurs.VenterPåVerifisering, 2);
-        var water = Resource("Drikkevann", "Utstyr", "Kristiansand", 58.1599m, 8.0182m,
+        var water = Resource("Drikkevann", "Utstyr", "Arendal", 58.4615m, 8.7725m,
             "Vann i beredskapstanker.", Statuser.Ressurs.Tilgjengelig, 12, 2, "L", true);
         db.Ressurser.AddRange(truck, drone, generator, excavator, water);
 

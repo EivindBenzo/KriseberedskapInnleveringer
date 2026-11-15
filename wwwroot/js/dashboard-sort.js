@@ -108,7 +108,7 @@
         if (cards.length < 2) return;
 
         const nameOf = c => c.dataset.sName || c.querySelector(".dc-title strong")?.textContent.trim() || "";
-        const labelsOf = c => Array.from(c.querySelectorAll(".dc-chips .status-badge")).map(b => b.textContent.trim()).filter(Boolean);
+        const labelsOf = c => Array.from(c.querySelectorAll(".dc-chips .status-badge")).map(b => b.textContent.trim()).filter(t => t && !/^(frist|sendt|registrert|\d)/i.test(t) && !/\d{1,2}\.\d{1,2}\.\d{2,4}/.test(t));
         const original = cards.slice();
 
         const counts = new Map();

@@ -97,4 +97,9 @@
     });
     $('klReset').addEventListener('click', function () { setTimeout(apply, 0); });
     order();
+    var wanted = new URLSearchParams(location.search).get('select');
+    if (wanted) {
+        var hit = rows.filter(function (r) { try { return String(JSON.parse(r.dataset.contact).id) === wanted; } catch (e) { return false; } })[0];
+        if (hit) { select(hit); hit.scrollIntoView({ block: 'center' }); }
+    }
 })();

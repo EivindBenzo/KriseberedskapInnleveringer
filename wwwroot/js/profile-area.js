@@ -70,6 +70,20 @@
     render();
 })();
 
+(function () {
+    var dlg = document.getElementById('pkComposer');
+    if (!dlg) return;
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-pk-msg]');
+        if (b) {
+            document.getElementById('pkRecipientId').value = b.dataset.id;
+            document.getElementById('pkComposerHeading').textContent = 'Til ' + b.dataset.name;
+            dlg.showModal();
+            dlg.querySelector('[name="subject"]').focus();
+        } else if (e.target.closest('[data-pk-close]') || e.target === dlg) dlg.close();
+    });
+})();
+
 // Round 22: hele raden i Oversikt er klikkbar.
 document.addEventListener('click', function (e) {
     var row = e.target.closest('.ov-item'); if (!row || e.target.closest('a,button')) return;

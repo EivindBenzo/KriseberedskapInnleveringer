@@ -23,6 +23,20 @@
 .dc-fchip.is-active { background: #0f5f5a; border-color: #0f5f5a; color: #fff; }
 .dc-toolbar-count { color: #6b7a78; font-size: .82rem; margin-left: auto; }
 
+/* Kompakt verktøylinje: overstyrer globale label/input/select-regler */
+html body .operations-workspace .dc-toolbar,
+html body .operations-workspace .mb-toolbar { display: flex; flex-flow: row wrap; align-items: center; gap: .5rem .6rem; }
+html body .operations-workspace .mb-search { display: flex; flex-flow: row nowrap; align-items: center; gap: .45rem; flex: 0 1 280px; width: 280px; max-width: 100%; margin: 0; padding: 0 .7rem; min-height: 40px; box-sizing: border-box; }
+html body .operations-workspace .mb-search > span { flex: 0 0 auto; line-height: 1; }
+html body .operations-workspace .mb-search input { flex: 1 1 auto; width: auto; min-width: 0; margin: 0; padding: .45rem 0; border: 0; box-shadow: none; background: transparent; border-radius: 0; }
+html body .operations-workspace .dc-toolbar select,
+html body .operations-workspace .mb-toolbar select { flex: 0 0 auto; width: auto; max-width: 200px; margin: 0; }
+html body .operations-workspace .dc-toolbar-count { flex: 0 0 auto; margin-left: auto; }
+@media (max-width: 767px) {
+  html body .operations-workspace .mb-search { flex: 1 1 100%; width: 100%; }
+  html body .operations-workspace .dc-toolbar select, html body .operations-workspace .mb-toolbar select { flex: 1 1 100%; max-width: none; width: 100%; }
+}
+
 /* Åpne behov-kort */
 .dc-card.need-card { border-left: 4px solid #e98a15; padding: 1rem; display: flex; flex-direction: column; gap: .55rem; }
 .need-card .dc-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .7rem; align-items: center; }
