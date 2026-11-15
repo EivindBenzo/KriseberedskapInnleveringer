@@ -1792,3 +1792,273 @@ dialog.as-dialog[open]{position:fixed;inset:0;margin:auto;width:80vw;height:80vh
 /* Round 29 */
 .ov-hero[hidden]{display:none}
 html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
+
+
+/* Utilgjengelig ressurs – lys modus */
+.operations-workspace .dc-card.dc-assign.is-unavailable {
+    background: #e1e6eb;
+    border: 1px solid #94a3b8;
+    border-left: 8px solid #c2410c;
+    color: #1e293b;
+}
+
+/* Ikon */
+.operations-workspace .dc-card.is-unavailable .dc-ico {
+    background: #cbd5e1;
+    color: #475569;
+}
+
+/* Mørk modus */
+:root[data-theme="dark"]
+.operations-workspace .dc-card.dc-assign.is-unavailable {
+    background: #263640;
+    border: 1px solid #627482;
+    border-left: 8px solid #fb923c;
+    color: #f1f5f9;
+}
+
+/* Ikon – mørk modus */
+:root[data-theme="dark"]
+.operations-workspace .dc-card.is-unavailable .dc-ico {
+    background: #364b58;
+    color: #f1f5f9;
+}
+
+/* Utilgjengelig statusmerke – lys modus */
+.operations-workspace .dc-card.is-unavailable
+.dc-chips .status-badge:first-child {
+    background: #ffedd5;
+    border: 2px solid #c2410c;
+    color: #9a3412;
+    font-weight: 700;
+}
+
+/* Utilgjengelig statusmerke – mørk modus */
+:root[data-theme="dark"]
+.operations-workspace .dc-card.is-unavailable
+.dc-chips .status-badge:first-child {
+    background: #7c2d12;
+    border: 2px solid #fb923c;
+    color: #fff7ed;
+    font-weight: 700;
+}
+
+
+/* Filtrering og sortering av mine ressurser */
+
+.own-resource-sort {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    gap: 12px;
+    margin: 10px 0 16px;
+    flex-wrap: wrap;
+}
+
+.own-resource-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 180px;
+}
+
+    .own-resource-filter label {
+        font-weight: 600;
+        white-space: nowrap;
+        margin: 0;
+    }
+
+    .own-resource-filter select {
+        width: 100%;
+        min-width: 0;
+        height: 40px;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+    }
+
+@media (max-width: 600px) {
+    .own-resource-sort {
+        justify-content: flex-start;
+    }
+
+    .own-resource-filter {
+        width: calc(50% - 6px);
+        min-width: 0;
+    }
+}
+
+#ownResourcesGrid > article[hidden] {
+    display: none !important;
+}
+
+.own-resource-sort {
+    flex-wrap: wrap;
+}
+
+/* Filtrering og sortering av Mine behov */
+.needs-controls {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 10px 0 12px;
+}
+
+.needs-control {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 170px;
+}
+
+    .needs-control label {
+        font-weight: 600;
+        font-size: 14px;
+        margin: 0;
+    }
+
+    .needs-control select {
+        width: 100%;
+        min-width: 0;
+        min-height: 40px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+    }
+
+.needs-filter-count {
+    text-align: right;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+}
+
+#ownNeedsList > .mb-row[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 700px) {
+    .needs-controls {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .needs-control {
+        width: 100%;
+    }
+}
+
+/* Mine behov – kompakte kort */
+
+.operations-workspace .mb-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+}
+
+.operations-workspace .mb-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    min-height: 88px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 5px solid #b7cdd1;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+}
+
+    .operations-workspace .mb-row:first-child {
+        border-top: 1px solid var(--border);
+        border-left-width: 5px;
+    }
+
+    .operations-workspace .mb-row .dc-title {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .operations-workspace .mb-row > .status-badge {
+        flex-shrink: 0;
+    }
+
+    /* Akutte behov */
+    .operations-workspace .mb-row.mb-row-urgent {
+        border-left-color: #dc2626;
+    }
+
+/* Mørk modus */
+:root[data-theme="dark"]
+.operations-workspace .mb-row {
+    border-left-color: #45636b;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18);
+}
+
+    :root[data-theme="dark"]
+    .operations-workspace .mb-row.mb-row-urgent {
+        border-left-color: #ef4444;
+    }
+
+/* Mobil */
+@media (max-width: 700px) {
+    .operations-workspace .mb-row {
+        flex-wrap: wrap;
+        padding: 12px;
+        gap: 10px;
+    }
+
+        .operations-workspace .mb-row .dc-title {
+            flex-basis: calc(100% - 55px);
+        }
+}
+
+/* Oppsummeringskort som ikke er klikkbare */
+.operations-workspace .dashboard-summary-static,
+.operations-workspace .dashboard-summary-static:hover {
+    cursor: default;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Desktop – vanlig scrolling på hele nettsiden */
+.operations-workspace #ownNeedsList {
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+}
+
+/* Mobil – egen scrollbar for behovslisten */
+@media (max-width: 700px) {
+    .operations-workspace #ownNeedsList {
+        max-height: 60vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 4px 8px 8px 4px;
+        scrollbar-gutter: stable;
+        overscroll-behavior-y: contain;
+    }
+
+        .operations-workspace #ownNeedsList::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .operations-workspace #ownNeedsList::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .operations-workspace #ownNeedsList::-webkit-scrollbar-thumb {
+            background: #849ba3;
+            border-radius: 10px;
+        }
+}

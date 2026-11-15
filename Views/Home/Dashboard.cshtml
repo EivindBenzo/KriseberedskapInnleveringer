@@ -100,12 +100,25 @@ else
     <button type="button" class="dashboard-action dashboard-action-confirmed" data-dashboard-target="confirmed" aria-expanded="false">
         <span class="dashboard-action-icon" aria-hidden="true">✓</span><span><strong>Mine behov</strong><small>Alle meldinger du har sendt</small></span><span class="dashboard-action-count">@Model.Needs.Count</span>
     </button>
-    <button type="button" class="dashboard-action dashboard-action-requests" data-dashboard-target="requests" aria-expanded="false">
-        <span class="dashboard-action-icon" aria-hidden="true">↗</span><span><strong>Under behandling</strong><small>Venter på vurdering eller ressurs</small></span><span class="dashboard-action-count">@publicInProgress</span>
-    </button>
-    <button type="button" class="dashboard-action dashboard-action-urgent" data-dashboard-target="urgent" aria-expanded="false">
-        <span class="dashboard-action-icon" aria-hidden="true">!</span><span><strong>Akutte behov</strong><small>Meldinger med høyeste prioritet</small></span><span class="dashboard-action-count">@Model.UrgentNeeds.Count</span>
-    </button>
+    
+<div class="dashboard-action dashboard-action-requests dashboard-summary-static">
+    <span class="dashboard-action-icon" aria-hidden="true">↗</span>
+    <span>
+        <strong>Under behandling</strong>
+        <small>Venter på vurdering eller ressurs</small>
+    </span>
+    <span class="dashboard-action-count">@publicInProgress</span>
+</div>
+
+<div class="dashboard-action dashboard-action-urgent dashboard-summary-static">
+    <span class="dashboard-action-icon" aria-hidden="true">!</span>
+    <span>
+        <strong>Akutte behov</strong>
+        <small>Behov med høyeste prioritet</small>
+    </span>
+    <span class="dashboard-action-count">@Model.UrgentNeeds.Count</span>
+</div>
+
 }
 </section>
 <section id="dashboardIntro" class="dashboard-briefing" aria-label="Situasjonsbilde">
@@ -215,14 +228,72 @@ else
     {
         <p class="empty-state">Du har ikke registrert noen ressurser ennå.</p>
     }
-    <div class="dc-grid">
+
+      
+       
+        <div class="own-resource-sort">
+
+            <div class="own-resource-filter">
+                <label for="ownResourceType">Ressurstype</label>
+                <select id="ownResourceType">
+                    <option value="">Alle typer</option>
+                    @foreach (var type in Model.OwnResources
+                        .Select(r => r.Ressurstype?.Navn)
+                        .Where(n => !string.IsNullOrWhiteSpace(n))
+                        .Distinct()
+                        .OrderBy(n => n))
+                    {
+                        <option value="@type">@type</option>
+                    }
+                </select>
+            </div>
+
+            <div class="own-resource-filter">
+                <label for="ownResourceStatus">Status</label>
+                <select id="ownResourceStatus">
+
+                    <option value="">Alle statuser</option>
+                    <option value="@Statuser.Ressurs.Tilgjengelig">Tilgjengelig</option>
+                    <option value="@Statuser.Ressurs.Utilgjengelig">Utilgjengelig</option>
+                    <option value="@Statuser.Ressurs.Forespurt">Forespurt</option>
+                    <option value="@Statuser.Ressurs.Tildelt">Tildelt</option>
+                    <option value="@Statuser.Ressurs.VenterPåVerifisering">Venter på verifisering</option>
+                </select>
+            </div>
+
+            <div class="own-resource-filter">
+                <label for="ownResourceSort">Sorter etter</label>
+                <select id="ownResourceSort">
+                    <option value="name-asc">Navn A–Å</option>
+                    <option value="name-desc">Navn Å–A</option>
+                </select>
+            </div>
+
+        </div>
+
+        
+        <div class="dc-grid" id="ownResourcesGrid">
     @foreach (var resource in Model.OwnResources)
     {
         var status = ResourceOperationalStatus.From(resource, now);
         var sisteAvvisning = resource.Verifiseringer.OrderByDescending(v => v.Tidspunkt).FirstOrDefault();
         var rn = (resource.Ressurstype?.Navn ?? "").ToLowerInvariant();
         var rikon = rn.Contains("generator") ? "⚡" : rn.Contains("kjøretøy") ? "🚗" : rn.Contains("personell") ? "👥" : rn.Contains("drone") ? "🛸" : rn.Contains("maskin") ? "🚜" : "📦";
-        <article id="min-ressurs-@resource.RessursID" class="dc-card dc-assign">
+
+                
+               
+                <article id="min-ressurs-@resource.RessursID"
+                         class="dc-card dc-assign @(resource.Status == Statuser.Ressurs.Utilgjengelig ? "is-unavailable" : "")"
+                         data-sort-name="@resource.Navn"
+                         data-sort-created="@resource.Registrert.ToString("O")"
+                         data-is-available="@(resource.Status == Statuser.Ressurs.Tilgjengelig ? "true" : "false")"
+                         data-is-unavailable="@(resource.Status == Statuser.Ressurs.Utilgjengelig ? "true" : "false")"
+                         data-resource-type="@(resource.Ressurstype?.Navn ?? "")"
+                         data-resource-status="@resource.Status"
+                         >
+
+
+
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">@rikon</i>
                 <div class="dc-title"><strong>@resource.Navn</strong><span>📍 @resource.Ressurstype?.Navn · @resource.Stedsnavn</span></div>
@@ -616,74 +687,95 @@ else
 }
 
 @if (publicActor)
-{
-    <section class="dashboard-panel dc-panel" data-dashboard-panel="confirmed" hidden>
-    <div class="dc-head"><h2 id="mine-behov">Mine behov <span class="count-badge">@Model.Needs.Count</span></h2>
-        <a asp-controller="Behov" asp-action="Registrer" class="dc-primary dc-link-btn">Meld nytt behov</a></div>
-    @if (Model.Needs.Count == 0)
     {
-        <p class="empty-state">Du har ikke meldt inn noen behov.</p>
-    }
-    <div class="mb-list">
-    @foreach (var need in Model.Needs)
-    {
-        <article id="behov-@need.BehovID" class="mb-row">
-            <i class="dc-ico mb-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
-            <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
-            <span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span>
-            <span class="status-badge">@Statuser.Visning(need.Status)</span>
-            <span class="mb-chev" aria-hidden="true">›</span>
-        </article>
-    }
-    </div>
-    </section>
+        <section class="dashboard-panel dc-panel" data-dashboard-panel="confirmed" hidden>
+            <div class="dc-head"><h2 id="mine-behov">Mine behov <span class="count-badge">@Model.Needs.Count</span></h2>
+                <a asp-controller="Behov" asp-action="Registrer" class="dc-primary dc-link-btn">Meld nytt behov</a></div>
+            @if (Model.Needs.Count == 0)
+            {
+                <p class="empty-state">Du har ikke meldt inn noen behov.</p>
+            }
 
-    <section class="dashboard-panel dc-panel" data-dashboard-panel="requests" hidden>
-    <div class="dc-head"><h2 id="behov-under-behandling">Behov under behandling <span class="count-badge">@publicInProgress</span></h2></div>
-    @if (publicInProgress == 0)
-    {
-        <p class="empty-state">Ingen av behovene dine venter på vurdering akkurat nå.</p>
-    }
-    <div class="dc-grid">
-    @foreach (var need in Model.Needs.Where(n => n.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes))
-    {
-        <article id="behandling-@need.BehovID" class="dc-card dc-assign is-orange">
-            <div class="dc-top">
-                <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
-                <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
-            </div>
-            <div class="dc-chips"><span class="status-badge status-warning">@Statuser.Visning(need.Status)</span></div>
-            <p class="dc-desc">@need.Beskrivelse</p>
-            <div class="dc-foot"><span><strong>Antall: @need.Antall</strong></span><span>Registrert @Stamp(need.Registrert)@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")</span></div>
-        </article>
-    }
-    </div>
-    </section>
+            <div class="needs-controls">
+                <div class="needs-control">
+                    <label for="needTypeFilter">Behovstype</label>
+                    <select id="needTypeFilter">
+                        <option value="">Alle typer</option>
+                        @foreach (var type in Model.Needs
+                        .Select(n => n.Behovstype?.Navn)
+                        .Where(n => !string.IsNullOrWhiteSpace(n))
+                        .Distinct()
+                        .OrderBy(n => n))
+                        {
+                            <option value="@type">@type</option>
+                        }
+                    </select>
+                </div>
 
-    <section class="dashboard-panel dc-panel dashboard-urgent-panel" data-dashboard-panel="urgent" hidden>
-    <div class="dc-head"><h2 id="mine-akutte-behov">Mine akutte behov <span class="count-badge">@Model.UrgentNeeds.Count</span></h2>
-        <a asp-controller="Behov" asp-action="Registrer" asp-route-akutt="true" class="dc-primary dc-danger dc-link-btn">Meld akutt behov</a></div>
-    @if (Model.UrgentNeeds.Count == 0)
-    {
-        <p class="empty-state">Du har ikke meldt inn noen akutte behov.</p>
-    }
-    <div class="dc-grid">
-    @foreach (var need in Model.UrgentNeeds)
-    {
-        <article id="mine-akutt-@need.BehovID" class="dc-card dc-assign is-red">
-            <div class="dc-top">
-                <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
-                <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
+                <div class="needs-control">
+                    <label for="needPriorityFilter">Prioritet</label>
+                    <select id="needPriorityFilter">
+                        <option value="">Alle prioriteter</option>
+                        <option value="@Statuser.Prioritet.Akutt">Akutt</option>
+                        <option value="@Statuser.Prioritet.Planlagt">Planlagt</option>
+                    </select>
+                </div>
+
+                <div class="needs-control">
+                    <label for="needStatusFilter">Status</label>
+                    <select id="needStatusFilter">
+                        <option value="">Alle statuser</option>
+                        <option value="@Statuser.Behov.Ny">Ny</option>
+                        <option value="@Statuser.Behov.Vurderes">Vurderes</option>
+                        <option value="@Statuser.Behov.Tildelt">Tildelt</option>
+                        <option value="@Statuser.Behov.Løst">Løst</option>
+                    </select>
+                </div>
+
+                <div class="needs-control">
+                    <label for="needSort">Sorter etter</label>
+                    <select id="needSort">
+                        <option value="urgent-oldest">Akutte først – eldste øverst</option>
+                        <option value="urgent">Akutte først</option>
+                        <option value="newest">Nyeste først</option>
+                        <option value="oldest">Eldste først</option>
+                        <option value="name-asc">Navn A–Å</option>
+                        <option value="name-desc">Navn Å–A</option>
+                    </select>
+                </div>
             </div>
-            <div class="dc-chips"><span class="status-badge status-critical">Akutt</span><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
-            <p class="dc-desc">@need.Beskrivelse</p>
-            <div class="dc-foot"><span><strong>Antall: @need.Antall</strong></span><span>Registrert @Stamp(need.Registrert)@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")</span></div>
-        </article>
+
+            <p id="needsFilterCount" class="needs-filter-count"
+            role="status" aria-live="polite"></p>
+
+            <div class="mb-list" id="ownNeedsList"
+     tabindex="0"
+     aria-label="Mine behov">
+                @foreach (var need in Model.Needs)
+                {
+
+
+                    <article id="behov-@need.BehovID"
+                    class="mb-row @(need.Prioritet == Statuser.Prioritet.Akutt ? "mb-row-urgent" : "")
+
+                         data-need-type="@need.Behovstype?.Navn"
+                    data-need-priority="@need.Prioritet"
+                    data-need-status="@need.Status"
+                    data-need-date="@need.Registrert.ToString("O")">
+
+                        <i class="dc-ico mb-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
+                        <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
+                        <span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span>
+                        <span class="status-badge">@Statuser.Visning(need.Status)</span>
+                        <span class="mb-chev" aria-hidden="true">›</span>
+                    </article>
+                }
+            </div>
+        </section>
     }
-    </div>
-    </section>
-}
-</section>
+
+
+
 @if (Model.UnreadMessages.Count > 0)
 {
     <dialog id="unreadMessages" class="unread-message-dialog" data-unread-message-ids="@string.Join(",", Model.UnreadMessages.Select(message => message.Id))" aria-labelledby="unreadMessagesHeading">
@@ -699,6 +791,180 @@ else
         </ol>
         <a asp-controller="Messages" asp-action="Inbox" class="btn-submit">Åpne meldinger</a>
     </dialog>
+
 }
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const sort = document.getElementById("ownResourceSort");
+        const grid = document.getElementById("ownResourcesGrid");
+
+        if (!sort || !grid) return;
+
+        const cards = Array.from(grid.querySelectorAll(":scope > article"));
+        const collator = new Intl.Collator("nb", {
+            numeric: true,
+            sensitivity: "base"
+        });
+
+        sort.addEventListener("change", () => {
+            const sorted = [...cards];
+
+            sorted.sort((a, b) => {
+                const nameA = a.dataset.sortName || "";
+                const nameB = b.dataset.sortName || "";
+
+                
+                switch (sort.value) {
+                    case "name-asc":
+                        return collator.compare(nameA, nameB);
+
+                    case "name-desc":
+                        return collator.compare(nameB, nameA);
+
+                    case "available": {
+                        const aAvailable = a.dataset.isAvailable === "true";
+                        const bAvailable = b.dataset.isAvailable === "true";
+
+                        return Number(bAvailable) - Number(aAvailable)
+                            || collator.compare(nameA, nameB);
+                    }
+
+                    case "unavailable": {
+                        const aUnavailable = a.dataset.isUnavailable === "true";
+                        const bUnavailable = b.dataset.isUnavailable === "true";
+
+                        return Number(bUnavailable) - Number(aUnavailable)
+                            || collator.compare(nameA, nameB);
+                    }
+
+                    default:
+                        return 0;
+                }
+
+
+            });
+
+            grid.append(...sorted);
+        });
+        // Sorter ressursene automatisk ved innlasting
+        sort.dispatchEvent(new Event("change"));
+        const typeFilter = document.getElementById("ownResourceType");
+        const statusFilter = document.getElementById("ownResourceStatus");
+
+        function applyFilters() {
+            const selectedType = typeFilter?.value || "";
+            const selectedStatus = statusFilter?.value || "";
+
+            cards.forEach(card => {
+                const matchesType =
+                    !selectedType ||
+                    card.dataset.resourceType === selectedType;
+
+                const matchesStatus =
+                    !selectedStatus ||
+                    card.dataset.resourceStatus === selectedStatus;
+
+                card.hidden = !(matchesType && matchesStatus);
+            });
+        }
+
+        typeFilter?.addEventListener("change", applyFilters);
+        statusFilter?.addEventListener("change", applyFilters);
+
+        applyFilters();
+
+        }
+
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const list = document.getElementById("ownNeedsList");
+        if (!list) return;
+
+        const type = document.getElementById("needTypeFilter");
+        const priority = document.getElementById("needPriorityFilter");
+        const status = document.getElementById("needStatusFilter");
+        const sort = document.getElementById("needSort");
+        const count = document.getElementById("needsFilterCount");
+
+        const cards = Array.from(list.querySelectorAll(":scope > .mb-row"));
+        const collator = new Intl.Collator("nb", {
+            numeric: true,
+            sensitivity: "base"
+        });
+
+        function updateNeeds() {
+            const selectedType = type.value;
+            const selectedPriority = priority.value;
+            const selectedStatus = status.value;
+
+            let visibleCount = 0;
+
+            cards.forEach(card => {
+                const matches =
+                    (!selectedType || card.dataset.needType === selectedType) &&
+                    (!selectedPriority || card.dataset.needPriority === selectedPriority) &&
+                    (!selectedStatus || card.dataset.needStatus === selectedStatus);
+
+                card.hidden = !matches;
+                if (matches) visibleCount++;
+            });
+
+            const sorted = [...cards];
+
+            sorted.sort((a, b) => {
+                const nameA = a.dataset.needType || "";
+                const nameB = b.dataset.needType || "";
+                const dateA = Date.parse(a.dataset.needDate) || 0;
+                const dateB = Date.parse(b.dataset.needDate) || 0;
+
+                switch (sort.value) {
+
+case "urgent-oldest": {
+    const urgentA = (a.dataset.needPriority || "")
+        .toLowerCase() === "akutt";
+
+    const urgentB = (b.dataset.needPriority || "")
+        .toLowerCase() === "akutt";
+
+    return Number(urgentB) - Number(urgentA)
+        || dateA - dateB;
+}
+
+                    case "urgent": {
+                        const urgentA = a.dataset.needPriority === "akutt";
+                        const urgentB = b.dataset.needPriority === "akutt";
+                        return Number(urgentB) - Number(urgentA) || dateB - dateA;
+                    }
+                    case "newest":
+                        return dateB - dateA;
+                    case "oldest":
+                        return dateA - dateB;
+                    case "name-asc":
+                        return collator.compare(nameA, nameB);
+                    case "name-desc":
+                        return collator.compare(nameB, nameA);
+                    default:
+                        return 0;
+                }
+            });
+
+            list.append(...sorted);
+            count.textContent = `Viser ${visibleCount} av ${cards.length} behov`;
+        }
+
+        [type, priority, status, sort].forEach(select => {
+            select.addEventListener("change", updateNeeds);
+        });
+
+        updateNeeds();
+    });
+</script>
+
+
 <script src="~/js/dashboard-workspace.js" asp-append-version="true"></script>
 <script src="~/js/messages.js" asp-append-version="true"></script>
+
