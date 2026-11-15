@@ -22,6 +22,7 @@
 }
 
 <link rel="stylesheet" href="~/css/workspace-map.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/dashboard-sort.css" asp-append-version="true" />
 <section class="map-workspace map-full" id="mapWorkspace" data-registration-open="@(registrationOpen ? "true" : "false")" aria-label="Ressurskart">
     <aside class="map-rail" id="mapRail" aria-label="Søk og ressurser">
         <div class="rail-head">
@@ -59,13 +60,24 @@
         @if (isEditing) { <p class="rail-note">Endres navn, type, beskrivelse eller plassering, må ressursen verifiseres på nytt.</p> }
         @if (TempData["MapSuccess"] is string success) { <p class="rail-note is-success" role="status">@success</p> }
         <div class="rail-count"><strong>@resources.Count</strong> ressurser @(valgtType.Length > 0 ? "av typen " + valgtType.ToLowerInvariant() : "i kartet")</div>
+        <div class="rail-tools" id="railTools" hidden>
+            <div class="rail-status-chips" id="railStatusChips" role="group" aria-label="Filtrer på status"></div>
+            <select id="railSort" aria-label="Sorter ressurser">
+                <option value="">Standard rekkefølge</option>
+                <option value="name-asc">Navn A–Å</option>
+                <option value="name-desc">Navn Å–A</option>
+                <option value="status">Status (tilgjengelige først)</option>
+                <option value="type">Type A–Å</option>
+                <option value="place">Sted A–Å</option>
+            </select>
+        </div>
         <ul class="rail-list" id="resourceResults">
             @foreach (var r in resources)
             {
                 var status = ResourceOperationalStatus.From(r, nå);
                 var typeNavn = r.Ressurstype?.Navn ?? "Ukjent";
                 <li>
-                    <button type="button" class="rail-card @(status.IsEligible ? "is-ok" : "is-off")" id="ressurs-@r.RessursID" data-res="@r.RessursID">
+                    <button type="button" class="rail-card @(status.IsEligible ? "is-ok" : "is-off")" id="ressurs-@r.RessursID" data-res="@r.RessursID" data-name="@r.Navn" data-type="@typeNavn" data-status="@status.Availability">
                         <img src="@Url.Content(RessursIkon.Sti(typeNavn, status))" alt="" width="38" height="38" />
                         <span><strong>@r.Navn</strong><small>@typeNavn · @HeimevernetInnlevering1.Services.NorwegianPlaces.Display(r.Stedsnavn, r.Breddegrad, r.Lengdegrad)</small></span>
                         <em>@status.Availability</em>
@@ -247,3 +259,4 @@
 <script src="~/lib/leaflet.markercluster/leaflet.markercluster.js"></script>
 <script type="application/json" id="kartdata">@Html.Raw(JsonSerializer.Serialize(kart, new JsonSerializerOptions(JsonSerializerDefaults.Web)))</script>
 <script src="~/js/kart.js" asp-append-version="true"></script>
+<script src="~/js/rail-filter.js" asp-append-version="true"></script>

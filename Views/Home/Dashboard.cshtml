@@ -253,11 +253,10 @@ else
                 <select id="ownResourceStatus">
 
                     <option value="">Alle statuser</option>
-                    <option value="@Statuser.Ressurs.Tilgjengelig">Tilgjengelig</option>
-                    <option value="@Statuser.Ressurs.Utilgjengelig">Utilgjengelig</option>
-                    <option value="@Statuser.Ressurs.Forespurt">Forespurt</option>
-                    <option value="@Statuser.Ressurs.Tildelt">Tildelt</option>
-                    <option value="@Statuser.Ressurs.VenterPåVerifisering">Venter på verifisering</option>
+                    @foreach (var s in Statuser.Ressurs.Alle)
+                    {
+                        <option value="@s">@Statuser.Visning(s)</option>
+                    }
                 </select>
             </div>
 
@@ -266,6 +265,12 @@ else
                 <select id="ownResourceSort">
                     <option value="name-asc">Navn A–Å</option>
                     <option value="name-desc">Navn Å–A</option>
+                    <option value="newest">Nyest registrert</option>
+                    <option value="oldest">Eldst registrert</option>
+                    <option value="available">Tilgjengelige først</option>
+                    <option value="assigned">Tildelt først</option>
+                    <option value="unavailable">Utilgjengelige først</option>
+                    <option value="status">Status A–Å</option>
                 </select>
             </div>
 
@@ -284,6 +289,7 @@ else
                
                 <article id="min-ressurs-@resource.RessursID"
                          class="dc-card dc-assign @(resource.Status == Statuser.Ressurs.Utilgjengelig ? "is-unavailable" : "")"
+                                         data-sort-status="@resource.Status"
                          data-sort-name="@resource.Navn"
                          data-sort-created="@resource.Registrert.ToString("O")"
                          data-is-available="@(resource.Status == Statuser.Ressurs.Tilgjengelig ? "true" : "false")"
@@ -419,20 +425,23 @@ else
             .Where(r => passendeTyper.Contains(r.RessurstypeID))
             .OrderByDescending(r => string.Equals(ResourceCity.FromLocation(r.Stedsnavn), ResourceCity.FromLocation(need.Stedsnavn), StringComparison.OrdinalIgnoreCase))
             .ToList();
-        <article id="behov-@need.BehovID" class="dc-card dc-assign is-orange">
+        <article id="behov-@need.BehovID" class="dc-card dc-assign is-orange need-card"
+                 data-s-name="@need.Behovstype?.Navn" data-s-date="@need.Registrert.ToString("O")" data-s-qty="@need.Antall"
+                 data-s-deadline="@(need.Frist?.ToString("O"))">
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
                 <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
                 <div class="dc-btns">
                     @if (need.Status is Statuser.Behov.Ny or Statuser.Behov.Vurderes)
                     {
-                        <button type="button" class="dc-primary" data-dc-dialog="assign-@need.BehovID">Tildel ressurs (@matches.Count)</button>
+                        <button type="button" class="dc-primary" data-dc-dialog="assign-@need.BehovID">Tildel ressurs (@matches.Count) ›</button>
                     }
                 </div>
             </div>
             <div class="dc-chips"><span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
             <p class="dc-desc">@need.Beskrivelse</p>
-            <div class="dc-meta dc-col"><span>👤 @need.Kontaktperson · 📞 @need.Kontakttelefon</span><span>Antall: @need.Antall@(need.Frist is DateTime frist ? " · frist " + Stamp(frist) : "")@(need.Hendelse is Hendelse h ? " · " + h.Navn : "")</span></div>
+            <div class="need-facts"><span>Antall: <strong>@need.Antall stk</strong></span>@if (need.Frist is DateTime frist) { <span>📅 Frist: <strong>@Stamp(frist)</strong></span> }@if (need.Hendelse is Hendelse h) { <em class="need-incident">@h.Navn</em> }</div>
+            <div class="need-contact"><span>👤 @need.Kontaktperson</span><span>📞 @need.Kontakttelefon</span></div>
             @await Html.PartialAsync("_AssignDialog", new AssignDialogModel(need, matches, Tilbake("behov-" + need.BehovID), TypeIkon(need.Behovstype?.Navn)))
         </article>
     }
@@ -498,7 +507,7 @@ else
         var passende = Model.MatchingResources.Where(r => passendeTyper.Contains(r.RessurstypeID)).ToList();
         var mangler = need.Mangler;
         var enhet = passende.Select(r => r.Enhet).FirstOrDefault(e => !string.IsNullOrWhiteSpace(e)) ?? ((need.Behovstype?.Navn ?? "").ToLowerInvariant().Contains("vann") ? "L" : "stk");
-        <article id="behov-@need.BehovID" class="dc-card is-red dc-urgent">
+        <article id="behov-@need.BehovID" class="dc-card is-red dc-urgent" data-s-name="@need.Behovstype?.Navn" data-s-date="@need.Registrert.ToString("O")" data-s-qty="@need.Antall">
             <div class="dc-top">
                 <i class="dc-ico dc-ico-alert" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)<b class="dc-bang">!</b></i>
                 <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
@@ -622,7 +631,7 @@ else
     <div class="dc-grid">
     @foreach (var hendelse in Model.ActiveIncidents)
     {
-        <article id="hendelse-@hendelse.HendelseID" class="dc-card dc-assign">
+        <article id="hendelse-@hendelse.HendelseID" class="dc-card dc-assign" data-s-name="@hendelse.Navn" data-s-date="@hendelse.Starttidspunkt.ToString("O")">
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">@TypeIkon(hendelse.Navn)</i>
                 <div class="dc-title"><strong>@hendelse.Navn</strong><span>📍 @hendelse.Område</span></div>
@@ -642,14 +651,17 @@ else
     <div class="dc-grid">
     @foreach (var need in Model.OpenNeeds)
     {
-        <article id="behov-@need.BehovID" class="dc-card dc-assign">
+        <article id="behov-@need.BehovID" class="dc-card dc-assign is-orange need-card"
+                 data-s-name="@need.Behovstype?.Navn" data-s-date="@need.Registrert.ToString("O")" data-s-qty="@need.Antall"
+                 data-s-deadline="@(need.Frist?.ToString("O"))">
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
                 <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
             </div>
-            <div class="dc-chips"><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
+            <div class="dc-chips"><span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span><span class="status-badge">@Statuser.Visning(need.Status)</span></div>
             <p class="dc-desc">@need.Beskrivelse</p>
-            <div class="dc-foot"><span><strong>Mangler: @need.Mangler av @need.Antall</strong></span><span>Registrert @Stamp(need.Registrert)@(need.Hendelse is Hendelse h ? " · " + h.Navn : "")</span></div>
+            <div class="need-facts"><span>Mangler: <strong>@need.Mangler av @need.Antall stk</strong></span>@if (need.Frist is DateTime frist) { <span>📅 Frist: <strong>@Stamp(frist)</strong></span> }@if (need.Hendelse is Hendelse h) { <em class="need-incident">@h.Navn</em> }</div>
+            <div class="need-contact"><span>👤 @need.Kontaktperson</span><span>📞 @need.Kontakttelefon</span></div>
         </article>
     }
     </div>    </section>
@@ -664,7 +676,7 @@ else
     <div class="dc-grid">
     @foreach (var need in Model.UrgentNeeds)
     {
-        <article id="behov-@need.BehovID" class="dc-card dc-assign is-red">
+        <article id="behov-@need.BehovID" class="dc-card dc-assign is-red" data-s-name="@need.Behovstype?.Navn" data-s-date="@need.Registrert.ToString("O")" data-s-qty="@need.Antall">
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
                 <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
@@ -696,78 +708,68 @@ else
                 <p class="empty-state">Du har ikke meldt inn noen behov.</p>
             }
 
-            <div class="needs-controls">
-                <div class="needs-control">
-                    <label for="needTypeFilter">Behovstype</label>
-                    <select id="needTypeFilter">
-                        <option value="">Alle typer</option>
-                        @foreach (var type in Model.Needs
-                        .Select(n => n.Behovstype?.Navn)
-                        .Where(n => !string.IsNullOrWhiteSpace(n))
-                        .Distinct()
-                        .OrderBy(n => n))
-                        {
-                            <option value="@type">@type</option>
-                        }
-                    </select>
-                </div>
-
-                <div class="needs-control">
-                    <label for="needPriorityFilter">Prioritet</label>
-                    <select id="needPriorityFilter">
-                        <option value="">Alle prioriteter</option>
-                        <option value="@Statuser.Prioritet.Akutt">Akutt</option>
-                        <option value="@Statuser.Prioritet.Planlagt">Planlagt</option>
-                    </select>
-                </div>
-
-                <div class="needs-control">
-                    <label for="needStatusFilter">Status</label>
-                    <select id="needStatusFilter">
-                        <option value="">Alle statuser</option>
-                        <option value="@Statuser.Behov.Ny">Ny</option>
-                        <option value="@Statuser.Behov.Vurderes">Vurderes</option>
-                        <option value="@Statuser.Behov.Tildelt">Tildelt</option>
-                        <option value="@Statuser.Behov.Løst">Løst</option>
-                    </select>
-                </div>
-
-                <div class="needs-control">
-                    <label for="needSort">Sorter etter</label>
-                    <select id="needSort">
-                        <option value="urgent-oldest">Akutte først – eldste øverst</option>
-                        <option value="urgent">Akutte først</option>
-                        <option value="newest">Nyeste først</option>
-                        <option value="oldest">Eldste først</option>
-                        <option value="name-asc">Navn A–Å</option>
-                        <option value="name-desc">Navn Å–A</option>
-                    </select>
-                </div>
+            @{
+                string NeedKey(Behov n) => n.Status == Statuser.Behov.Løst ? "løst"
+                    : n.Dekket >= n.Antall ? "tildelt"
+                    : n.Dekket > 0 ? "delvis"
+                    : n.Status == Statuser.Behov.Vurderes ? "vurderes" : "ny";
+                string NeedLabel(string k) => k switch { "løst" => "Løst", "tildelt" => "Tildelt", "delvis" => "Delvis tildelt", "vurderes" => "Under behandling", _ => "Sendt inn" };
+                string NeedDesc(string k) => k switch { "løst" => "Behovet er løst.", "tildelt" => "Hele behovet er dekt.", "delvis" => "Deler av behovet er dekt.", "vurderes" => "Dispatch vurderer behovet.", _ => "Venter på behandling." };
+                var tabs = new (string Key, string Label)[] { ("", "Alle"), ("ny", "Sendt inn"), ("vurderes", "Under behandling"), ("delvis", "Delvis tildelt"), ("tildelt", "Tildelt"), ("løst", "Løst") };
+            }
+            <div class="mb-tabs" role="tablist" aria-label="Filtrer på status">
+                @foreach (var (key, label) in tabs)
+                {
+                    var c = key == "" ? Model.Needs.Count : Model.Needs.Count(n => NeedKey(n) == key);
+                    if (key != "" && c == 0) { continue; }
+                    <button type="button" role="tab" class="mb-tab@(key == "" ? " is-active" : "")" data-need-tab="@key" aria-selected="@(key == "" ? "true" : "false")">@label <span>@c</span></button>
+                }
             </div>
-
-            <p id="needsFilterCount" class="needs-filter-count"
-            role="status" aria-live="polite"></p>
+            <div class="mb-toolbar">
+                <label class="mb-search"><span aria-hidden="true">🔍</span><input type="search" id="needSearch" placeholder="Søk i mine behov…" aria-label="Søk i mine behov"></label>
+                <select id="needSort" aria-label="Sorter behov">
+                    <option value="newest">Nyest først</option>
+                    <option value="oldest">Eldste først</option>
+                    <option value="urgent">Akutte først</option>
+                    <option value="qty-desc">Størst antall</option>
+                    <option value="qty-asc">Minst antall</option>
+                    <option value="deadline">Frist (nærmest)</option>
+                    <option value="name-asc">Type A–Å</option>
+                    <option value="name-desc">Type Å–A</option>
+                </select>
+            </div>
+            <p id="needsFilterCount" class="needs-filter-count" role="status" aria-live="polite"></p>
 
             <div class="mb-list" id="ownNeedsList"
      tabindex="0"
      aria-label="Mine behov">
                 @foreach (var need in Model.Needs)
                 {
-
-
+                    var nk = NeedKey(need);
+                    var dekket = (int)Math.Min(need.Antall, Math.Floor(need.Dekket));
+                    var pct = need.Antall > 0 ? dekket * 100 / need.Antall : 0;
                     <article id="behov-@need.BehovID"
-                    class="mb-row @(need.Prioritet == Statuser.Prioritet.Akutt ? "mb-row-urgent" : "")
-
-                         data-need-type="@need.Behovstype?.Navn"
-                    data-need-priority="@need.Prioritet"
-                    data-need-status="@need.Status"
-                    data-need-date="@need.Registrert.ToString("O")">
-
+                             class="mb-row mb-card @(need.Prioritet == Statuser.Prioritet.Akutt ? "mb-row-urgent" : "") mb-s-@nk"
+                             data-need-type="@need.Behovstype?.Navn"
+                             data-need-priority="@need.Prioritet"
+                             data-need-status="@nk"
+                             data-need-qty="@need.Antall"
+                             data-need-deadline="@(need.Frist?.ToString("O"))"
+                             data-need-search="@($"{need.Behovstype?.Navn} {need.Stedsnavn} {need.Beskrivelse} {NeedLabel(nk)}".ToLowerInvariant())"
+                             data-need-date="@need.Registrert.ToString("O")">
                         <i class="dc-ico mb-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
                         <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
-                        <span class="status-badge @PriorityChip(need.Prioritet)">@Statuser.Visning(need.Prioritet)</span>
-                        <span class="status-badge">@Statuser.Visning(need.Status)</span>
-                        <span class="mb-chev" aria-hidden="true">›</span>
+                        <div class="mb-qty"><span>Behov</span><strong>@need.Antall stk</strong></div>
+                        <div class="mb-state"><span class="status-badge mb-pill mb-pill-@nk">@NeedLabel(nk)</span><small>@NeedDesc(nk)</small></div>
+                        <div class="mb-progress" title="@dekket av @need.Antall dekket"><div class="mb-bar"><i style="width:@(pct)%"></i></div><small>@dekket / @need.Antall stk</small></div>
+                        <div class="mb-sent"><span>Sendt inn</span><strong>@need.Registrert.ToString("dd.MM.yyyy")</strong></div>
+                        <button type="button" class="mb-detail" data-mb-toggle aria-expanded="false">Se detaljer <span aria-hidden="true">›</span></button>
+                        <div class="mb-more" hidden>
+                            <p>@need.Beskrivelse</p>
+                            <span>👤 @need.Kontaktperson · 📞 @need.Kontakttelefon</span>
+                            @if (need.Frist is DateTime nf) { <span>📅 Frist: @Stamp(nf)</span> }
+                            @if (need.Hendelse is Hendelse nh) { <span>🚨 @nh.Navn</span> }
+                        </div>
                     </article>
                 }
             </div>
@@ -794,175 +796,8 @@ else
 
 }
 
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const sort = document.getElementById("ownResourceSort");
-        const grid = document.getElementById("ownResourcesGrid");
-
-        if (!sort || !grid) return;
-
-        const cards = Array.from(grid.querySelectorAll(":scope > article"));
-        const collator = new Intl.Collator("nb", {
-            numeric: true,
-            sensitivity: "base"
-        });
-
-        sort.addEventListener("change", () => {
-            const sorted = [...cards];
-
-            sorted.sort((a, b) => {
-                const nameA = a.dataset.sortName || "";
-                const nameB = b.dataset.sortName || "";
-
-                
-                switch (sort.value) {
-                    case "name-asc":
-                        return collator.compare(nameA, nameB);
-
-                    case "name-desc":
-                        return collator.compare(nameB, nameA);
-
-                    case "available": {
-                        const aAvailable = a.dataset.isAvailable === "true";
-                        const bAvailable = b.dataset.isAvailable === "true";
-
-                        return Number(bAvailable) - Number(aAvailable)
-                            || collator.compare(nameA, nameB);
-                    }
-
-                    case "unavailable": {
-                        const aUnavailable = a.dataset.isUnavailable === "true";
-                        const bUnavailable = b.dataset.isUnavailable === "true";
-
-                        return Number(bUnavailable) - Number(aUnavailable)
-                            || collator.compare(nameA, nameB);
-                    }
-
-                    default:
-                        return 0;
-                }
-
-
-            });
-
-            grid.append(...sorted);
-        });
-        // Sorter ressursene automatisk ved innlasting
-        sort.dispatchEvent(new Event("change"));
-        const typeFilter = document.getElementById("ownResourceType");
-        const statusFilter = document.getElementById("ownResourceStatus");
-
-        function applyFilters() {
-            const selectedType = typeFilter?.value || "";
-            const selectedStatus = statusFilter?.value || "";
-
-            cards.forEach(card => {
-                const matchesType =
-                    !selectedType ||
-                    card.dataset.resourceType === selectedType;
-
-                const matchesStatus =
-                    !selectedStatus ||
-                    card.dataset.resourceStatus === selectedStatus;
-
-                card.hidden = !(matchesType && matchesStatus);
-            });
-        }
-
-        typeFilter?.addEventListener("change", applyFilters);
-        statusFilter?.addEventListener("change", applyFilters);
-
-        applyFilters();
-
-        }
-
-    });
-</script>
-
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const list = document.getElementById("ownNeedsList");
-        if (!list) return;
-
-        const type = document.getElementById("needTypeFilter");
-        const priority = document.getElementById("needPriorityFilter");
-        const status = document.getElementById("needStatusFilter");
-        const sort = document.getElementById("needSort");
-        const count = document.getElementById("needsFilterCount");
-
-        const cards = Array.from(list.querySelectorAll(":scope > .mb-row"));
-        const collator = new Intl.Collator("nb", {
-            numeric: true,
-            sensitivity: "base"
-        });
-
-        function updateNeeds() {
-            const selectedType = type.value;
-            const selectedPriority = priority.value;
-            const selectedStatus = status.value;
-
-            let visibleCount = 0;
-
-            cards.forEach(card => {
-                const matches =
-                    (!selectedType || card.dataset.needType === selectedType) &&
-                    (!selectedPriority || card.dataset.needPriority === selectedPriority) &&
-                    (!selectedStatus || card.dataset.needStatus === selectedStatus);
-
-                card.hidden = !matches;
-                if (matches) visibleCount++;
-            });
-
-            const sorted = [...cards];
-
-            sorted.sort((a, b) => {
-                const nameA = a.dataset.needType || "";
-                const nameB = b.dataset.needType || "";
-                const dateA = Date.parse(a.dataset.needDate) || 0;
-                const dateB = Date.parse(b.dataset.needDate) || 0;
-
-                switch (sort.value) {
-
-case "urgent-oldest": {
-    const urgentA = (a.dataset.needPriority || "")
-        .toLowerCase() === "akutt";
-
-    const urgentB = (b.dataset.needPriority || "")
-        .toLowerCase() === "akutt";
-
-    return Number(urgentB) - Number(urgentA)
-        || dateA - dateB;
-}
-
-                    case "urgent": {
-                        const urgentA = a.dataset.needPriority === "akutt";
-                        const urgentB = b.dataset.needPriority === "akutt";
-                        return Number(urgentB) - Number(urgentA) || dateB - dateA;
-                    }
-                    case "newest":
-                        return dateB - dateA;
-                    case "oldest":
-                        return dateA - dateB;
-                    case "name-asc":
-                        return collator.compare(nameA, nameB);
-                    case "name-desc":
-                        return collator.compare(nameB, nameA);
-                    default:
-                        return 0;
-                }
-            });
-
-            list.append(...sorted);
-            count.textContent = `Viser ${visibleCount} av ${cards.length} behov`;
-        }
-
-        [type, priority, status, sort].forEach(select => {
-            select.addEventListener("change", updateNeeds);
-        });
-
-        updateNeeds();
-    });
-</script>
+<link rel="stylesheet" href="~/css/dashboard-sort.css" asp-append-version="true" />
+<script src="~/js/dashboard-sort.js" asp-append-version="true"></script>
 
 
 <script src="~/js/dashboard-workspace.js" asp-append-version="true"></script>
