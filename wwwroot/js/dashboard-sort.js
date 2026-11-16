@@ -115,6 +115,7 @@
         cards.forEach(c => new Set(labelsOf(c)).forEach(l => counts.set(l, (counts.get(l) || 0) + 1)));
 
         const options = [["", "Standard rekkefølge"], ["name-asc", "Navn A–Å"], ["name-desc", "Navn Å–A"]];
+        if (cards.some(c => c.dataset.sPriority)) options.push(["urgent", "Akutte først"]);
         if (cards.some(c => c.dataset.sDate)) options.push(["newest", "Nyest først"], ["oldest", "Eldst først"]);
         if (cards.some(c => c.dataset.sQty)) options.push(["qty-desc", "Størst antall"], ["qty-asc", "Minst antall"]);
         if (cards.some(c => c.dataset.sDeadline)) options.push(["deadline", "Frist (nærmest)"]);
@@ -168,6 +169,8 @@
                     case "qty-desc": return Number(ds(b).sQty || 0) - Number(ds(a).sQty || 0);
                     case "qty-asc": return Number(ds(a).sQty || 0) - Number(ds(b).sQty || 0);
                     case "deadline": return (time(ds(a).sDeadline) || Infinity) - (time(ds(b).sDeadline) || Infinity);
+                    case "urgent": return Number(ds(b).sPriority === "akutt") - Number(ds(a).sPriority === "akutt") || ((time(ds(a).sDeadline) || Infinity) - (time(ds(b).sDeadline) || Infinity)) || time(ds(a).sDate) - time(ds(b).sDate);
+
                     default: return collator.compare(nameOf(a), nameOf(b));
                 }
             });
@@ -182,12 +185,24 @@
         apply();
     }
 
-    ready(() => {
-        initOwnResources();
-        initNeeds();
-        document.querySelectorAll("[data-pn-list]").forEach(l => initNeeds(l, l.parentElement));
-        document.querySelectorAll(".dc-panel .dc-grid").forEach(grid => {
-            if (grid.id !== "ownResourcesGrid") initGrid(grid);
-        });
+ready(() => {
+    initOwnResources();
+    initNeeds();
+
+    document.querySelectorAll("[data-pn-list]").forEach(
+        l => initNeeds(l, l.parentElement)
+    );
+
+    const customGrids = new Set([
+        "ownResourcesGrid",
+        "activeAssignmentsGrid",
+        "verificationGrid"
+    ]);
+
+    document.querySelectorAll(".dc-panel .dc-grid").forEach(grid => {
+        if (!customGrids.has(grid.id)) {
+            initGrid(grid);
+        }
     });
+});
 })();

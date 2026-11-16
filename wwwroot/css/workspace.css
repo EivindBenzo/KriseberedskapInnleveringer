@@ -2092,3 +2092,183 @@ html:has(dialog[open]),body:has(dialog[open]){overflow:hidden}
             border-radius: 10px;
         }
 }
+
+/* Aktive tildelinger – filtrering og sortering */
+
+#activeAssignmentsGrid > .ta-card[hidden] {
+    display: none !important;
+}
+
+.assignment-controls .assignment-search {
+    flex: 1 1 220px;
+}
+
+.assignment-controls .needs-control input {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+}
+
+@media (max-width: 700px) {
+    .assignment-controls .assignment-search {
+        grid-column: 1 / -1;
+    }
+}
+
+/* Tydeligere navigasjon på oversiktskortene */
+
+.dashboard-action-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--tone);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+    .dashboard-action-hint .hint-hide {
+        display: none;
+    }
+
+.dashboard-action[aria-expanded="true"] .hint-show {
+    display: none;
+}
+
+.dashboard-action[aria-expanded="true"] .hint-hide {
+    display: inline;
+}
+
+.dashboard-action:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+}
+/* Skjul verifiseringskort som ikke matcher filteret */
+#verificationGrid > .vq-card[hidden] {
+    display: none !important;
+}
+/* Koordinering – vis og skjul valgte seksjoner */
+
+.coordination-hidden {
+    display: none !important;
+}
+
+/* Tydelig markering av valgte seksjoner */
+
+#coordinationTabs .mb-tab.is-active {
+    background: #0f5f5a;
+    border-color: #0f5f5a;
+    color: white;
+    box-shadow: 0 0 0 2px rgba(15, 95, 90, .18);
+}
+
+    #coordinationTabs .mb-tab.is-active:not( [data-coordination-filter="all"] )::before {
+        content: "✓";
+        margin-right: 5px;
+        font-weight: 800;
+    }
+
+#coordinationTabs .mb-tab:focus-visible {
+    outline: 3px solid #14b8a6;
+    outline-offset: 2px;
+}
+
+/* Koordinering – mobiltilpasning */
+
+@media (max-width: 600px) {
+
+    html body .operations-workspace #coordinationTabs {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+        overflow: visible !important;
+        box-sizing: border-box;
+    }
+
+    #coordinationTabs .mb-tab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 5px;
+        width: 100%;
+        min-width: 0;
+        min-height: 48px;
+        padding: 10px 6px;
+        text-align: center;
+        white-space: normal;
+        line-height: 1.3;
+        box-sizing: border-box;
+    }
+
+        #coordinationTabs .mb-tab span {
+            margin-left: 0;
+            white-space: nowrap;
+        }
+
+    #coordinationSelectionInfo {
+        overflow-wrap: anywhere;
+    }
+}
+
+/* Kompakte kort – Åpne behov og Forespørsler */
+
+.operations-workspace .dc-card.need-card {
+    min-height: 0;
+    height: auto;
+    padding: 10px 12px;
+    gap: 5px;
+    align-self: start;
+}
+
+/* Kompakt overskrift og knapper */
+.operations-workspace .need-card .dc-top {
+    gap: 8px;
+    align-items: center;
+}
+
+    .operations-workspace .need-card .dc-top .dc-btns {
+        grid-column: 3;
+        margin: 0;
+    }
+
+/* Mindre avstand rundt status og beskrivelse */
+.operations-workspace .need-card .dc-chips {
+    margin: 2px 0;
+}
+
+.operations-workspace .need-card .dc-desc {
+    margin: 0;
+    line-height: 1.3;
+}
+
+/* Kompakt informasjon */
+.operations-workspace .need-card .need-facts {
+    margin-top: 0;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+
+/* Kontaktinformasjon nærmere resten */
+.operations-workspace .need-card .need-contact {
+    margin-top: 0;
+    padding-top: 5px;
+    font-size: 12px;
+}
+
+/* Behold god mobiltilpasning */
+@media (max-width: 700px) {
+    .operations-workspace .need-card .dc-top {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+        .operations-workspace .need-card .dc-top .dc-btns {
+            grid-column: 1 / -1;
+        }
+}

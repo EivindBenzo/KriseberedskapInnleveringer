@@ -71,17 +71,57 @@
         <span class="dashboard-action-icon" aria-hidden="true">!</span><span><strong>Trenger oppfølging</strong><small>Venter på godkjenning eller må rettes</small></span><span class="dashboard-action-count">@providerAttention</span>
     </button>
 }
+
 else if (dispatch)
 {
-    <button type="button" class="dashboard-action dashboard-action-confirmed" data-dashboard-target="confirmed" aria-expanded="false">
-        <span class="dashboard-action-icon" aria-hidden="true">✓</span><span><strong>Aktive tildelinger</strong><small>Oppdrag som er i gang</small></span><span class="dashboard-action-count">@Model.Assignments.Count</span>
+    <button type="button"
+            class="dashboard-action dashboard-action-confirmed"
+            data-dashboard-target="confirmed"
+            aria-expanded="false">
+        <span class="dashboard-action-icon" aria-hidden="true">✓</span>
+        <span>
+            <strong>Aktive tildelinger</strong>
+            <small>Oppdrag som er i gang</small>
+            <span class="dashboard-action-hint">
+                <span class="hint-show">Vis oppdrag →</span>
+                <span class="hint-hide">Vis alle ↑</span>
+            </span>
+        </span>
+        <span class="dashboard-action-count">@Model.Assignments.Count</span>
     </button>
-    <button type="button" class="dashboard-action dashboard-action-requests" data-dashboard-target="requests" aria-expanded="false">
-        <span class="dashboard-action-icon" aria-hidden="true">↗</span><span><strong>Koordinering</strong><small>Behov, forespørsler og verifisering</small></span><span class="dashboard-action-count">@pendingDispatch</span>
+
+    <button type="button"
+            class="dashboard-action dashboard-action-requests"
+            data-dashboard-target="requests"
+            aria-expanded="false">
+        <span class="dashboard-action-icon" aria-hidden="true">↗</span>
+        <span>
+            <strong>Koordinering</strong>
+            <small>Behov, forespørsler og verifisering</small>
+            <span class="dashboard-action-hint">
+                <span class="hint-show">Vis oppgaver →</span>
+                <span class="hint-hide">Vis alle ↑</span>
+            </span>
+        </span>
+        <span class="dashboard-action-count">@pendingDispatch</span>
     </button>
-    <button type="button" class="dashboard-action dashboard-action-urgent" data-dashboard-target="urgent" aria-expanded="false">
-        <span class="dashboard-action-icon" aria-hidden="true">!</span><span><strong>Akutte behov</strong><small>Må prioriteres nå</small></span><span class="dashboard-action-count">@Model.UrgentNeeds.Count</span>
+
+    <button type="button"
+            class="dashboard-action dashboard-action-urgent"
+            data-dashboard-target="urgent"
+            aria-expanded="false">
+        <span class="dashboard-action-icon" aria-hidden="true">!</span>
+        <span>
+            <strong>Akutte behov</strong>
+            <small>Må prioriteres nå</small>
+            <span class="dashboard-action-hint">
+                <span class="hint-show">Vis akutte behov →</span>
+                <span class="hint-hide">Vis alle ↑</span>
+            </span>
+        </span>
+        <span class="dashboard-action-count">@Model.UrgentNeeds.Count</span>
     </button>
+
 }
 else if (leader)
 {
@@ -363,17 +403,121 @@ else
 
 @if (dispatch)
 {
+    <section class="dashboard-panel dc-panel"
+             data-dashboard-panel="requests"
+             hidden>
+
+        <div class="dc-head">
+            <h2>Velg hva du vil se</h2>
+        </div>
+
+        <div class="mb-tabs coordination-tabs"
+             id="coordinationTabs"
+             role="group"
+             aria-label="Velg seksjoner i Koordinering">
+
+            <button type="button"
+                    class="mb-tab is-active"
+                    data-coordination-filter="all"
+                    aria-pressed="true">
+                Alle
+            </button>
+
+            <button type="button"
+                    class="mb-tab"
+                    data-coordination-filter="verification"
+                    aria-pressed="false">
+                Venter på verifisering
+                <span>@Model.VerificationQueue.Count</span>
+            </button>
+
+            <button type="button"
+                    class="mb-tab"
+                    data-coordination-filter="needs"
+                    aria-pressed="false">
+                Åpne behov
+                <span>@Model.OpenNeeds.Count</span>
+            </button>
+
+            <button type="button"
+                    class="mb-tab"
+                    data-coordination-filter="requests"
+                    aria-pressed="false">
+                Forespørsler
+                <span>@Model.Requests.Count</span>
+            </button>
+
+        </div>
+
+        <p id="coordinationSelectionInfo"
+           class="resource-meta"
+           role="status"
+           aria-live="polite">
+            Alle seksjoner vises.
+        </p>
+
+    </section>
+}
+
+
+@if (dispatch)
+{
     <section class="dashboard-panel dc-panel" data-dashboard-panel="requests" hidden>
-    <div class="dc-head"><h2 id="verifiseringskoe">Venter på verifisering <span class="count-badge">@Model.VerificationQueue.Count</span></h2>
+    <div class="dc-head">
+        <h2 id="verifiseringskoe">Venter på verifisering <span class="count-badge">@Model.VerificationQueue.Count</span></h2>
 </div>
+
+        @if (Model.VerificationQueue.Count > 0)
+        {
+            <div class="needs-controls">
+                <div class="needs-control">
+                    <label for="verificationSort">Sorter etter</label>
+                    <select id="verificationSort">
+                        <option value="oldest">Eldste først</option>
+                        <option value="newest">Nyeste først</option>
+                        <option value="name-asc">Ressursnavn A–Å</option>
+                        <option value="name-desc">Ressursnavn Å–A</option>
+                        <option value="type-asc">Ressurstype A–Å</option>
+                        <option value="type-desc">Ressurstype Å–A</option>
+                    </select>
+                </div>
+
+                <div class="needs-control">
+                    <label for="verificationTypeFilter">Ressurstype</label>
+                    <select id="verificationTypeFilter">
+                        <option value="">Alle ressurstyper</option>
+                        @foreach (var type in Model.VerificationQueue
+                            .Select(r => r.Ressurstype?.Navn)
+                            .Where(t => !string.IsNullOrWhiteSpace(t))
+                            .Distinct()
+                            .OrderBy(t => t))
+                        {
+                            <option value="@type">@type</option>
+                        }
+                    </select>
+                </div>
+                <p id="verificationFilterCount"
+                   class="needs-filter-count"
+                   role="status"
+                   aria-live="polite"></p>
+
+            </div>
+        }
+
     @if (Model.VerificationQueue.Count == 0)
     {
         <p class="empty-state">Ingen ressurser venter på verifisering.</p>
     }
-    <div class="dc-grid">
+        <div class="dc-grid" id="verificationGrid">
     @foreach (var resource in Model.VerificationQueue)
     {
-        <article id="verifisering-@resource.RessursID" class="dc-card vq-card is-orange">
+
+                <article id="verifisering-@resource.RessursID"
+                         class="dc-card vq-card is-orange"
+                         data-verify-name="@resource.Navn"
+                         data-verify-type="@resource.Ressurstype?.Navn"
+                         data-verify-date="@resource.Registrert.ToString("O")">
+
             <form asp-controller="Operations" asp-action="Verify" method="post" class="dc-verify">
                 <input type="hidden" name="id" value="@resource.RessursID" />
                 <input type="hidden" name="returnUrl" value="@Tilbake("verifiseringskoe")" />
@@ -413,9 +557,15 @@ else
             .Where(r => passendeTyper.Contains(r.RessurstypeID))
             .OrderByDescending(r => string.Equals(ResourceCity.FromLocation(r.Stedsnavn), ResourceCity.FromLocation(need.Stedsnavn), StringComparison.OrdinalIgnoreCase))
             .ToList();
-        <article id="behov-@need.BehovID" class="dc-card dc-assign is-orange need-card"
-                 data-s-name="@need.Behovstype?.Navn" data-s-date="@need.Registrert.ToString("O")" data-s-qty="@need.Antall"
-                 data-s-deadline="@(need.Frist?.ToString("O"))">
+
+                <article id="behov-@need.BehovID"
+                         class="dc-card dc-assign is-orange need-card"
+                         data-s-name="@need.Behovstype?.Navn"
+                         data-s-date="@need.Registrert.ToString("O")"
+                         data-s-qty="@need.Antall"
+                         data-s-deadline="@(need.Frist?.ToString("O"))"
+                         data-s-priority="@need.Prioritet">
+
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
                 <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
@@ -443,7 +593,13 @@ else
     <div class="dc-grid">
     @foreach (var request in Model.Requests.OrderBy(r => r.Svar == Statuser.Svar.Godtatt ? 0 : 1))
     {
-        <article id="foresporsel-@request.ForespørselID" class="dc-card dc-assign @(request.Svar == Statuser.Svar.Venter ? "is-orange" : "is-green")">
+
+            <article id="foresporsel-@request.ForespørselID"
+                     class="dc-card dc-assign need-card @(request.Svar == Statuser.Svar.Venter ? "is-orange" : "is-green")"
+                     data-s-name="@request.Ressurs!.Navn"
+                     data-s-date="@request.Sendt.ToString("O")">
+
+
             <div class="dc-top">
                 <i class="dc-ico" aria-hidden="true">@TypeIkon(request.Ressurs!.Ressurstype?.Navn)</i>
                 <div class="dc-title"><strong>@request.Ressurs!.Navn</strong><span>📍 → @request.Behov!.Stedsnavn</span></div>
@@ -456,7 +612,22 @@ else
                 </div>
             </div>
             <div class="dc-chips"><span class="status-badge @(request.Svar == Statuser.Svar.Venter ? "status-warning" : "status-positive")">@Statuser.Visning(request.Svar)</span></div>
-            <div class="dc-foot"><span><strong>@request.Antall.ToString("0.##") @request.Ressurs!.Enhet</strong></span><span>Sendt @Stamp(request.Sendt)</span></div>
+                <div class="need-facts">
+                    <span>
+                        Antall:
+                        <strong>@request.Antall.ToString("0.##") @request.Ressurs!.Enhet</strong>
+                    </span>
+                    <span>
+                           Sendt:
+                        <strong>@Stamp(request.Sendt)</strong>
+                    </span>
+                </div>
+
+                <div class="need-contact">
+                    <span> @request.Behov!.Kontaktperson</span>
+                    <span> @request.Behov!.Kontakttelefon</span>
+                </div>
+
             @if (request.Svar == Statuser.Svar.Godtatt)
             {
                 <form id="al-@request.ForespørselID" asp-controller="Operations" asp-action="Allocate" method="post" hidden>
@@ -523,7 +694,49 @@ else
     {
         <p class="empty-state">Ingen aktive tildelinger.</p>
     }
-    <div class="dc-grid">
+        @if (Model.Assignments.Count > 0)
+        {
+            <div class="needs-controls assignment-controls">
+
+                <div class="needs-control">
+                    <label for="assignmentSearch">Søk etter ressurs eller sted</label>
+                    <input type="search"
+                           id="assignmentSearch"
+                           placeholder="Søk etter navn eller sted" />
+                </div>
+
+                <div class="needs-control">
+                    <label for="assignmentStatusFilter">Status</label>
+                    <select id="assignmentStatusFilter">
+                        <option value="">Alle statuser</option>
+                        <option value="bekreftet">Bekreftet</option>
+                        <option value="på vei">På vei</option>
+                        <option value="fremme">Fremme</option>
+                        <option value="fullført">Fullført</option>
+                    </select>
+                </div>
+
+                <div class="needs-control">
+                    <label for="assignmentSort">Sorter etter</label>
+                    <select id="assignmentSort">
+                        <option value="newest">Nyeste først</option>
+                        <option value="oldest">Eldste først</option>
+                        <option value="name-asc">Navn A–Å</option>
+                        <option value="name-desc">Navn Å–A</option>
+                        <option value="progress-asc">Tidligst i fremdrift</option>
+                        <option value="progress-desc">Lengst i fremdrift</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <p id="assignmentFilterCount"
+               class="needs-filter-count"
+               role="status"
+               aria-live="polite"></p>
+        }
+
+        <div class="dc-grid" id="activeAssignmentsGrid">
     @foreach (var assignment in Model.Assignments)
     {
         var steg = Array.IndexOf(Statuser.Fremdrift.Rekkefølge, assignment.Fremdrift);
@@ -534,7 +747,13 @@ else
         var handling = next switch { Statuser.Fremdrift.PåVei => "Registrer avgang", Statuser.Fremdrift.Fremme => "Registrer ankomst", Statuser.Fremdrift.Fullført => "Bekreft levering", _ => "" };
         var antallTekst = assignment.Forespørsel.Antall.ToString("0.##") + " " + res.Enhet;
         var inv = System.Globalization.CultureInfo.InvariantCulture;
-        <article id="tildeling-@assignment.TildelingID" class="dc-card dc-assign dc-act ta-card ta-s@(steg)">
+                <article id="tildeling-@assignment.TildelingID"
+                         class="dc-card dc-assign dc-act ta-card ta-s@(steg)"
+                         data-assignment-name="@res.Navn"
+                         data-assignment-location="@assignment.Forespørsel.Behov!.Stedsnavn"
+                         data-assignment-status="@assignment.Fremdrift"
+                         data-assignment-date="@assignment.Tildelt.ToString("O")">
+
             <aside class="ta-side" style="--p:@((steg + 1) * 25)">
                 <div class="ta-ring"><div class="ta-ring-in">
                     <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@Html.Raw(steg == 0 ? "<rect x='8' y='2' width='8' height='4' rx='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/>" : steg == 1 ? "<path d='M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2'/><path d='M15 18H9'/><path d='M19 18h2a1 1 0 0 0 1-1v-3.7a1 1 0 0 0-.2-.6l-3.4-4.3a1 1 0 0 0-.8-.4H14'/><circle cx='17' cy='18' r='2'/><circle cx='7' cy='18' r='2'/>" : steg == 2 ? "<path d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z'/><circle cx='12' cy='10' r='3'/>" : "<path d='M20 6 9 17l-5-5'/>")</svg>
@@ -844,6 +1063,323 @@ else
 
 <link rel="stylesheet" href="~/css/dashboard-sort.css" asp-append-version="true" />
 <script src="~/js/dashboard-sort.js" asp-append-version="true"></script>
+
+<script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const tabs = document.getElementById("coordinationTabs");
+            if (!tabs) return;
+
+            const verificationPanel = document
+                .getElementById("verifiseringskoe")
+                ?.closest(".dashboard-panel");
+
+            const needsHeading = document
+                .getElementById("apne-behov")
+                ?.closest(".dc-head");
+
+            const requestsHeading = document
+                .getElementById("foresporsler")
+                ?.closest(".dc-head");
+
+            const combinedPanel = needsHeading
+                ?.closest(".dashboard-panel");
+
+            if (!verificationPanel || !combinedPanel || !requestsHeading) {
+                return;
+            }
+
+            if (requestsHeading.parentElement !== combinedPanel) {
+                return;
+            }
+
+            const children = Array.from(combinedPanel.children);
+            const needsStart = children.indexOf(needsHeading);
+            const requestsStart = children.indexOf(requestsHeading);
+
+            if (needsStart < 0 || requestsStart <= needsStart) {
+                return;
+            }
+
+            const needsElements = children.slice(
+                needsStart, requestsStart
+            );
+            const requestsElements = children.slice(requestsStart);
+
+            const all = ["verification", "needs", "requests"];
+
+            const names = {
+                verification: "Venter på verifisering",
+                needs: "Åpne behov",
+                requests: "Forespørsler"
+            };
+
+            let selected = new Set(all);
+
+            const info = document.getElementById(
+                "coordinationSelectionInfo"
+            );
+
+            function updateView() {
+                verificationPanel.classList.toggle(
+                    "coordination-hidden",
+                    !selected.has("verification")
+                );
+
+                needsElements.forEach(element => {
+                    element.classList.toggle(
+                        "coordination-hidden",
+                        !selected.has("needs")
+                    );
+                });
+
+                requestsElements.forEach(element => {
+                    element.classList.toggle(
+                        "coordination-hidden",
+                        !selected.has("requests")
+                    );
+                });
+
+                tabs.querySelectorAll(
+                    "[data-coordination-filter]"
+                ).forEach(button => {
+                    const value = button.dataset.coordinationFilter;
+
+                    const active = value === "all"
+                        ? selected.size === all.length
+                        : selected.size !== all.length
+                            && selected.has(value);
+
+                    button.classList.toggle("is-active", active);
+                    button.setAttribute("aria-pressed", String(active));
+                });
+
+                if (info) {
+                    if (selected.size === all.length) {
+                        info.textContent = "Alle seksjoner vises.";
+                    } else {
+                        const chosen = all
+                            .filter(value => selected.has(value))
+                            .map(value => names[value]);
+
+                        info.textContent =
+                            `${selected.size} seksjon(er) valgt: ` +
+                            chosen.join(" + ");
+                    }
+                }
+            }
+
+            tabs.addEventListener("click", event => {
+                const button = event.target.closest(
+                    "[data-coordination-filter]"
+                );
+
+                if (!button || !tabs.contains(button)) return;
+
+                const value = button.dataset.coordinationFilter;
+
+                if (value === "all") {
+                    selected = new Set(all);
+                } else if (selected.size === all.length) {
+                    selected = new Set([value]);
+                } else if (selected.has(value)) {
+                    if (selected.size === 1) {
+                        selected = new Set(all);
+                    } else {
+                        selected.delete(value);
+                    }
+                } else {
+                    selected.add(value);
+                }
+
+                updateView();
+            });
+
+            updateView();
+        });
+</script>
+
+
+<script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const grid = document.getElementById("activeAssignmentsGrid");
+            const search = document.getElementById("assignmentSearch");
+            const status = document.getElementById("assignmentStatusFilter");
+            const sort = document.getElementById("assignmentSort");
+            const count = document.getElementById("assignmentFilterCount");
+
+            if (!grid || !search || !status || !sort || !count) return;
+
+            const cards = Array.from(grid.querySelectorAll(":scope > .ta-card"));
+            const collator = new Intl.Collator("nb", {
+                numeric: true,
+                sensitivity: "base"
+            });
+
+            const progressOrder = [
+                "bekreftet",
+                "på vei",
+                "fremme",
+                "fullført"
+            ];
+
+            const emptyMessage = document.createElement("p");
+            emptyMessage.className = "empty-state";
+            emptyMessage.textContent = "Ingen tildelinger samsvarer med filtrene.";
+            emptyMessage.hidden = true;
+            grid.before(emptyMessage);
+
+            function updateAssignments() {
+                const searchText = search.value.trim().toLocaleLowerCase("nb");
+                const selectedStatus = status.value;
+
+                let visibleCount = 0;
+
+                cards.forEach(card => {
+                    const name = (card.dataset.assignmentName || "")
+                        .toLocaleLowerCase("nb");
+                    const location = (card.dataset.assignmentLocation || "")
+                        .toLocaleLowerCase("nb");
+                    const cardStatus = card.dataset.assignmentStatus || "";
+
+                    const matchesSearch =
+                        !searchText ||
+                        name.includes(searchText) ||
+                        location.includes(searchText);
+
+                    const matchesStatus =
+                        !selectedStatus || cardStatus === selectedStatus;
+
+                    card.hidden = !(matchesSearch && matchesStatus);
+
+                    if (!card.hidden) visibleCount++;
+                });
+
+                const sorted = [...cards];
+
+                sorted.sort((a, b) => {
+                    const nameA = a.dataset.assignmentName || "";
+                    const nameB = b.dataset.assignmentName || "";
+
+                    const dateA = Date.parse(a.dataset.assignmentDate) || 0;
+                    const dateB = Date.parse(b.dataset.assignmentDate) || 0;
+
+                    const progressA = progressOrder.indexOf(a.dataset.assignmentStatus);
+                    const progressB = progressOrder.indexOf(b.dataset.assignmentStatus);
+
+                    switch (sort.value) {
+                        case "oldest":
+                            return dateA - dateB;
+
+                        case "name-asc":
+                            return collator.compare(nameA, nameB);
+
+                        case "name-desc":
+                            return collator.compare(nameB, nameA);
+
+                        case "progress-asc":
+                            return progressA - progressB || dateB - dateA;
+
+                        case "progress-desc":
+                            return progressB - progressA || dateB - dateA;
+
+                        default:
+                            return dateB - dateA;
+                    }
+                });
+
+                grid.append(...sorted);
+
+                count.textContent =
+                    `Viser ${visibleCount} av ${cards.length} tildelinger`;
+
+                emptyMessage.hidden = visibleCount !== 0 || cards.length === 0;
+            }
+
+            search.addEventListener("input", updateAssignments);
+            status.addEventListener("change", updateAssignments);
+            sort.addEventListener("change", updateAssignments);
+
+            updateAssignments();
+        });
+</script>
+
+<script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const grid = document.getElementById("verificationGrid");
+            const sort = document.getElementById("verificationSort");
+            const typeFilter = document.getElementById("verificationTypeFilter");
+            const count = document.getElementById("verificationFilterCount");
+
+            if (!grid || !sort) return;
+
+            const cards = Array.from(
+                grid.querySelectorAll(":scope > .vq-card")
+            );
+
+            const collator = new Intl.Collator("nb", {
+                numeric: true,
+                sensitivity: "base"
+            });
+
+            function updateVerificationSort() {
+                const sorted = [...cards];
+
+                sorted.sort((a, b) => {
+                    const nameA = a.dataset.verifyName || "";
+                    const nameB = b.dataset.verifyName || "";
+
+                    const typeA = a.dataset.verifyType || "";
+                    const typeB = b.dataset.verifyType || "";
+
+                    const dateA = Date.parse(a.dataset.verifyDate) || 0;
+                    const dateB = Date.parse(b.dataset.verifyDate) || 0;
+
+                    switch (sort.value) {
+                        case "newest":
+                            return dateB - dateA;
+
+                        case "name-asc":
+                            return collator.compare(nameA, nameB);
+
+                        case "name-desc":
+                            return collator.compare(nameB, nameA);
+
+                        case "type-asc":
+                            return collator.compare(typeA, typeB)
+                                || collator.compare(nameA, nameB);
+
+                        case "type-desc":
+                            return collator.compare(typeB, typeA)
+                                || collator.compare(nameA, nameB);
+
+                        default:
+                            return dateA - dateB;
+                    }
+                });
+
+         grid.append(...sorted);
+        const selectedType = typeFilter.value;
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+            const matchesType =
+                !selectedType ||
+                card.dataset.verifyType === selectedType;
+
+            card.hidden = !matchesType;
+
+            if (matchesType) visibleCount++;
+        });
+
+        count.textContent =
+            `Viser ${visibleCount} av ${cards.length} ressurser`;
+            }
+
+            sort.addEventListener("change", updateVerificationSort);
+            updateVerificationSort();
+        typeFilter.addEventListener("change", updateVerificationSort);
+        });
+</script>
 
 
 <script src="~/js/dashboard-workspace.js" asp-append-version="true"></script>

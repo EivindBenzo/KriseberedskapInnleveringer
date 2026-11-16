@@ -108,23 +108,69 @@
                 <button type="button" data-f="avsluttet">Avsluttet (@andre.Count(h => h.Status == Statuser.Hendelse.Avsluttet))</button>
             </div>
             <span class="hx-pincount" title="Festede hendelser">&#128204; Festet <b>@festet.Count</b>/5</span>
-            <label class="hx-sort">Sorter <select id="hxSort"><option value="new">Nyest først</option><option value="old">Eldst først</option></select></label>
+
+<label class="hx-sort">
+    Sorter
+    <select id="hxSort">
+        <option value="new">Nyest først</option>
+        <option value="old">Eldst først</option>
+        <option value="priority-high">Høyeste prioritet først</option>
+        <option value="priority-low">Laveste prioritet først</option>
+    </select>
+</label>
+
         </div>
         @if (andre.Count == 0) { <p class="empty-state">Ingen andre hendelser.</p> }
         <div id="hxList">
         @foreach (var h in andre)
         {
             var k = kort.GetValueOrDefault(h.HendelseID) ?? new HendelseKort(0, 0, 0, 0, 0, 0);
-            <article class="hx-row @StatusKlasse(h.Status)@(festet.Contains(h.HendelseID) ? " is-pinned" : "")" data-status="@h.Status" data-pin="@(festet.Contains(h.HendelseID) ? 1 : 0)" data-time="@h.Starttidspunkt.Ticks">
-                <i class="hx-tile"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@Html.Raw(TypeIkon(h))</svg></i>
-                <div class="hx-row-name"><strong>@h.Navn</strong><span>@h.Område &nbsp;|&nbsp; @Stamp(h.Starttidspunkt)</span></div>
-                <div class="hx-row-chips"><span class="hx-chip @StatusKlasse(h.Status)">@Statuser.Hendelse.Etikett(h.Status)</span><span class="hx-chip @PrioKlasse(h.Prioritet)">@PrioIkon(h.Prioritet) @PrioTekst(h.Prioritet)</span></div>
-                <div class="hx-row-progress">
-                    @if (h.Status == Statuser.Hendelse.Aktiv)
-                    {
-                        <div class="hx-bar"><div class="hx-bar-track"><span style="width:@k.Prosent%;background:rgb(@(46 - 35 * k.Prosent / 100),@(168 - 70 * k.Prosent / 100),@(96 + 16 * k.Prosent / 100))"></span></div><b>@k.Prosent %</b></div>
-                    }
-                </div>
+
+<article class="hx-row @StatusKlasse(h.Status)@(festet.Contains(h.HendelseID) ? " is-pinned" : "")"
+         data-status="@h.Status"
+         data-pin="@(festet.Contains(h.HendelseID) ? 1 : 0)"
+         data-time="@h.Starttidspunkt.Ticks"
+         data-priority="@(h.Prioritet == Statuser.HendelsePrioritet.Hoy ? 3 : h.Prioritet == Statuser.HendelsePrioritet.Medium ? 2 : 1)">
+
+        <i class="hx-tile">
+    <svg viewBox="0 0 24 24"
+         width="24" height="24"
+         fill="none"
+         stroke="currentColor"
+         stroke-width="1.8"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         aria-hidden="true">
+        @Html.Raw(TypeIkon(h))
+    </svg>
+</i>
+
+<div class="hx-row-name">
+    <strong>@h.Navn</strong>
+    <span>@h.Område &nbsp;|&nbsp; @Stamp(h.Starttidspunkt)</span>
+</div>
+
+<div class="hx-row-chips">
+    <span class="hx-chip @StatusKlasse(h.Status)">
+        @Statuser.Hendelse.Etikett(h.Status)
+    </span>
+    <span class="hx-chip @PrioKlasse(h.Prioritet)">
+        @PrioIkon(h.Prioritet) @PrioTekst(h.Prioritet)
+    </span>
+</div>
+
+<div class="hx-row-progress">
+    @if (h.Status == Statuser.Hendelse.Aktiv)
+    {
+        <div class="hx-bar">
+            <div class="hx-bar-track">
+                <span style="width:@k.Prosent%;background:rgb(@(46 - 35 * k.Prosent / 100),@(168 - 70 * k.Prosent / 100),@(96 + 16 * k.Prosent / 100))"></span>
+            </div>
+            <b>@k.Prosent %</b>
+        </div>
+    }
+</div>
+
                 <div class="hx-row-actions">
                     @if (festet.Contains(h.HendelseID))
                     {
@@ -185,13 +231,53 @@
 (function () {
     var list = document.getElementById('hxList'); if (!list) return;
     var filter = 'alle';
-    function apply() {
-        var rows = Array.prototype.slice.call(list.children), n = 0, dir = document.getElementById('hxSort').value === 'old' ? 1 : -1;
-        rows.sort(function (a, b) { var pd = Number(b.dataset.pin) - Number(a.dataset.pin); if (pd) return pd; return dir * (Number(a.dataset.time) - Number(b.dataset.time)); }).forEach(function (r) {
-            var show = filter === 'alle' || r.dataset.status === filter; r.hidden = !show; if (show) n++; list.appendChild(r);
-        });
-        document.getElementById('hxCount').textContent = n;
-    }
+
+function apply() {
+    var rows = Array.from(list.children);
+    var count = 0;
+    var sort = document.getElementById('hxSort').value;
+
+    rows.sort(function (a, b) {
+        // Festede hendelser vises alltid først
+        var pinned = Number(b.dataset.pin) - Number(a.dataset.pin);
+
+        if (pinned !== 0) return pinned;
+
+        var priorityA = Number(a.dataset.priority);
+        var priorityB = Number(b.dataset.priority);
+
+        var timeA = Number(a.dataset.time);
+        var timeB = Number(b.dataset.time);
+
+        switch (sort) {
+            case 'priority-high':
+                return priorityB - priorityA || timeB - timeA;
+
+            case 'priority-low':
+                return priorityA - priorityB || timeB - timeA;
+
+            case 'old':
+                return timeA - timeB;
+
+            default:
+                return timeB - timeA;
+        }
+    });
+
+    rows.forEach(function (row) {
+        var show = filter === 'alle'
+            || row.dataset.status === filter;
+
+        row.hidden = !show;
+
+        if (show) count++;
+
+        list.appendChild(row);
+    });
+
+    document.getElementById('hxCount').textContent = count;
+}
+
     document.querySelectorAll('.hx-filters button').forEach(function (b) {
         b.addEventListener('click', function () {
             document.querySelectorAll('.hx-filters button').forEach(function (x) { x.classList.remove('is-active'); });
