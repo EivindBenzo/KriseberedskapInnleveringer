@@ -1265,7 +1265,9 @@ details.bu-edit .bu-save:hover{background:#0a4753}
 .rl-list .rc-type,.rl-list .rc-chip{white-space:nowrap}
 .rl-list .rc-title h3{overflow-wrap:normal;word-break:normal}
 @media (max-width:900px){.rl-list .rc-main{grid-template-columns:1fr!important}.rl-list .rc-main .rc-head,.rl-list .rc-main .rc-facts,.rl-list .rc-main .rc-actions{grid-column:auto}}
-.res-actionbar{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.7rem;margin:0 0 .6rem}
+.res-actionbar{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.7rem;margin:4rem 0 .6rem}
+@media (max-width:1000px){.res-actionbar{margin-top:7.6rem}}
+@media (max-width:560px){.res-actionbar{margin-top:13.6rem}}
 /* Gruppechat: sentrert modal */
 dialog.gc[open]{position:fixed;inset:0;margin:auto;display:block;width:min(640px,94vw);height:min(720px,88vh);border-radius:22px;box-shadow:0 30px 80px rgba(3,24,31,.5)}
 dialog.gc::backdrop{background:rgba(7,28,36,.6);backdrop-filter:blur(3px)}
