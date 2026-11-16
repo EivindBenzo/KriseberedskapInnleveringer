@@ -66,6 +66,10 @@ html body .operations-workspace .dc-toolbar-count { flex: 0 0 auto; margin-left:
 .mb-card.mb-s-vurderes { border-left-color: #e98a15 !important; }
 .mb-card.mb-s-delvis { border-left-color: #8a5cc2 !important; }
 .mb-card.mb-s-tildelt, .mb-card.mb-s-løst { border-left-color: #2f9e5b !important; }
+.mb-list-urgent .mb-card.mb-card { border-left-color: #d64545 !important; }
+.mb-list-requests .mb-card.mb-card { border-left-color: #f08c1a !important; }
+.mb-list-urgent .mb-ico { position: relative; overflow: visible; }
+.mb-list-urgent .mb-ico::after { content: "!"; position: absolute; top: -7px; right: -7px; width: 18px; height: 18px; border-radius: 50%; background: #d64545; color: #fff; font: 800 12px/18px system-ui, sans-serif; font-style: normal; text-align: center; box-shadow: 0 0 0 2px #fff; }
 .mb-qty, .mb-sent { display: grid; font-size: .8rem; color: #6b7a78; }
 .mb-qty strong, .mb-sent strong { color: #1f2b29; font-size: .92rem; }
 .mb-state { display: grid; gap: .25rem; justify-items: start; }

@@ -40,14 +40,14 @@
         apply();
     }
 
-    function initNeeds() {
-        const list = document.getElementById("ownNeedsList");
+    function initNeeds(listEl, root) {
+        const list = listEl || document.getElementById("ownNeedsList");
         if (!list) return;
 
-        const sort = document.getElementById("needSort");
-        const search = document.getElementById("needSearch");
-        const count = document.getElementById("needsFilterCount");
-        const tabs = Array.from(document.querySelectorAll("[data-need-tab]"));
+        const sort = root ? root.querySelector("[data-pn-sort]") : document.getElementById("needSort");
+        const search = root ? root.querySelector("[data-pn-search]") : document.getElementById("needSearch");
+        const count = root ? null : document.getElementById("needsFilterCount");
+        const tabs = root ? [] : Array.from(document.querySelectorAll("[data-need-tab]"));
         const cards = Array.from(list.querySelectorAll(":scope > .mb-row"));
         let tab = "";
 
@@ -185,6 +185,7 @@
     ready(() => {
         initOwnResources();
         initNeeds();
+        document.querySelectorAll("[data-pn-list]").forEach(l => initNeeds(l, l.parentElement));
         document.querySelectorAll(".dc-panel .dc-grid").forEach(grid => {
             if (grid.id !== "ownResourcesGrid") initGrid(grid);
         });

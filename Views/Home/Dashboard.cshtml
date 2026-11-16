@@ -774,13 +774,35 @@ else
                 {
                     <p class="empty-state">@panelEmpty</p>
                 }
-                <div class="mb-list">
+                @if (panelNeeds.Count > 0)
+                {
+                    <div class="mb-toolbar">
+                        <label class="mb-search"><span aria-hidden="true">🔍</span><input type="search" data-pn-search placeholder="Søk i behov…" aria-label="Søk i behov"></label>
+                        <select data-pn-sort aria-label="Sorter behov">
+                            <option value="newest">Nyest først</option>
+                            <option value="oldest">Eldste først</option>
+                            <option value="urgent">Akutte først</option>
+                            <option value="qty-desc">Størst antall</option>
+                            <option value="qty-asc">Minst antall</option>
+                            <option value="deadline">Frist (nærmest)</option>
+                            <option value="name-asc">Type A–Å</option>
+                            <option value="name-desc">Type Å–A</option>
+                        </select>
+                    </div>
+                }
+                <div class="mb-list mb-list-@panelKey" data-pn-list>
                 @foreach (var need in panelNeeds)
                 {
                     var nk = NeedKey(need);
                     var dekket = (int)Math.Min(need.Antall, Math.Floor(need.Dekket));
                     var pct = need.Antall > 0 ? dekket * 100 / need.Antall : 0;
-                    <article class="mb-row mb-card @(need.Prioritet == Statuser.Prioritet.Akutt ? "mb-row-urgent" : "") mb-s-@nk">
+                    <article class="mb-row mb-card @(need.Prioritet == Statuser.Prioritet.Akutt ? "mb-row-urgent" : "") mb-s-@nk"
+                             data-need-type="@need.Behovstype?.Navn"
+                             data-need-priority="@need.Prioritet"
+                             data-need-qty="@need.Antall"
+                             data-need-deadline="@(need.Frist?.ToString("O"))"
+                             data-need-search="@($"{need.Behovstype?.Navn} {need.Stedsnavn} {need.Beskrivelse} {NeedLabel(nk)}".ToLowerInvariant())"
+                             data-need-date="@need.Registrert.ToString("O")">
                         <i class="dc-ico mb-ico" aria-hidden="true">@TypeIkon(need.Behovstype?.Navn)</i>
                         <div class="dc-title"><strong>@need.Behovstype?.Navn</strong><span>📍 @need.Stedsnavn</span></div>
                         <div class="mb-qty"><span>Behov</span><strong>@need.Antall stk</strong></div>
