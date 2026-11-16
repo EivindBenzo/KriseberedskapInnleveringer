@@ -349,9 +349,6 @@
   html body .map-full .rail-search input { min-height: 44px; }
   html body .map-full .map-rail .rail-list { padding-top: .2rem; scrollbar-width: none; }
   html body .map-full .map-rail .rail-list::-webkit-scrollbar { display: none; }
-  html body .map-full .map-rail > *:not(.rail-list) { flex: 0 0 auto; }
-  html body .map-full .rail-register { margin: .2rem 1rem .6rem; min-height: 48px; display: flex; align-items: center; justify-content: center; }
-  html body .map-full .rail-tools { padding: .2rem 1rem .6rem; }
   html body .map-full .rail-count, html body .map-full .rail-meta { padding: .1rem 1rem .3rem; }
   html body .map-full .rail-chips { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: .4rem; padding: 0 1rem .5rem; scrollbar-width: none; }
   html body .map-full .rail-chips > * { flex: none; min-height: 40px; }
