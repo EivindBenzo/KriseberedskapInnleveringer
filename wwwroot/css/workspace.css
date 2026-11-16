@@ -1265,9 +1265,7 @@ details.bu-edit .bu-save:hover{background:#0a4753}
 .rl-list .rc-type,.rl-list .rc-chip{white-space:nowrap}
 .rl-list .rc-title h3{overflow-wrap:normal;word-break:normal}
 @media (max-width:900px){.rl-list .rc-main{grid-template-columns:1fr!important}.rl-list .rc-main .rc-head,.rl-list .rc-main .rc-facts,.rl-list .rc-main .rc-actions{grid-column:auto}}
-.res-actionbar{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.7rem;margin:4rem 0 .6rem}
-@media (max-width:1000px){.res-actionbar{margin-top:7.6rem}}
-@media (max-width:560px){.res-actionbar{margin-top:13.6rem}}
+.res-hero-actions{margin-top:-.7rem}
 /* Gruppechat: sentrert modal */
 dialog.gc[open]{position:fixed;inset:0;margin:auto;display:block;width:min(640px,94vw);height:min(720px,88vh);border-radius:22px;box-shadow:0 30px 80px rgba(3,24,31,.5)}
 dialog.gc::backdrop{background:rgba(7,28,36,.6);backdrop-filter:blur(3px)}
@@ -1290,10 +1288,6 @@ dialog.gc::backdrop{background:rgba(7,28,36,.6);backdrop-filter:blur(3px)}
 .gc-cancel{color:#0b5563;background:var(--surface);border-color:#0b5563}
 .gc-ok{color:#fff;background:#0b5563;border-color:#0b5563}
 @media (max-width:767px){html body dialog.gc[open]{width:100vw;height:100dvh;max-height:100dvh;border-radius:0}}
-@media (max-width:767px){html body .res-actionbar .res-btn{flex:1 1 100%;justify-content:center;min-height:48px}}.res-actionbar .res-btn.is-solid{color:#fff!important;background:#0b5563}
-.res-actionbar .res-btn.is-ghost{color:#0b5563!important;background:var(--surface);border:2px solid #0b5563}
-.res-actionbar .res-btn.is-ghost:hover{background:rgba(11,85,99,.08)}
-@media (max-width:767px){html body .res-actionbar{margin-top:1rem!important}html body .res-actionbar .res-btn{flex:1 1 100%;justify-content:center;min-height:48px}}
 .rc-title h3{font-size:1.05rem;overflow-wrap:anywhere}
 .rc-facts{flex-wrap:wrap;gap:.6rem 1rem;font-size:.9rem}
 .rc-facts dd{white-space:nowrap}

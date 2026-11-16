@@ -23,6 +23,13 @@
         <div class="res-hero-top">
             <h1>Ressurser</h1>
             <p>Registrer, forvalt og følg opp beredskapsressurser i ditt område.</p>
+            <div class="res-hero-actions">
+                @if (User.IsInRole(AppRoles.Ressursleverandor))
+                {
+                    <a asp-action="Map" asp-route-register="true" class="res-btn is-solid"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Registrer ressurs</a>
+                }
+                <a asp-action="Map" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-mine="@(mine ? "true" : null)" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)" class="res-btn is-ghost"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Åpne kart</a>
+            </div>
         </div>
         <div class="res-kpis" aria-label="Sammendrag">
             <div class="res-kpi is-good">
@@ -43,15 +50,7 @@
                 <i class="res-kpi-info" title="Tallene er hentet da siden ble lastet. Endring viser siste 24 timer." aria-label="Tallene er hentet da siden ble lastet. Endring viser siste 24 timer.">i</i>
             </div>
         </div>
-    </div>
-    <div class="res-actionbar">
-        @if (User.IsInRole(AppRoles.Ressursleverandor))
-        {
-            <a asp-action="Map" asp-route-register="true" class="res-btn is-solid"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Registrer ressurs</a>
-        }
-        <a asp-action="Map" asp-route-type="@ViewBag.SelectedType" asp-route-city="@ViewBag.City" asp-route-mine="@(mine ? "true" : null)" asp-route-eligible="@(ViewBag.Eligible is true ? "true" : null)" class="res-btn is-ghost"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Åpne kart</a>
-    </div>
-    @if (TempData["MapSuccess"] is string success)
+    </div>    @if (TempData["MapSuccess"] is string success)
     {
         <p class="info" role="status">@success</p>
     }
