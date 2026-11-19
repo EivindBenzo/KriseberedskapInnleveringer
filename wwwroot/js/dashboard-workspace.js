@@ -1,5 +1,47 @@
 (function () {
     const buttons = Array.from(document.querySelectorAll('[data-dashboard-target]'));
+
+    // Tydelige navigasjonstekster for alle brukerroller
+    const actionLabels = {
+        "Mine ressurser": "Vis ressurser",
+        "Forespørsler til meg": "Vis forespørsler",
+        "Trenger oppfølging": "Vis oppfølging",
+        "Aktive tildelinger": "Vis oppdrag",
+        "Situasjonsbilde": "Vis situasjonen",
+        "Koordinering": "Vis oppgaver",
+        "Akutte behov": "Vis akutte behov",
+        "Mine behov": "Vis behov",
+        "Under behandling": "Vis behandling"
+    };
+
+    buttons.forEach(function (button) {
+        const content = button.querySelector(
+            '.dashboard-action-icon + span'
+        );
+
+        // Dispatch har allerede disse tekstene
+        if (!content || content.querySelector('.dashboard-action-hint')) {
+            return;
+        }
+
+        const title = content.querySelector('strong')
+            ?.textContent.trim();
+
+        const hint = document.createElement('span');
+        hint.className = 'dashboard-action-hint';
+
+        const show = document.createElement('span');
+        show.className = 'hint-show';
+        show.textContent = (actionLabels[title] || 'Vis seksjon') + ' →';
+
+        const hide = document.createElement('span');
+        hide.className = 'hint-hide';
+        hide.textContent = 'Vis alle ↑';
+
+        hint.append(show, hide);
+        content.appendChild(hint);
+    });
+
     const panels = Array.from(document.querySelectorAll('[data-dashboard-panel]'));
     const intro = document.getElementById('dashboardIntro');
     const activePanelKey = 'beredskap.activeDashboardPanel';
