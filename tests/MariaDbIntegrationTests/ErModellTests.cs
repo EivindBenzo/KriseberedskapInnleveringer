@@ -109,4 +109,73 @@ public class ErModellTests
         await Assert.ThrowsAnyAsync<System.Data.Common.DbException>(() =>
             test.Db.Users.Where(u => u.Id == eier.Id).ExecuteDeleteAsync());
     }
+
+    // ---------- Integritetsregler lagt til i migrasjonen DatabaseIntegritet ----------
+
+    private static async Task<int> Sql(AppDbContext db, string sql) => await db.Database.ExecuteSqlRawAsync(sql);
+
+    private static async Task<(int EierId, int RessursId)> RessursMedSql(TestDatabase test)
+    {
+        var (eier, _) = await test.BrukerAsync(AppRoles.Ressursleverandor);
+        // Uten ReservertAntall i kolonnelisten, slik testdata ofte skrives for hånd.
+        await Sql(test.Db, $"""
+            INSERT INTO Ressurs (RessurstypeID, EierID, Navn, TilgjengeligFra, Kontaktperson, Kontakttelefon,
+                                 Breddegrad, Lengdegrad, Stedsnavn, Status, Registrert)
+            VALUES (1, {eier.Id}, 'Traktor', '2026-01-01', 'Ola', '40000000', 58.1, 8.0, 'Kristiansand',
+                    'tilgjengelig', NOW())
+            """);
+        return (eier.Id, await test.Db.Ressurser.MaxAsync(r => r.RessursID));
+    }
+
+    [Fact]
+    public async Task NyRessursLagtInnMedSqlHarIngentingReservert()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var (_, id) = await RessursMedSql(test);
+        var ressurs = await test.Db.Ressurser.SingleAsync(r => r.RessursID == id);
+        Assert.Equal(0m, ressurs.ReservertAntall);
+        Assert.Equal(1m, ressurs.Antall);
+    }
+
+    [Theory]
+    [InlineData("UPDATE Ressurs SET Status = 'ødelagt'")]
+    [InlineData("UPDATE Ressurs SET Antall = -1")]
+    [InlineData("UPDATE Ressurs SET TilgjengeligTil = '2025-12-31'")]
+    [InlineData("UPDATE Ressurs SET Breddegrad = 91")]
+    public async Task UgyldigeVerdierStoppesAvCheckConstraints(string sql)
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        await RessursMedSql(test);
+        await Assert.ThrowsAnyAsync<System.Data.Common.DbException>(() => Sql(test.Db, sql));
+    }
+
+    [Fact]
+    public async Task SammeBehovstypeKanIkkeLeggesInnToGanger()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var navn = await test.Db.Behovstyper.Select(b => b.Navn).FirstAsync();
+        await Assert.ThrowsAnyAsync<System.Data.Common.DbException>(() =>
+            Sql(test.Db, $"INSERT INTO Behovstype (Navn) VALUES ('{navn}')"));
+    }
+
+    [Fact]
+    public async Task LoggenKreverEnEksisterendeBrukerOgBeholderRaderNårEtBehovSlettes()
+    {
+        await using var test = await TestDatabase.CreateAsync();
+        var (offentlig, _) = await test.BrukerAsync(AppRoles.OffentligAktor);
+        await Assert.ThrowsAnyAsync<System.Data.Common.DbException>(() => Sql(test.Db,
+            "INSERT INTO Hendelseslogg (UtførtAv, Tidspunkt, Handling, Begrunnelse) VALUES (999999, NOW(), 'Test', 'Finnes ikke')"));
+
+        await Sql(test.Db, $"""
+            INSERT INTO Behov (BehovstypeID, RegistrertAv, Beskrivelse, Prioritet, Antall, Kontaktperson, Kontakttelefon,
+                               Breddegrad, Lengdegrad, Stedsnavn, Status, Registrert)
+            VALUES (1, {offentlig.Id}, 'Transport', 'akutt', 2, 'Kari', '40000001', 58.1, 8.0, 'Vennesla', 'ny', NOW())
+            """);
+        var behovId = await test.Db.Behov.MaxAsync(b => b.BehovID);
+        await Sql(test.Db, $"INSERT INTO Hendelseslogg (UtførtAv, BehovID, Tidspunkt, Handling, Begrunnelse) VALUES ({offentlig.Id}, {behovId}, NOW(), 'BehovMeldt', 'Test')");
+        await Sql(test.Db, $"DELETE FROM Behov WHERE BehovID = {behovId}");
+
+        var logg = await test.Db.Hendelseslogg.AsNoTracking().SingleAsync(l => l.Handling == "BehovMeldt");
+        Assert.Null(logg.BehovID);
+    }
 }

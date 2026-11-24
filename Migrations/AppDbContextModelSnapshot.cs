@@ -96,7 +96,16 @@ namespace HeimevernetInnlevering1.Migrations
 
                     b.HasIndex("RegistrertAvID");
 
-                    b.ToTable("Behov", (string)null);
+                    b.ToTable("Behov", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Behov_Antall", "`Antall` > 0");
+
+                            t.HasCheckConstraint("CK_Behov_Koordinater", "`Breddegrad` BETWEEN -90 AND 90 AND `Lengdegrad` BETWEEN -180 AND 180");
+
+                            t.HasCheckConstraint("CK_Behov_Prioritet", "`Prioritet` IN ('akutt', 'planlagt')");
+
+                            t.HasCheckConstraint("CK_Behov_Status", "`Status` IN ('ny', 'vurderes', 'tildelt', 'løst')");
+                        });
                 });
 
             modelBuilder.Entity("HeimevernetInnlevering1.Models.Behovstype", b =>
@@ -113,6 +122,9 @@ namespace HeimevernetInnlevering1.Migrations
                         .HasColumnType("varchar(100)");
 
                     b.HasKey("BehovstypeID");
+
+                    b.HasIndex("Navn")
+                        .IsUnique();
 
                     b.ToTable("Behovstype", (string)null);
 
@@ -350,7 +362,12 @@ namespace HeimevernetInnlevering1.Migrations
 
                     b.HasIndex("RessursID", "Svar");
 
-                    b.ToTable("Forespørsel", (string)null);
+                    b.ToTable("Forespørsel", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Forespørsel_Antall", "`Antall` > 0");
+
+                            t.HasCheckConstraint("CK_Forespørsel_Svar", "`Svar` IN ('venter', 'godtatt', 'avslått', 'avbrutt')");
+                        });
                 });
 
             modelBuilder.Entity("HeimevernetInnlevering1.Models.Hendelse", b =>
@@ -405,7 +422,14 @@ namespace HeimevernetInnlevering1.Migrations
 
                     b.HasIndex("OpprettetAvID");
 
-                    b.ToTable("Hendelse", (string)null);
+                    b.ToTable("Hendelse", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Hendelse_Koordinater", "(`Breddegrad` IS NULL OR `Breddegrad` BETWEEN -90 AND 90) AND (`Lengdegrad` IS NULL OR `Lengdegrad` BETWEEN -180 AND 180)");
+
+                            t.HasCheckConstraint("CK_Hendelse_Prioritet", "`Prioritet` IN ('lav', 'medium', 'høy')");
+
+                            t.HasCheckConstraint("CK_Hendelse_Status", "`Status` IN ('planlagt', 'aktiv', 'avsluttet')");
+                        });
                 });
 
             modelBuilder.Entity("HeimevernetInnlevering1.Models.Hendelseslogg", b =>
@@ -447,7 +471,11 @@ namespace HeimevernetInnlevering1.Migrations
 
                     b.HasKey("LoggID");
 
+                    b.HasIndex("BehovID");
+
                     b.HasIndex("ForespørselID");
+
+                    b.HasIndex("UtførtAvID");
 
                     b.HasIndex("HendelseID", "Tidspunkt");
 
@@ -551,8 +579,10 @@ namespace HeimevernetInnlevering1.Migrations
 
                     b.Property<decimal>("ReservertAntall")
                         .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
                         .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
+                        .HasColumnType("decimal(12,2)")
+                        .HasDefaultValue(0m);
 
                     b.Property<int>("RessurstypeID")
                         .HasColumnType("int");
@@ -582,7 +612,16 @@ namespace HeimevernetInnlevering1.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("Ressurs", (string)null);
+                    b.ToTable("Ressurs", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Ressurs_Antall", "`Antall` >= 0 AND `ReservertAntall` >= 0");
+
+                            t.HasCheckConstraint("CK_Ressurs_Koordinater", "`Breddegrad` BETWEEN -90 AND 90 AND `Lengdegrad` BETWEEN -180 AND 180");
+
+                            t.HasCheckConstraint("CK_Ressurs_Periode", "`TilgjengeligTil` IS NULL OR `TilgjengeligTil` >= `TilgjengeligFra`");
+
+                            t.HasCheckConstraint("CK_Ressurs_Status", "`Status` IN ('venter på verifisering', 'tilgjengelig', 'forespurt', 'tildelt', 'i bruk', 'returnert', 'utilgjengelig', 'avvist')");
+                        });
                 });
 
             modelBuilder.Entity("HeimevernetInnlevering1.Models.Ressurstype", b =>
@@ -718,7 +757,12 @@ namespace HeimevernetInnlevering1.Migrations
                     b.HasIndex("ForespørselID")
                         .IsUnique();
 
-                    b.ToTable("Tildeling", (string)null);
+                    b.ToTable("Tildeling", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Tildeling_Fremdrift", "`Fremdrift` IN ('bekreftet', 'på vei', 'fremme', 'fullført')");
+
+                            t.HasCheckConstraint("CK_Tildeling_LevertAntall", "`LevertAntall` IS NULL OR `LevertAntall` > 0");
+                        });
                 });
 
             modelBuilder.Entity("HeimevernetInnlevering1.Models.Verifisering", b =>
@@ -753,7 +797,10 @@ namespace HeimevernetInnlevering1.Migrations
 
                     b.HasIndex("RessursID", "Tidspunkt");
 
-                    b.ToTable("Verifisering", (string)null);
+                    b.ToTable("Verifisering", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Verifisering_Resultat", "`Resultat` IN ('godkjent', 'avvist')");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
@@ -944,10 +991,26 @@ namespace HeimevernetInnlevering1.Migrations
 
             modelBuilder.Entity("HeimevernetInnlevering1.Models.Hendelseslogg", b =>
                 {
+                    b.HasOne("HeimevernetInnlevering1.Models.Behov", null)
+                        .WithMany()
+                        .HasForeignKey("BehovID")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("HeimevernetInnlevering1.Models.Forespørsel", null)
+                        .WithMany()
+                        .HasForeignKey("ForespørselID")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("HeimevernetInnlevering1.Models.Hendelse", "Hendelse")
                         .WithMany()
                         .HasForeignKey("HendelseID")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("HeimevernetInnlevering1.Models.Bruker", null)
+                        .WithMany()
+                        .HasForeignKey("UtførtAvID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Hendelse");
                 });

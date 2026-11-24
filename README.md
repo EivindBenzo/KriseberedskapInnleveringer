@@ -202,7 +202,7 @@ Resultat 4. november 2026: **68 av 68** integrasjonstester og **38 av 38** front
 
 | Testfil | Hva testes |
 | --- | --- |
-| `ErModellTests` | Alle 12 tabellene har kolonnene fra ER-diagrammet. Oppslagsdata finnes, og hver behovstype har minst én ressurstype. Unik ForespørselID i Tildeling. Bruker kan ikke slettes når den eier data. Norske tegn og koordinater lagres uendret. |
+| `ErModellTests` | Alle 12 tabellene har kolonnene fra ER-diagrammet. Oppslagsdata finnes, og hver behovstype har minst én ressurstype. Unik ForespørselID i Tildeling. Bruker kan ikke slettes når den eier data. Norske tegn og koordinater lagres uendret. CHECK-constraints stopper ugyldige statuser, negative antall, feil periode og ugyldige koordinater. Behovstyper er unike. En ressurs lagt inn med SQL har ingenting reservert. Loggen krever en eksisterende bruker og beholder radene når et behov slettes. |
 | `WorkflowTests` | Hele flyten fra registrering til returnert. Dispatch kan ikke godkjenne egen ressurs, og avvisning krever begrunnelse. En uverifisert eller allerede forespurt ressurs kan ikke forespørres. Bare eier kan svare. Tildeling krever godtatt forespørsel. Fremdrift går ett steg om gangen. To samtidige forespørsler gir bare én vinner. Endret plassering krever ny verifisering. Ressurser med historikk kan ikke slettes. Feil rolle avvises. Hendelser kobles til behov. |
 | `SeedingOgRegistreringTests` | Demodata gir én konto per rolle og kan kjøres flere ganger. Registrering lagrer navn og telefon. Man kan ikke gi seg selv Kriseledelse, Dispatch eller Verifisering. Bootstrap av admin krever riktig passord. |
 | `ResourceAuthorizationTests` | Bare eieren med rollen Ressursleverandør kan endre en ressurs |
