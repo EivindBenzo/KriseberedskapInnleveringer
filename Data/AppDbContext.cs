@@ -84,6 +84,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         modelBuilder.Entity<IdentityRoleClaim<int>>().ToTable("RolleClaim");
     }
 
+    /// <summary>
+    /// Lager en CHECK-constraint som bare tillater de faste verdiene fra <see cref="Statuser"/>.
+    /// Databasen håndhever da de samme reglene som appen, også for data som legges inn med SQL direkte.
+    /// </summary>
+    private static string IListe(string kolonne, IEnumerable<string> verdier) =>
+        $"`{kolonne}` IN ({string.Join(", ", verdier.Select(v => "'" + v.Replace("'", "''") + "'"))})";
+
     private static void KonfigurerOppslagstabeller(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Behovstype>(e =>
@@ -91,6 +98,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             e.ToTable("Behovstype");
             e.HasKey(t => t.BehovstypeID);
             e.Property(t => t.Navn).HasMaxLength(100).IsRequired();
+            // Samme behovstype skal bare finnes én gang, på samme måte som ressurstype.
+            e.HasIndex(t => t.Navn).IsUnique();
         });
 
         modelBuilder.Entity<Ressurstype>(e =>
@@ -117,7 +126,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     {
         modelBuilder.Entity<Hendelse>(e =>
         {
-            e.ToTable("Hendelse");
+            e.ToTable("Hendelse", t =>
+            {
+                t.HasCheckConstraint("CK_Hendelse_Status", IListe("Status", Statuser.Hendelse.Alle));
+                t.HasCheckConstraint("CK_Hendelse_Prioritet", IListe("Prioritet", Statuser.HendelsePrioritet.Alle));
+                t.HasCheckConstraint("CK_Hendelse_Koordinater",
+                    "(`Breddegrad` IS NULL OR `Breddegrad` BETWEEN -90 AND 90) AND (`Lengdegrad` IS NULL OR `Lengdegrad` BETWEEN -180 AND 180)");
+            });
             e.HasKey(h => h.HendelseID);
             e.Property(h => h.OpprettetAvID).HasColumnName("OpprettetAv");
             e.Property(h => h.Navn).HasMaxLength(150).IsRequired();
@@ -134,7 +149,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
 
         modelBuilder.Entity<Behov>(e =>
         {
-            e.ToTable("Behov");
+            e.ToTable("Behov", t =>
+            {
+                t.HasCheckConstraint("CK_Behov_Status", IListe("Status", Statuser.Behov.Alle));
+                t.HasCheckConstraint("CK_Behov_Prioritet", IListe("Prioritet", Statuser.Prioritet.Alle));
+                t.HasCheckConstraint("CK_Behov_Antall", "`Antall` > 0");
+                t.HasCheckConstraint("CK_Behov_Koordinater", "`Breddegrad` BETWEEN -90 AND 90 AND `Lengdegrad` BETWEEN -180 AND 180");
+            });
             e.HasKey(b => b.BehovID);
             e.Property(b => b.RegistrertAvID).HasColumnName("RegistrertAv");
             e.Property(b => b.Beskrivelse).HasColumnType("text").IsRequired();
@@ -163,12 +184,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     {
         modelBuilder.Entity<Ressurs>(e =>
         {
-            e.ToTable("Ressurs");
+            e.ToTable("Ressurs", t =>
+            {
+                t.HasCheckConstraint("CK_Ressurs_Status", IListe("Status", Statuser.Ressurs.Alle));
+                // Forbruksvarer kan gå tomme (0), men aldri under null. Reservert kan aldri være negativt.
+                t.HasCheckConstraint("CK_Ressurs_Antall", "`Antall` >= 0 AND `ReservertAntall` >= 0");
+                t.HasCheckConstraint("CK_Ressurs_Periode", "`TilgjengeligTil` IS NULL OR `TilgjengeligTil` >= `TilgjengeligFra`");
+                t.HasCheckConstraint("CK_Ressurs_Koordinater", "`Breddegrad` BETWEEN -90 AND 90 AND `Lengdegrad` BETWEEN -180 AND 180");
+            });
             e.HasKey(r => r.RessursID);
             e.Property(r => r.Navn).HasMaxLength(150).IsRequired();
             e.Property(r => r.Beskrivelse).HasColumnType("text");
             e.Property(r => r.Antall).HasPrecision(12, 2).IsRequired();
-            e.Property(r => r.ReservertAntall).HasPrecision(12, 2).IsRequired().IsConcurrencyToken();
+            // Standardverdi 0: en ny ressurs har ingenting reservert før dispatch sender en forespørsel.
+            e.Property(r => r.ReservertAntall).HasPrecision(12, 2).IsRequired().HasDefaultValue(0m).IsConcurrencyToken();
             e.Property(r => r.Enhet).HasMaxLength(20).IsRequired();
             e.Property(r => r.Kontaktperson).HasMaxLength(150).IsRequired();
             e.Property(r => r.Kontakttelefon).HasMaxLength(20).IsRequired();
@@ -189,7 +218,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
 
         modelBuilder.Entity<Verifisering>(e =>
         {
-            e.ToTable("Verifisering");
+            e.ToTable("Verifisering", t => t.HasCheckConstraint("CK_Verifisering_Resultat",
+                IListe("Resultat", [Statuser.Resultat.Godkjent, Statuser.Resultat.Avvist])));
             e.HasKey(v => v.VerifiseringID);
             e.Property(v => v.VerifisertAvID).HasColumnName("VerifisertAv");
             e.Property(v => v.Resultat).HasMaxLength(10).IsRequired();
@@ -208,7 +238,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     {
         modelBuilder.Entity<Forespørsel>(e =>
         {
-            e.ToTable("Forespørsel");
+            e.ToTable("Forespørsel", t =>
+            {
+                t.HasCheckConstraint("CK_Forespørsel_Svar", IListe("Svar", Statuser.Svar.Alle));
+                t.HasCheckConstraint("CK_Forespørsel_Antall", "`Antall` > 0");
+            });
             e.HasKey(f => f.ForespørselID);
             e.Property(f => f.SendtAvID).HasColumnName("SendtAv");
             e.Property(f => f.Antall).HasPrecision(12, 2).IsRequired();
@@ -227,7 +261,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
 
         modelBuilder.Entity<Tildeling>(e =>
         {
-            e.ToTable("Tildeling");
+            e.ToTable("Tildeling", t =>
+            {
+                t.HasCheckConstraint("CK_Tildeling_Fremdrift", IListe("Fremdrift", Statuser.Fremdrift.Rekkefølge));
+                t.HasCheckConstraint("CK_Tildeling_LevertAntall", "`LevertAntall` IS NULL OR `LevertAntall` > 0");
+            });
             e.HasKey(t => t.TildelingID);
             e.Property(t => t.Fremdrift).HasMaxLength(15).IsRequired().IsConcurrencyToken();
             e.Property(t => t.Mottakskontakt).HasMaxLength(150);
@@ -254,6 +292,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasIndex(l => new { l.HendelseID, l.Tidspunkt });
             e.HasOne(l => l.Hendelse).WithMany()
                 .HasForeignKey(l => l.HendelseID).OnDelete(DeleteBehavior.SetNull);
+            // Hvem som gjorde noe, skal alltid kunne spores. Restrict: en bruker med logg kan ikke slettes.
+            e.HasOne<Bruker>().WithMany()
+                .HasForeignKey(l => l.UtførtAvID).OnDelete(DeleteBehavior.Restrict);
+            // Slettes et behov eller en forespørsel, blir loggraden stående uten kobling i stedet for å forsvinne.
+            e.HasOne<Behov>().WithMany()
+                .HasForeignKey(l => l.BehovID).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Forespørsel>().WithMany()
+                .HasForeignKey(l => l.ForespørselID).OnDelete(DeleteBehavior.SetNull);
+            // RessursID har bevisst ingen fremmednøkkel. En ressurs uten historikk kan slettes av eieren,
+            // og loggraden «RessursSlettet» skal fortsatt vise hvilken ressurs det gjaldt.
         });
     }
 
