@@ -54,6 +54,7 @@ public sealed class TestDatabase : IAsyncDisposable
         services.Configure<WorkflowOptions>(_ => { });
         services.AddScoped<WorkflowService>();
         services.AddScoped<DashboardService>();
+        services.AddScoped<ShellService>();
         var provider = services.BuildServiceProvider();
 
         var test = new TestDatabase(baseConnection, database, provider);

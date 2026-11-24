@@ -53,7 +53,6 @@ docker compose down -v                  # stopp og SLETT databasen
 | --- | --- |
 | `offentlig@gmail.com` | Offentlig aktør |
 | `ressurs@gmail.com` | Ressursleverandør |
-| `verifisering@gmail.com` | Verifiseringsansvarlig |
 | `dispatch@gmail.com` | Dispatch-team |
 | `kriseledelse@gmail.com` | Kriseledelse |
 
@@ -154,14 +153,13 @@ Statusfeltene er `VARCHAR` med verdiene fra rapporten, og koden sjekker at bare 
 | --- | --- |
 | Offentlig aktør | Melde behov med type, antall, frist, kontaktperson og punkt i kartet, og knytte behovet til en hendelse. Se egne behov. |
 | Ressursleverandør | Registrere, redigere og slette egne ressurser med punkt i kartet, sette tilgjengelig/utilgjengelig og svare på forespørsler |
-| Verifiseringsansvarlig | Godkjenne eller avvise ressurser (avvisning krever begrunnelse, ikke egne ressurser) |
-| Dispatch-team | Se åpne behov med passende verifiserte ressurser (filtrert via BehovstypeRessurstype), sende forespørsler, tildele og oppdatere fremdrift |
+| Dispatch-team | Godkjenne eller avvise ressurser (avvisning krever begrunnelse, ikke egne ressurser). Se åpne behov med passende verifiserte ressurser (filtrert via BehovstypeRessurstype), sende forespørsler, tildele og oppdatere fremdrift |
 | Kriseledelse | Opprette og avslutte hendelser, prioritere og lukke behov, følge tildelinger og hendelsesloggen, og gi brukere roller |
 
 Flyten fra rapporten:
 
 1. En ressurs registreres og får status **venter på verifisering**.
-2. Verifiseringsansvarlig godkjenner den, og ressursen blir **tilgjengelig**. Godkjenningen gjelder i 30 dager.
+2. Dispatch godkjenner den, og ressursen blir **tilgjengelig**. Godkjenningen gjelder i 30 dager.
 3. En offentlig aktør melder et behov (**ny**).
 4. Dispatch sender en forespørsel. Ressursen blir **forespurt** og behovet **vurderes**.
 5. Eieren **godtar** eller **avslår**. Ved avslag blir ressursen tilgjengelig igjen.
@@ -174,7 +172,7 @@ Flyten fra rapporten:
 - **Passord** lagres bare som hash av ASP.NET Core Identity. De må ha minst 12 tegn med store og små bokstaver og minst ett tall. Spesialtegn kreves ikke, fordi lengde gir mer sikkerhet enn rare tegn og gjør passordet lettere å huske.
 - **Utestenging:** Kontoen låses i 15 minutter etter 5 feil passord.
 - **Rollebasert tilgang:** Alle kontrollere har `[Authorize]`, og hver handling sjekker rolle og eierskap en gang til i `WorkflowService`. Det holder altså ikke å skjule knapper.
-- **Registrering:** Man kan bare velge Ressursleverandør eller Offentlig aktør selv. Dispatch, Kriseledelse og Verifiseringsansvarlig tildeles av kriseledelsen. En verifiseringsansvarlig kan ikke godkjenne sin egen ressurs.
+- **Registrering:** Man kan bare velge Ressursleverandør eller Offentlig aktør selv. Dispatch og Kriseledelse tildeles av kriseledelsen. En dispatch-bruker kan ikke godkjenne sin egen ressurs.
 - **Rolleendring:** Brukeren logges ut ved neste forespørsel (security stamp sjekkes ved hver forespørsel).
 - **CSRF-beskyttelse:** Alle POST-skjemaer har antiforgery-token.
 - **SQL-injeksjon:** EF Core bruker parametriserte spørringer.
@@ -205,7 +203,7 @@ Resultat 4. november 2026: **68 av 68** integrasjonstester og **38 av 38** front
 | Testfil | Hva testes |
 | --- | --- |
 | `ErModellTests` | Alle 12 tabellene har kolonnene fra ER-diagrammet. Oppslagsdata finnes, og hver behovstype har minst én ressurstype. Unik ForespørselID i Tildeling. Bruker kan ikke slettes når den eier data. Norske tegn og koordinater lagres uendret. |
-| `WorkflowTests` | Hele flyten fra registrering til returnert. En verifiseringsansvarlig kan ikke godkjenne egen ressurs, og avvisning krever begrunnelse. En uverifisert eller allerede forespurt ressurs kan ikke forespørres. Bare eier kan svare. Tildeling krever godtatt forespørsel. Fremdrift går ett steg om gangen. To samtidige forespørsler gir bare én vinner. Endret plassering krever ny verifisering. Ressurser med historikk kan ikke slettes. Feil rolle avvises. Hendelser kobles til behov. |
+| `WorkflowTests` | Hele flyten fra registrering til returnert. Dispatch kan ikke godkjenne egen ressurs, og avvisning krever begrunnelse. En uverifisert eller allerede forespurt ressurs kan ikke forespørres. Bare eier kan svare. Tildeling krever godtatt forespørsel. Fremdrift går ett steg om gangen. To samtidige forespørsler gir bare én vinner. Endret plassering krever ny verifisering. Ressurser med historikk kan ikke slettes. Feil rolle avvises. Hendelser kobles til behov. |
 | `SeedingOgRegistreringTests` | Demodata gir én konto per rolle og kan kjøres flere ganger. Registrering lagrer navn og telefon. Man kan ikke gi seg selv Kriseledelse, Dispatch eller Verifisering. Bootstrap av admin krever riktig passord. |
 | `ResourceAuthorizationTests` | Bare eieren med rollen Ressursleverandør kan endre en ressurs |
 | `PlaceGeocoderTests`, `DatabaseProviderConfigurationTests` | Stedsoppslag (grenser, hurtigbuffer, feil) og tilkoblingsoppsett |
@@ -236,11 +234,11 @@ Enhetstestingen bidrar til å sikre at sentrale funksjoner fungerer som forvente
 | 1 | Ny bruker registrerer seg | Kan bare velge Ressursleverandør/Offentlig aktør, og navn og telefon lagres | OK |
 | 2 | Offentlig aktør melder akutt transportbehov, knytter det til «Flom i Glomma» og klikker i kartet | Behovet lagres med koordinater og vises på oversikten | OK |
 | 3 | Ressursleverandør registrerer «Minibuss 9 seter» med kartpunkt | Status «venter på verifisering», ikke synlig for dispatch | OK |
-| 4 | Verifiseringsansvarlig godkjenner minibussen | Status «tilgjengelig», rad i Verifisering | OK |
+| 4 | Dispatch godkjenner minibussen | Status «tilgjengelig», rad i Verifisering | OK |
 | 5 | Dispatch åpner transportbehovet | Minibussen vises som passende ressurs (Transport → Kjøretøy) | OK |
 | 6 | Dispatch sender forespørsel, eieren godtar, dispatch tildeler | Forespørsel «godtatt», tildeling «bekreftet», ressurs «tildelt» | OK |
 | 7 | Dispatch setter på vei → fremme → fullført | Ressurs «i bruk» og deretter «returnert», Tildeling.Fullført satt | OK |
-| 8 | Kriseledelse oppretter hendelsen «Strømbrudd i Hamar» og gir en ny bruker rollen Verifiseringsansvarlig | Hendelse lagret, og rollen endres i BrukerRolle | OK |
+| 8 | Kriseledelse oppretter hendelsen «Strømbrudd i Hamar» og gir en ny bruker rollen Dispatch-team | Hendelse lagret, og rollen endres i BrukerRolle | OK |
 
 ### Sikkerhetstest
 

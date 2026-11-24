@@ -37,7 +37,7 @@ public static class WorkflowEligibility
                                               v.Tidspunkt > grense && v.Tidspunkt <= nowUtc);
     }
 
-    /// <summary>Ressurser verifiseringsansvarlig skal se på: nye, returnerte, eller med utløpt godkjenning.</summary>
+    /// <summary>Ressurser dispatch skal verifisere: nye, returnerte, eller med utløpt godkjenning.</summary>
     public static Expression<Func<Ressurs, bool>> TrengerVerifisering(DateTime nowUtc, int dager = StandardGyldighetDager)
     {
         var grense = nowUtc.AddDays(-dager);
