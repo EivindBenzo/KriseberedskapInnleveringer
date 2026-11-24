@@ -271,7 +271,8 @@ public class WorkflowTests
         await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.RegisterResourceAsync(Ressurs(), a.Offentlig));
         await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.CreateNeedAsync(Behov(), a.Eier));
         var ressurs = await test.Workflow.RegisterResourceAsync(Ressurs(), a.Eier);
-        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.VerifyAsync(ressurs, true, a.Dispatch, null));
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.VerifyAsync(ressurs, true, a.Offentlig, null));
+        await Assert.ThrowsAsync<WorkflowException>(() => test.Workflow.VerifyAsync(ressurs, true, a.Leder, null));
         await Assert.ThrowsAsync<WorkflowException>(() =>
             test.Workflow.CreateIncidentAsync(new HendelseSkjemaViewModel { Navn = "Flom", Område = "Agder" }, a.Dispatch));
     }

@@ -28,10 +28,12 @@ public class KartOgTemaTests
         Assert.Equal("Drone", RessursIkon.Gruppe("Drone"));
         Assert.Equal(7, RessursIkon.Grupper.Count);
 
-        var tilgjengelig = new ResourceOperationalStatus(true, "Tilgjengelig", "Godkjent", null, null, "");
-        var opptatt = new ResourceOperationalStatus(false, "Tildelt", "Godkjent", null, null, "");
+        var tilgjengelig = new ResourceOperationalStatus(true, "Tilgjengelig", "Godkjent", null, null, "")
+            { Lifecycle = Statuser.Ressurs.Tilgjengelig };
+        var opptatt = new ResourceOperationalStatus(false, "Tildelt", "Godkjent", null, null, "")
+            { Lifecycle = Statuser.Ressurs.Tildelt };
         Assert.Equal("~/images/resources/car-available.svg", RessursIkon.Sti("Kjøretøy", tilgjengelig));
-        Assert.Equal("~/images/resources/other-unavailable.svg", RessursIkon.Sti("Båt", opptatt));
+        Assert.Equal("~/images/resources/other.svg", RessursIkon.Sti("Båt", opptatt));
         Assert.Equal("~/images/resources/drone.svg", RessursIkon.Sti("Drone"));
     }
 
