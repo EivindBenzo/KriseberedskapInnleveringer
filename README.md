@@ -198,7 +198,7 @@ docker compose -p heimevernet-test --profile integration run --build --rm mariad
 docker compose -p heimevernet-test down -v
 ```
 
-Resultat 4. november 2026: **68 av 68** integrasjonstester og **38 av 38** frontend-tester bestått.
+Resultat 24. november 2026: **74 av 74** integrasjonstester og **19 av 19** frontend-tester bestått.
 
 | Testfil | Hva testes |
 | --- | --- |
@@ -208,7 +208,9 @@ Resultat 4. november 2026: **68 av 68** integrasjonstester og **38 av 38** front
 | `ResourceAuthorizationTests` | Bare eieren med rollen Ressursleverandør kan endre en ressurs |
 | `PlaceGeocoderTests`, `DatabaseProviderConfigurationTests` | Stedsoppslag (grenser, hurtigbuffer, feil) og tilkoblingsoppsett |
 | `KartOgTemaTests` | Riktig symbol per ressurstype, «Annet»-filteret, «Finn sted» (lokalt søk uten aksenter) og at temaknappen lagrer valget og bare sender til lokale adresser |
-| `tests/Frontend` | At `kart.js` bare tegner det serveren har bestemt, at sidene ikke har annen JavaScript, CSS for meny og «Annen type …», og at sidene har riktige skjemaer og rollestyring |
+| `tests/Frontend/roller-og-tilgang` | Fire roller, at registrering bare tilbyr roller man kan velge selv, at menypunkter og knapper bare vises for rollene som har tilgang (og at kontrollerne sjekker det samme), og at videresending bare går til sider i appen |
+| `tests/Frontend/kart-og-skjema` | «Annen type …» i skjemaene, symboler for ressurstypene, og at `kart.js` tegner markørene serveren har laget og fyller ut koordinatene ved klikk (kjørt i en liten falsk nettleser) |
+| `tests/Frontend/utseende-og-tilgjengelighet` | Hopp til innhold, aria-current, tastaturfokus, klikkflater på minst 44 px, alt-tekst på bilder, tema med cookie og kontrast i mørk modus |
 
 ### Enhetstesting (Unit Testing)
 
