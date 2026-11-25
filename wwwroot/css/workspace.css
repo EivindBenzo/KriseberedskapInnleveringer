@@ -1233,6 +1233,18 @@ details.bu-edit form select{width:100%;height:42px;margin:0;padding:0 .7rem;colo
 details.bu-edit form select:focus{outline:0;border-color:#0b5563;box-shadow:0 0 0 3px rgba(11,85,99,.18)}
 details.bu-edit .bu-save{width:100%;height:42px;margin:0;color:#fff;background:#0b5563;border:0;border-radius:10px;font:inherit;font-weight:700;cursor:pointer}
 details.bu-edit .bu-save:hover{background:#0a4753}
+/* Brukere: redigeringspanel med rolle, kontaktinformasjon og sletting/deaktivering */
+details.bu-edit .bu-panel{position:absolute;right:0;top:40px;z-index:30;display:grid;gap:1rem;width:290px;max-height:min(70vh,640px);overflow:auto;padding:1rem;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.22)}
+details.bu-edit .bu-panel form{position:static;width:auto;padding:0;background:none;border:0;border-radius:0;box-shadow:none}
+details.bu-edit .bu-panel form + form{padding-top:1rem;border-top:1px solid var(--border)}
+.bu-panel-h{margin:0;color:var(--heading);font-weight:800;font-size:.9rem}
+details.bu-edit form input:not([type=checkbox]):not([type=hidden]){width:100%;height:42px;margin:0;padding:0 .7rem;color:var(--heading);background:var(--surface);border:1px solid var(--border);border-radius:10px;font:inherit;font-size:.95rem;font-weight:600;letter-spacing:0;text-transform:none}
+details.bu-edit form input:focus{outline:0;border-color:#0b5563;box-shadow:0 0 0 3px rgba(11,85,99,.18)}
+.bu-hint{color:var(--muted);font-size:.8rem;line-height:1.35}
+details.bu-edit form label.bu-bekreft{display:flex;align-items:center;gap:.5rem;color:var(--heading);font-size:.85rem;font-weight:600;letter-spacing:0;text-transform:none}
+.bu-slett{width:100%;height:42px;margin:0;color:#fff;background:#b42318;border:0;border-radius:10px;font:inherit;font-weight:700;cursor:pointer}
+.bu-slett:hover{background:#912018}
+.bu-status.is-deaktivert{color:#b42318}
 
 /* Arbeidsrom avsluttet */
 .iw.is-closed .iw-banner{background:#0d5a3b}

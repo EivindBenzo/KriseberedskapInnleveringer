@@ -653,6 +653,7 @@
   html body .bu-user .kl-avatar { flex: none; }
   html body .bu-org { display: flex; align-items: center; gap: .5rem; }
   html body .bu-edit > summary { min-width: 44px; min-height: 44px; }
+  html body .bu-row[data-bu] .bu-edit[open] > .bu-panel { position: fixed; left: .8rem; right: .8rem; top: auto; width: auto; max-height: calc(100vh - var(--m-tab-h, 64px) - 5rem); bottom: calc(var(--m-tab-h, 64px) + .8rem); z-index: 1250; box-shadow: 0 12px 36px rgba(0, 0, 0, .35); }
   html body .bu-row[data-bu] .bu-edit[open] > form { position: fixed; left: .8rem; right: .8rem; top: auto; width: auto; bottom: calc(var(--m-tab-h, 64px) + .8rem); z-index: 1250; box-shadow: 0 12px 36px rgba(0, 0, 0, .35); }
   html body .hx-row-actions { grid-column: 1 / -1 !important; display: flex; flex-wrap: wrap; align-items: stretch; justify-content: stretch; gap: .5rem; width: 100%; }
   html body .hx-row-actions > form { margin: 0; display: flex; }
