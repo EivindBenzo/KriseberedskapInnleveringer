@@ -19,6 +19,7 @@ builder.Services.Configure<HeimevernetInnlevering1.Models.WorkflowOptions>(build
 builder.Services.AddScoped<WorkflowService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ShellService>();
+builder.Services.AddScoped<BrukerAdminService>();
 builder.Services.AddSingleton<Stedssok>();
 builder.Services.Configure<GeocodingOptions>(builder.Configuration.GetSection("Geocoding"));
 builder.Services.AddSingleton<IPlaceGeocoder>(services => new PlaceGeocoder(

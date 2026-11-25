@@ -154,7 +154,7 @@ Statusfeltene er `VARCHAR` med verdiene fra rapporten, og koden sjekker at bare 
 | Offentlig aktør | Melde behov med type, antall, frist, kontaktperson og punkt i kartet, og knytte behovet til en hendelse. Se egne behov. |
 | Ressursleverandør | Registrere, redigere og slette egne ressurser med punkt i kartet, sette tilgjengelig/utilgjengelig og svare på forespørsler |
 | Dispatch-team | Godkjenne eller avvise ressurser (avvisning krever begrunnelse, ikke egne ressurser). Se åpne behov med passende verifiserte ressurser (filtrert via BehovstypeRessurstype), sende forespørsler, tildele og oppdatere fremdrift |
-| Kriseledelse | Opprette og avslutte hendelser, prioritere og lukke behov, følge tildelinger og hendelsesloggen, og gi brukere roller |
+| Kriseledelse | Opprette og avslutte hendelser, prioritere og lukke behov, følge tildelinger og hendelsesloggen, gi brukere roller, endre kontaktinformasjonen deres og slette eller deaktivere brukere (brukere med data deaktiveres i stedet for å slettes) |
 
 Flyten fra rapporten:
 
@@ -206,6 +206,7 @@ Resultat 24. november 2026: **74 av 74** integrasjonstester og **19 av 19** fron
 | `WorkflowTests` | Hele flyten fra registrering til returnert. Dispatch kan ikke godkjenne egen ressurs, og avvisning krever begrunnelse. En uverifisert eller allerede forespurt ressurs kan ikke forespørres. Bare eier kan svare. Tildeling krever godtatt forespørsel. Fremdrift går ett steg om gangen. To samtidige forespørsler gir bare én vinner. Endret plassering krever ny verifisering. Ressurser med historikk kan ikke slettes. Feil rolle avvises. Hendelser kobles til behov. |
 | `SeedingOgRegistreringTests` | Demodata gir én konto per rolle og kan kjøres flere ganger. Registrering lagrer navn og telefon. Man kan ikke gi seg selv Kriseledelse, Dispatch eller Verifisering. Bootstrap av admin krever riktig passord. |
 | `ResourceAuthorizationTests` | Bare eieren med rollen Ressursleverandør kan endre en ressurs |
+| `BrukerAdminTests` | Kriseledelsen kan endre navn, telefon og organisasjon (ikke e-post). Bruker uten data slettes, bruker med data deaktiveres og historikken beholdes. Deaktivert bruker kan aktiveres igjen. Ingen kan slette eller deaktivere seg selv. Handlingene krever Kriseledelse og antiforgery-token. |
 | `PlaceGeocoderTests`, `DatabaseProviderConfigurationTests` | Stedsoppslag (grenser, hurtigbuffer, feil) og tilkoblingsoppsett |
 | `KartOgTemaTests` | Riktig symbol per ressurstype, «Annet»-filteret, «Finn sted» (lokalt søk uten aksenter) og at temaknappen lagrer valget og bare sender til lokale adresser |
 | `tests/Frontend/roller-og-tilgang` | Fire roller, at registrering bare tilbyr roller man kan velge selv, at menypunkter og knapper bare vises for rollene som har tilgang (og at kontrollerne sjekker det samme), og at videresending bare går til sider i appen |
